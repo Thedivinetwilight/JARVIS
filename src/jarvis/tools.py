@@ -98,8 +98,17 @@ class ToolRegistry:
         return results
 
 def _safe_args(args: dict[str, Any]) -> dict[str, Any]:
-    # Avoid logging arbitrary long user payloads.
-    return {k: (v[:200] + "…" if isinstance(v, str) and len(v) > 200 else v) for k, v in args.items()}
+    # Audit metadata must not become a second store for secrets or private content.
+    sensitive = {"value", "message", "api_key", "token", "password", "secret"}
+    safe: dict[str, Any] = {}
+    for key, value in args.items():
+        if key.lower() in sensitive:
+            safe[key] = "[REDACTED]"
+        elif isinstance(value, str) and len(value) > 200:
+            safe[key] = value[:200] + "…"
+        else:
+            safe[key] = value
+    return safe
 
 _ALLOWED_BIN = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
                 ast.Div: operator.truediv, ast.FloorDiv: operator.floordiv,
