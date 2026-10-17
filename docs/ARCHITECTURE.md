@@ -1,31 +1,41 @@
-# Architecture
+# Architecture (runtime overview)
+
+The detailed specification is [COGNITIVE_ARCHITECTURE.md](COGNITIVE_ARCHITECTURE.md);
+decisions are in [DECISIONS.md](DECISIONS.md).
 
 ## Design principle
-JARVIS is a local-first orchestration system. A language model interprets intent and drafts recommendations; deterministic application code owns state, authorization, persistence, and execution. The model is never the source of truth for whether an operation succeeded.
+JARVIS is one local-first cognitive system. Deterministic application code — the
+cognitive kernel — owns state, authorization, persistence, validation and the cycle.
+Language models are optional, replaceable components that draft language or propose
+actions; they are never the source of truth for whether something happened.
 
-## Runtime
-- **CLI/API**: input/output adapters; API defaults to loopback and does not auto-execute proposed tools.
-- **Core**: assembles settings, SQLite store, policy, registry, and optional model provider.
-- **Provider**: Gemini REST adapter using `urllib`; replaceable without changing business logic.
-- **Store**: projects, tasks, memories, audit events in SQLite with foreign keys and WAL.
-- **Tool registry**: exact argument validation, risk classification, centralized policy, audit-before/after execution.
-- **Policy**: network disabled by default; write tools require explicit user intent; dangerous tools are not registered.
-- **Workspace**: read-only directory listing constrained to the configured workspace.
+## Modules (`src/jarvis/`)
 
-## Assistant turn
-1. Validate the user message.
-2. Build a bounded context snapshot from the database.
-3. Call the provider only when network and credentials are enabled.
-4. Treat plain text as a response.
-5. Treat JSON tool output as a proposal, not a command.
-6. Require application-side authorization and validated arguments before execution.
-7. Record outcome in the audit trail.
+| Layer | Module | Responsibility |
+|---|---|---|
+| Interfaces | `cli.py`, `api.py`, `__main__.py` | CLI/REPL and loopback JSON API (adapters only) |
+| Composition | `core.py` | `Jarvis`: builds store, identity, policy, registry, provider, kernel; start-up recovery |
+| Kernel | `kernel.py` | the 10-stage cycle, workspace, planning, responses, cycle records |
+| Interpretation | `interpret.py`, `affect.py` | deterministic intents; emotional appraisal and style |
+| Contracts | `contracts.py`, `charter.py` | shared typed records; versioned mission/principles |
+| Persistence | `db.py`, `migrations.py` | SQLite facade, connections/transactions, schema versions |
+| State | `events.py`, `memory.py`, `goals.py`, `state.py`, `operations.py`, `search.py` | experience log, memory, goals/tasks, identity/sessions, operation journal, lexical search |
+| Control | `security.py`, `tools.py`, `selfmodel.py` | policy, capability registry/execution, capability report and claims check |
+| Models | `provider.py` | provider contract, Gemini, OpenAI-compatible, scripted |
+| Evaluation | `evaluation.py`, `evals/` | pinned experiments (EXP-001) |
+| Utilities | `util.py`, `redact.py`, `config.py` | time/JSON helpers, secret redaction, settings |
 
-## Data model
-- Project: name, description, lifecycle status, timestamps.
-- Task: optional project, title, status, priority, due date, timestamps.
-- Memory: category/key/value, confidence, source, timestamps.
-- Audit: actor, action, target, decision, JSON details, timestamp.
+## One interaction
+`jarvis chat` / `POST /v1/ask` → `Jarvis.ask` → `CognitiveKernel.process`:
+observe → interpret → appraise → retrieve → assess → plan → act → validate → respond →
+record. Each stage is recorded in the `cycles` table and linked events share the cycle id
+(`jarvis trace`).
 
-## Deliberate non-goals in v0.2
-No arbitrary shell execution, browser automation, background self-modification, real financial actions, or robot actuator commands. Those require isolated runners, explicit authorization, separate safety architecture, and dedicated verification.
+## Data model (schema version 2)
+`identity`, `runtime_instances`, `sessions`, `state_kv`, `events` (+`episode_fts`),
+`memory_items` (+`memory_fts`), `memory_conflicts`, `projects`, `goals`, `tasks`,
+`task_dependencies`, `operations`, `cycles`, `schema_migrations`.
+
+## Deliberate non-goals in this milestone
+No arbitrary shell execution, browser automation, background self-modification, financial
+actions, actuator commands or autonomy levels 4–5.

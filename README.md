@@ -1,66 +1,89 @@
 # JARVIS
 
-**Personal AI operations system** — persistent project memory, task orchestration, a permissioned tool runtime, audit trails, and model-provider abstraction. Built to run on Python 3.10+ including constrained environments such as Android/Termux.
+**A persistent, permissioned personal cognitive system** — it remembers what you tell it
+(with provenance and corrections), tracks goals and tasks with evidence, keeps an auditable
+record of everything it does, and picks up where you left off. Standard library only;
+declared for Python 3.10+ (so far executed on 3.11 only — see STATUS); designed to run on a
+laptop or Android/Termux (not yet run there).
 
-> Current release target: **Core v0.2**. This branch adds a real, testable foundation, not a claim of autonomous general intelligence. Provider calls and external integrations require explicit configuration.
+> Release: **0.3.0 — Genesis 0.1 persistent cognitive kernel**, built on Core v0.2.
+> This is a tested foundation, not a claim of general intelligence or of feelings.
+> Without a language model JARVIS still works (deterministically); with one configured it
+> can also hold free-form conversation. See [docs/STATUS.md](docs/STATUS.md) for exactly
+> what is verified.
 
-## What is implemented
-- SQLite-backed projects, tasks, memories, and append-only audit events.
-- Centralized permission policy with deny-by-default execution controls.
-- Deterministic tools: time, calculator (AST allowlist), project/task/memory operations, and workspace file listing/reading.
-- Gemini REST provider using the Python standard library; no mandatory SDK or native dependency.
-- CLI for initialization, project/task management, memory, status, and assistant turns.
-- Explicit separation between model proposals and tool execution.
-- Unit tests and a local configuration path that works without cloud access.
+## What it does today
+- **Continuity:** persistent identity, sessions, and an experience log; `where were we?`
+  rebuilds context after a restart (goals, progress, blockers, pending approvals,
+  interrupted work, last session, recent ideas).
+- **Memory you control:** `remember that …`, `idea: …`, corrections (`actually, …`,
+  `correct #3 to …`) that keep history, conflicts kept visible, export, and `forget #N` /
+  `forget my …` (with approval), which erases the memory and the copies JARVIS made of it
+  from the database. Backups made earlier, exports and the storage hardware are outside its
+  reach, and it says so — see [SECURITY](docs/SECURITY.md).
+- **Goals and tasks:** `goal: … ; steps: a; b; c`, dependencies, blockers; a task is done
+  only with your confirmation or a verified tool result.
+- **Honest actions:** every operation is journaled before it runs and reported as
+  requested / attempted / executed / observed / verified; crashes never turn into "success".
+- **Safety:** network off by default; model suggestions wait for approval; irreversible
+  operations need approval; secrets are redacted; the local API requires a token and
+  rejects cross-site requests.
+- **Emotional context:** stated feelings shape tone; guesses from wording are never
+  asserted as facts; appraisals are private and expire.
+- **Models are optional and replaceable:** Gemini (opt-in, header auth) or any local
+  OpenAI-compatible server such as Ollama.
 
 ## Quick start
 ```bash
-python -m venv .venv
-# Android/Termux can use its existing Python environment if venv setup is inconvenient.
-. .venv/bin/activate
+python -m venv .venv && . .venv/bin/activate      # Termux can use its own Python
 python -m pip install -e ".[dev]"
-cp .env.example .env
-python -m jarvis init
-python -m jarvis status
-python -m jarvis project add AXIOM "Adaptive eXecutive Intelligence Orchestration Machine"
-python -m jarvis task add "Inspect current integration failure" --project AXIOM
-python -m jarvis serve
+cp .env.example .env                               # optional; defaults are local + offline
+python -m jarvis chat
 ```
+```
+you › goal: build the irrigation prototype; steps: choose sensors; design power budget; write firmware
+jarvis › Goal #1 created: "build the irrigation prototype". Steps: #1 choose sensors; #2 design power budget; #3 write firmware.
+you › remember that the irrigation pump draws 2A at 12V
+jarvis › Noted as memory #2 (recorded as your statement; I haven't verified it independently).
+you › done with task 1
+jarvis › Marked task #1 done — your confirmation is recorded as the evidence. Goal #1: 1/3 done. Next: task #2 "design power budget".
+you › task 2 is blocked by waiting for the pump datasheet
+jarvis › Task #2 marked blocked (waiting for the pump datasheet). Goal #1: 1/3 done. Next: task #3 "write firmware".
+--- next day, new process ---
+you › where were we?
+jarvis › Goal #1: "build the irrigation prototype" — 1/3 tasks done (33.3%).
+  ✓ task #1 choose sensors (you confirmed)
+  ✗ task #2 design power budget (blocked: waiting for the pump datasheet)
+  · task #3 write firmware
+Next: task #3 "write firmware".
+```
+(Transcript from a real run, lightly trimmed.)
 
-Open `http://127.0.0.1:8765/health` for the local health endpoint. The API binds to loopback by default.
+Voice (Android/Termux with the Termux:API app): `jarvis voice` — listens, runs the same cycle,
+speaks the answer (tested with simulated Termux commands; not yet on a real device).
 
-## Configuration
-Settings are read from environment variables and optional `.env`:
-- `JARVIS_HOME`: data directory (default `~/.jarvis`)
-- `JARVIS_WORKSPACE`: root for explicitly permitted file tools (default current directory)
-- `JARVIS_NETWORK_ENABLED`: default `false`
-- `JARVIS_GEMINI_API_KEY`: provider key; never commit it
-- `JARVIS_GEMINI_MODEL`: default `gemini-2.5-flash`
-- `JARVIS_HOST`: default `127.0.0.1`
-- `JARVIS_PORT`: default `8765`
+Other commands: `jarvis ask "…"`, `resume`, `goal add|list|show`, `task add|list|status|depend|block`,
+`memory save|search|correct|history|forget|conflicts|resolve|export`, `ops`, `approve N`,
+`deny N`, `trace`, `events`, `state`, `capabilities`, `identity`, `doctor`,
+`eval retrieval`, `serve` (loopback API: `GET /health`, `/v1/state`, `/v1/goals`,
+`/v1/memory/search?q=`, `/v1/cycles/<id>`, `POST /v1/ask`, `POST /v1/operations/<id>/approve`;
+every route except `/health` needs `Authorization: Bearer <token>`, with the token in
+`~/.jarvis/api_token`). JARVIS keeps its data directory and files readable only by you.
 
-Cloud calls are unavailable unless network access is explicitly enabled and a key is configured. The core still works without a model provider.
-
-## Safety model
-- No arbitrary shell-execution tool is exposed to the model.
-- Model output is untrusted input. Tool names and arguments are validated against registered schemas.
-- Read-only tools are separate from write tools; write actions are gated by the central policy.
-- Network access is disabled by default.
-- Filesystem operations are restricted to the configured workspace and reject traversal.
-- Secrets are loaded from environment/config and redacted from routine logs.
-- Every tool decision and result is recorded in the audit log.
-- This is a local developer foundation, not a hardened multi-user service. Keep the API on loopback; do not expose it to a LAN or the internet without authentication, TLS, and a security review.
+Using a model: set `JARVIS_OPENAI_BASE_URL=http://127.0.0.1:11434/v1` and
+`JARVIS_OPENAI_MODEL=<model>` for a local Ollama server, or `JARVIS_NETWORK_ENABLED=true`
+plus `JARVIS_GEMINI_API_KEY` for Gemini. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Development
 ```bash
-pytest
-python -m compileall src
+python -m pytest                     # 162 tests (15 acceptance tests in tests/acceptance)
+python -m jarvis eval retrieval      # EXP-001 on the pinned evaluation set
+python -m compileall -q src
 ```
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/SECURITY.md](docs/SECURITY.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
-
-## Direction
-1. Stable memory and project recovery.
-2. Reliable tool execution and verification.
-3. Human-controlled workflow orchestration.
-4. Optional voice, desktop integrations, and specialized agents only after core reliability is measured.
+## Documentation
+[STATUS](docs/STATUS.md) · [AUDIT](docs/AUDIT.md) · [COGNITIVE ARCHITECTURE](docs/COGNITIVE_ARCHITECTURE.md) ·
+[ARCHITECTURE](docs/ARCHITECTURE.md) · [DECISIONS](docs/DECISIONS.md) · [ACCEPTANCE](docs/ACCEPTANCE.md) ·
+[EXP-001](docs/experiments/EXP-001-retrieval.md) · [RESEARCH](docs/RESEARCH.md) ·
+[SECURITY](docs/SECURITY.md) · [CONFIGURATION](docs/CONFIGURATION.md) · [ROADMAP](docs/ROADMAP.md) ·
+[PRE-RELEASE AUDIT](docs/PRE_RELEASE_AUDIT.md)
