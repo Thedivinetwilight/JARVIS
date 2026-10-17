@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jarvis-assistant"
-version = "0.2.0"
-description = "Permissioned personal AI operations system"
+version = "0.3.0"
+description = "Persistent, permissioned personal cognitive system (JARVIS Genesis 0.1 kernel)"
 requires-python = ">=3.10"
 dependencies = []
 

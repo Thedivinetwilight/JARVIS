@@ -1,2 +1,3 @@
-"""JARVIS: permissioned personal AI operations system."""
-__version__ = "0.2.0"
+"""JARVIS: a persistent, permissioned personal cognitive system (Genesis 0.1 kernel)."""
+__version__ = "0.3.0"
+KERNEL_GENERATION = "genesis-0.1"
