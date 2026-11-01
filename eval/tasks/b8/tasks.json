@@ -1,0 +1,715 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B8",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "SYNTHETIC breadth fixtures: extraction with citations, multi-source synthesis with conflict detection, constraint-satisfying planning. Fictional data only.",
+  "tasks": [
+    {
+      "id": "b8-e001",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "spans": [
+            {
+              "span_id": "d1s1",
+              "text": "Invoice INV-2031 issued by Acme Tools on 2026-03-04 for a total of 1,250.00 USD against purchase order PO-8841."
+            },
+            {
+              "span_id": "d1s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2031",
+          "vendor": "Acme Tools",
+          "date": "2026-03-04",
+          "total": "1250.00",
+          "currency": "USD",
+          "po": "PO-8841"
+        },
+        "evidence_span_ids": [
+          "d1s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-e002",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d2",
+          "spans": [
+            {
+              "span_id": "d2s1",
+              "text": "Invoice INV-2032 issued by Blue Ridge Supply on 2026-03-11 for a total of 980.50 USD against purchase order PO-8842."
+            },
+            {
+              "span_id": "d2s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2032",
+          "vendor": "Blue Ridge Supply",
+          "date": "2026-03-11",
+          "total": "980.50",
+          "currency": "USD",
+          "po": "PO-8842"
+        },
+        "evidence_span_ids": [
+          "d2s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-e003",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d3",
+          "spans": [
+            {
+              "span_id": "d3s1",
+              "text": "Invoice INV-2033 issued by Chennai Print Works on 2026-03-19 for a total of 12,400.00 INR against purchase order PO-8843."
+            },
+            {
+              "span_id": "d3s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2033",
+          "vendor": "Chennai Print Works",
+          "date": "2026-03-19",
+          "total": "12400.00",
+          "currency": "INR",
+          "po": "PO-8843"
+        },
+        "evidence_span_ids": [
+          "d3s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-e004",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d4",
+          "spans": [
+            {
+              "span_id": "d4s1",
+              "text": "Invoice INV-2034 issued by Nordic Fasteners on 2026-04-02 for a total of 3,150.75 EUR against purchase order PO-8844."
+            },
+            {
+              "span_id": "d4s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2034",
+          "vendor": "Nordic Fasteners",
+          "date": "2026-04-02",
+          "total": "3150.75",
+          "currency": "EUR",
+          "po": "PO-8844"
+        },
+        "evidence_span_ids": [
+          "d4s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-e005",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d5",
+          "spans": [
+            {
+              "span_id": "d5s1",
+              "text": "Invoice INV-2035 issued by Harbour Logistics on 2026-04-15 for a total of 640.00 SGD against purchase order PO-8845."
+            },
+            {
+              "span_id": "d5s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2035",
+          "vendor": "Harbour Logistics",
+          "date": "2026-04-15",
+          "total": "640.00",
+          "currency": "SGD",
+          "po": "PO-8845"
+        },
+        "evidence_span_ids": [
+          "d5s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-e006",
+      "subfamily": "extraction",
+      "instruction": "Extract the invoice fields and cite the line they came from.",
+      "documents": [
+        {
+          "doc_id": "d6",
+          "spans": [
+            {
+              "span_id": "d6s1",
+              "text": "Invoice INV-2036 issued by Meridian Optics on 2026-04-27 for a total of 22,000.00 INR against purchase order PO-8846."
+            },
+            {
+              "span_id": "d6s2",
+              "text": "Payment terms: net 30 days from invoice date."
+            }
+          ]
+        }
+      ],
+      "expected": {
+        "fields": {
+          "invoice_id": "INV-2036",
+          "vendor": "Meridian Optics",
+          "date": "2026-04-27",
+          "total": "22000.00",
+          "currency": "INR",
+          "po": "PO-8846"
+        },
+        "evidence_span_ids": [
+          "d6s1"
+        ]
+      }
+    },
+    {
+      "id": "b8-p001",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 4,
+          "busy": []
+        },
+        {
+          "room_id": "r2",
+          "capacity": 12,
+          "busy": []
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 1,
+          "min_capacity": 12
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 1,
+          "min_capacity": 12
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "at",
+          "meeting": "m2",
+          "slot": "09:00"
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-p002",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 12,
+          "busy": []
+        },
+        {
+          "room_id": "r2",
+          "capacity": 4,
+          "busy": []
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 2,
+          "min_capacity": 12
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 1,
+          "min_capacity": 12
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "at",
+          "meeting": "m2",
+          "slot": "10:00"
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-p003",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 10,
+          "busy": [
+            "09:00"
+          ]
+        },
+        {
+          "room_id": "r2",
+          "capacity": 10,
+          "busy": []
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 1,
+          "min_capacity": 10
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 2,
+          "min_capacity": 10
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "at",
+          "meeting": "m2",
+          "slot": "11:00"
+        },
+        {
+          "kind": "different_rooms",
+          "meetings": [
+            "m1",
+            "m2"
+          ]
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-p004",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 6,
+          "busy": []
+        },
+        {
+          "room_id": "r2",
+          "capacity": 6,
+          "busy": [
+            "10:00"
+          ]
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 2,
+          "min_capacity": 6
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 1,
+          "min_capacity": 6
+        },
+        {
+          "meeting_id": "m3",
+          "duration_h": 1,
+          "min_capacity": 6
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "at",
+          "meeting": "m3",
+          "slot": "13:00"
+        },
+        {
+          "kind": "different_rooms",
+          "meetings": [
+            "m1",
+            "m3"
+          ]
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-p005",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 4,
+          "busy": [
+            "09:00"
+          ]
+        },
+        {
+          "room_id": "r2",
+          "capacity": 8,
+          "busy": []
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 1,
+          "min_capacity": 8
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 1,
+          "min_capacity": 8
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "before",
+          "meeting": "m1",
+          "slot": "11:00"
+        },
+        {
+          "kind": "after",
+          "meeting": "m2",
+          "slot": "10:00"
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-p006",
+      "instruction": "Assign every meeting to a room and a start slot satisfying all constraints.",
+      "slots": [
+        "09:00",
+        "10:00",
+        "11:00",
+        "12:00",
+        "13:00",
+        "14:00",
+        "15:00",
+        "16:00"
+      ],
+      "rooms": [
+        {
+          "room_id": "r1",
+          "capacity": 12,
+          "busy": []
+        },
+        {
+          "room_id": "r2",
+          "capacity": 4,
+          "busy": []
+        }
+      ],
+      "meetings": [
+        {
+          "meeting_id": "m1",
+          "duration_h": 1,
+          "min_capacity": 4
+        },
+        {
+          "meeting_id": "m2",
+          "duration_h": 2,
+          "min_capacity": 4
+        }
+      ],
+      "constraints": [
+        {
+          "kind": "different_rooms",
+          "meetings": [
+            "m1",
+            "m2"
+          ]
+        }
+      ],
+      "expected": {
+        "all_constraints_satisfied": true
+      },
+      "subfamily": "planning"
+    },
+    {
+      "id": "b8-s001",
+      "subfamily": "synthesis",
+      "instruction": "What is the settlement period? Flag any source that disagrees.",
+      "question": "What is the settlement period?",
+      "pattern": "net \\d+ days",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The settlement period policy sets the limit to net 30 days for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The settlement period policy sets the limit to net 30 days for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The settlement period policy sets the limit to net 45 days for this quarter."
+        },
+        {
+          "doc_id": "d4",
+          "text": "The settlement period policy sets the limit to net 30 days for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "net 30 days",
+        "conflict_doc_ids": [
+          "d3"
+        ]
+      }
+    },
+    {
+      "id": "b8-s002",
+      "subfamily": "synthesis",
+      "instruction": "What is the retry budget? Flag any source that disagrees.",
+      "question": "What is the retry budget?",
+      "pattern": "(?:three|five) retries",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The retry budget policy sets the limit to three retries for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The retry budget policy sets the limit to five retries for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The retry budget policy sets the limit to three retries for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "three retries",
+        "conflict_doc_ids": [
+          "d2"
+        ]
+      }
+    },
+    {
+      "id": "b8-s003",
+      "subfamily": "synthesis",
+      "instruction": "What is the retention window? Flag any source that disagrees.",
+      "question": "What is the retention window?",
+      "pattern": "\\d+ months",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The retention window policy sets the limit to 18 months for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The retention window policy sets the limit to 24 months for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The retention window policy sets the limit to 18 months for this quarter."
+        },
+        {
+          "doc_id": "d4",
+          "text": "The retention window policy sets the limit to 18 months for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "18 months",
+        "conflict_doc_ids": [
+          "d2"
+        ]
+      }
+    },
+    {
+      "id": "b8-s004",
+      "subfamily": "synthesis",
+      "instruction": "What is the canary share? Flag any source that disagrees.",
+      "question": "What is the canary share?",
+      "pattern": "(?:five|ten) percent",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The canary share policy sets the limit to five percent for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The canary share policy sets the limit to ten percent for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The canary share policy sets the limit to five percent for this quarter."
+        },
+        {
+          "doc_id": "d4",
+          "text": "The canary share policy sets the limit to five percent for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "five percent",
+        "conflict_doc_ids": [
+          "d2"
+        ]
+      }
+    },
+    {
+      "id": "b8-s005",
+      "subfamily": "synthesis",
+      "instruction": "What is the approval count? Flag any source that disagrees.",
+      "question": "What is the approval count?",
+      "pattern": "(?:one|two) approvals?",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The approval count policy sets the limit to two approvals for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The approval count policy sets the limit to one approval for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The approval count policy sets the limit to two approvals for this quarter."
+        },
+        {
+          "doc_id": "d4",
+          "text": "The approval count policy sets the limit to two approvals for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "two approvals",
+        "conflict_doc_ids": [
+          "d2"
+        ]
+      }
+    },
+    {
+      "id": "b8-s006",
+      "subfamily": "synthesis",
+      "instruction": "What is the escalation window? Flag any source that disagrees.",
+      "question": "What is the escalation window?",
+      "pattern": "(?:three|ten) minutes",
+      "documents": [
+        {
+          "doc_id": "d1",
+          "text": "The escalation window policy sets the limit to three minutes for this quarter."
+        },
+        {
+          "doc_id": "d2",
+          "text": "The escalation window policy sets the limit to three minutes for this quarter."
+        },
+        {
+          "doc_id": "d3",
+          "text": "The escalation window policy sets the limit to ten minutes for this quarter."
+        },
+        {
+          "doc_id": "d4",
+          "text": "The escalation window policy sets the limit to three minutes for this quarter."
+        }
+      ],
+      "expected": {
+        "answer": "three minutes",
+        "conflict_doc_ids": [
+          "d3"
+        ]
+      }
+    }
+  ]
+}

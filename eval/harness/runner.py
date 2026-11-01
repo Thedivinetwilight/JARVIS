@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from .config import HARNESS_VERSION, RunConfig, canonical_json, sha256_obj
+from .registry import registry_sha
 from .scorers import score_task
 from .solvers import build_solver
 from .taskset import TaskSet
@@ -80,6 +81,7 @@ class RunOutcome:
     git_sha: str
     git_dirty: bool
     git_untracked: int
+    registry_sha: str
     harness_version: str
     python_version: str
     started_at: str
@@ -104,6 +106,7 @@ class RunOutcome:
             "git_sha": self.git_sha,
             "git_dirty": self.git_dirty,
             "git_untracked": self.git_untracked,
+            "registry_sha": self.registry_sha,
             "harness_version": self.harness_version,
             "python_version": self.python_version,
             "started_at": self.started_at,
@@ -125,6 +128,18 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
 
     precisions = [r.metrics["citation_precision"] for r in records
                   if r.metrics.get("citation_precision") is not None]
+    by_subfamily: dict[str, dict[str, Any]] = {}
+    for record in records:
+        sub = record.metrics.get("subfamily")
+        if not sub:
+            continue
+        bucket = by_subfamily.setdefault(str(sub), {"attempts": 0, "successes": 0})
+        bucket["attempts"] += 1
+        bucket["successes"] += 1 if record.success else 0
+    for bucket in by_subfamily.values():
+        bucket["success_rate"] = (bucket["successes"] / bucket["attempts"]
+                                  if bucket["attempts"] else 0.0)
+
     max_repeat = max((r.repeat for r in records), default=1)
     k = min(4, max_repeat)
     return {
@@ -145,6 +160,7 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "median_latency_ms": (latencies[len(latencies) // 2] if latencies else 0.0),
         "pass_k": k if k > 1 else None,
         "pass_hat_k": pass_hat_k(records, k) if k > 1 else None,
+        "by_subfamily": by_subfamily,
         "total_cost_usd": round(sum(r.cost_usd for r in records), 6),
         "cost_is_synthetic": all(r.cost_is_synthetic for r in records),
     }
@@ -204,13 +220,17 @@ def run_block(taskset: TaskSet, *, solver_name: str = "stub",
     repeats = repeats if repeats is not None else config.repeats.get(taskset.block, 1)
     if repeats < 1:
         raise RunnerError("repeats must be >= 1")
-    if taskset.block not in {"B1", "B2", "B3"}:
+    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10"}:
         raise RunnerError(f"unsupported block {taskset.block!r}")
 
+    try:
+        reg_hash = globals()["registry_sha"]()
+    except OSError:                     # registry absent: harness still usable
+        reg_hash = "missing"
     run_id = sha256_obj({
         "block": taskset.block, "taskset": taskset.sha, "config": config.hash(),
         "solver": solver_name, "mutations": list(mutations), "git": git_sha,
-        "dirty": git_dirty,
+        "dirty": git_dirty, "registry": reg_hash,
     })[:16]
 
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -229,7 +249,7 @@ def run_block(taskset: TaskSet, *, solver_name: str = "stub",
         mutations=list(mutations), seed=seed, repeats=repeats,
         taskset_version=taskset.version, taskset_sha=taskset.sha,
         config_hash=config.hash(), git_sha=git_sha, git_dirty=git_dirty,
-        git_untracked=git_untracked,
+        git_untracked=git_untracked, registry_sha=reg_hash,
         harness_version=HARNESS_VERSION,
         python_version=platform.python_version(), started_at=started_at,
         duration_s=duration, records=records,

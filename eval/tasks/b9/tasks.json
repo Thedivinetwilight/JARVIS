@@ -1,0 +1,273 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B9",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "SYNTHETIC skill-reuse fixtures. The instruction is deliberately under-specified; only the stored skill supplies the acceptance-checked values, so the family measures whether available procedural memory is used - not whether skills help in general.",
+  "tasks": [
+    {
+      "id": "b9-45",
+      "instruction": "Prepare the weekly bundle for week 45.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w45/index.txt",
+              "content": "week 45 | owner: platform | format: v2 | bundle: w45"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w45/manifest.txt",
+              "content": "files: 2\nbundle: w45\nindex: bundle/w45/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 45"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w45/index.txt",
+            "equals": "week 45 | owner: platform | format: v2 | bundle: w45"
+          },
+          {
+            "path": "bundle/w45/manifest.txt",
+            "equals": "files: 2\nbundle: w45\nindex: bundle/w45/index.txt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b9-46",
+      "instruction": "Prepare the weekly bundle for week 46.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w46/index.txt",
+              "content": "week 46 | owner: platform | format: v2 | bundle: w46"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w46/manifest.txt",
+              "content": "files: 2\nbundle: w46\nindex: bundle/w46/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 46"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w46/index.txt",
+            "equals": "week 46 | owner: platform | format: v2 | bundle: w46"
+          },
+          {
+            "path": "bundle/w46/manifest.txt",
+            "equals": "files: 2\nbundle: w46\nindex: bundle/w46/index.txt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b9-47",
+      "instruction": "Prepare the weekly bundle for week 47.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w47/index.txt",
+              "content": "week 47 | owner: platform | format: v2 | bundle: w47"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w47/manifest.txt",
+              "content": "files: 2\nbundle: w47\nindex: bundle/w47/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 47"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w47/index.txt",
+            "equals": "week 47 | owner: platform | format: v2 | bundle: w47"
+          },
+          {
+            "path": "bundle/w47/manifest.txt",
+            "equals": "files: 2\nbundle: w47\nindex: bundle/w47/index.txt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b9-48",
+      "instruction": "Prepare the weekly bundle for week 48.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w48/index.txt",
+              "content": "week 48 | owner: platform | format: v2 | bundle: w48"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w48/manifest.txt",
+              "content": "files: 2\nbundle: w48\nindex: bundle/w48/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 48"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w48/index.txt",
+            "equals": "week 48 | owner: platform | format: v2 | bundle: w48"
+          },
+          {
+            "path": "bundle/w48/manifest.txt",
+            "equals": "files: 2\nbundle: w48\nindex: bundle/w48/index.txt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b9-49",
+      "instruction": "Prepare the weekly bundle for week 49.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w49/index.txt",
+              "content": "week 49 | owner: platform | format: v2 | bundle: w49"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w49/manifest.txt",
+              "content": "files: 2\nbundle: w49\nindex: bundle/w49/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 49"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w49/index.txt",
+            "equals": "week 49 | owner: platform | format: v2 | bundle: w49"
+          },
+          {
+            "path": "bundle/w49/manifest.txt",
+            "equals": "files: 2\nbundle: w49\nindex: bundle/w49/index.txt"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b9-50",
+      "instruction": "Prepare the weekly bundle for week 50.",
+      "skill": {
+        "name": "weekly_bundle_v2",
+        "steps": [
+          {
+            "id": "s1",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w50/index.txt",
+              "content": "week 50 | owner: platform | format: v2 | bundle: w50"
+            }
+          },
+          {
+            "id": "s2",
+            "tool": "files.write",
+            "args": {
+              "path": "bundle/w50/manifest.txt",
+              "content": "files: 2\nbundle: w50\nindex: bundle/w50/index.txt"
+            }
+          }
+        ]
+      },
+      "fallback": {
+        "tool": "files.write",
+        "args": {
+          "path": "bundle/index.txt",
+          "content": "bundle for week 50"
+        }
+      },
+      "verify": {
+        "files": [
+          {
+            "path": "bundle/w50/index.txt",
+            "equals": "week 50 | owner: platform | format: v2 | bundle: w50"
+          },
+          {
+            "path": "bundle/w50/manifest.txt",
+            "equals": "files: 2\nbundle: w50\nindex: bundle/w50/index.txt"
+          }
+        ]
+      }
+    }
+  ]
+}

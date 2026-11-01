@@ -1,0 +1,261 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B10",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "SYNTHETIC memory-evolution fixtures. Consolidation rule: drop expired and untrusted facts, then keep the highest-trust, most-recent remaining fact and supersede the rest. Trust labels are fixture data, not user data.",
+  "tasks": [
+    {
+      "id": "b10-001",
+      "now": "2026-11-01",
+      "question": "Which delivery window is current for vendor Acme?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "delivery window: 5 days",
+          "trust": "verified",
+          "valid_from": "2026-01-10",
+          "valid_until": "2026-09-30"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "delivery window: 7 days",
+          "trust": "verified",
+          "valid_from": "2026-06-01"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "delivery window: 9 days",
+          "trust": "reported",
+          "valid_from": "2026-10-20"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "7 days"
+        ],
+        "surviving": [
+          "f2"
+        ],
+        "superseded": [
+          "f3"
+        ],
+        "expired": [
+          "f1"
+        ],
+        "forbidden": [
+          "9 days",
+          "5 days"
+        ]
+      }
+    },
+    {
+      "id": "b10-002",
+      "now": "2026-11-01",
+      "question": "What is the current support tier for the analytics workspace?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "support tier: standard",
+          "trust": "verified",
+          "valid_from": "2026-02-01"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "support tier: premium",
+          "trust": "reported",
+          "valid_from": "2026-10-15"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "support tier: premium",
+          "trust": "untrusted",
+          "valid_from": "2026-10-30"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "standard"
+        ],
+        "surviving": [
+          "f1"
+        ],
+        "superseded": [
+          "f2"
+        ],
+        "expired": [],
+        "forbidden": [
+          "premium"
+        ]
+      }
+    },
+    {
+      "id": "b10-003",
+      "now": "2026-11-01",
+      "question": "What is the current escalation contact for the on-call rotation?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "escalation contact: rota-a@example.test",
+          "trust": "verified",
+          "valid_from": "2026-05-01",
+          "valid_until": "2026-08-31"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "escalation contact: rota-b@example.test",
+          "trust": "verified",
+          "valid_from": "2026-08-01",
+          "valid_until": "2026-10-31"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "escalation contact: rota-c@example.test",
+          "trust": "reported",
+          "valid_from": "2026-10-01"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "rota-c"
+        ],
+        "surviving": [
+          "f3"
+        ],
+        "superseded": [],
+        "expired": [
+          "f1",
+          "f2"
+        ],
+        "forbidden": [
+          "rota-a",
+          "rota-b"
+        ]
+      }
+    },
+    {
+      "id": "b10-004",
+      "now": "2026-11-01",
+      "question": "Which storage region is approved for the telemetry exports?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "storage region: eu-west",
+          "trust": "reported",
+          "valid_from": "2026-09-01"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "storage region: ap-south",
+          "trust": "verified",
+          "valid_from": "2026-04-01"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "storage region: us-east",
+          "trust": "untrusted",
+          "valid_from": "2026-10-25"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "ap-south"
+        ],
+        "surviving": [
+          "f2"
+        ],
+        "superseded": [
+          "f1"
+        ],
+        "expired": [],
+        "forbidden": [
+          "us-east",
+          "eu-west"
+        ]
+      }
+    },
+    {
+      "id": "b10-005",
+      "now": "2026-11-01",
+      "question": "What is the current invoice approval limit?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "invoice approval limit: 5000",
+          "trust": "verified",
+          "valid_from": "2026-01-05",
+          "valid_until": "2026-07-31"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "invoice approval limit: 7500",
+          "trust": "verified",
+          "valid_from": "2026-07-15"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "invoice approval limit: 9999",
+          "trust": "untrusted",
+          "valid_from": "2026-10-29"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "7500"
+        ],
+        "surviving": [
+          "f2"
+        ],
+        "superseded": [],
+        "expired": [
+          "f1"
+        ],
+        "forbidden": [
+          "9999",
+          "5000"
+        ]
+      }
+    },
+    {
+      "id": "b10-006",
+      "now": "2026-11-01",
+      "question": "Which audit cadence applies to the access review?",
+      "seed_memory": [
+        {
+          "fact_id": "f1",
+          "claim": "audit cadence: quarterly",
+          "trust": "verified",
+          "valid_from": "2026-03-01"
+        },
+        {
+          "fact_id": "f2",
+          "claim": "audit cadence: monthly",
+          "trust": "reported",
+          "valid_from": "2026-09-15"
+        },
+        {
+          "fact_id": "f3",
+          "claim": "audit cadence: weekly",
+          "trust": "untrusted",
+          "valid_from": "2026-10-30"
+        }
+      ],
+      "expected": {
+        "answer_keywords": [
+          "quarterly"
+        ],
+        "surviving": [
+          "f1"
+        ],
+        "superseded": [
+          "f2"
+        ],
+        "expired": [],
+        "forbidden": [
+          "weekly",
+          "monthly"
+        ]
+      }
+    }
+  ]
+}

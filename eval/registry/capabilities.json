@@ -1,0 +1,509 @@
+{
+  "registry_version": "1.0.0",
+  "stage": "Stage 1 (revision R1)",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "evaluator_owned": true,
+  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1).",
+  "capabilities": [
+    {
+      "capability_id": "calendar.create_event",
+      "kind": "tool",
+      "purpose": "Create one calendar event in the synthetic world.",
+      "contract": {
+        "preconditions": [
+          "title, date, start, duration_min, tz present",
+          "date YYYY-MM-DD",
+          "start HH:MM",
+          "duration positive"
+        ],
+        "postconditions": [
+          "event appended exactly once per idempotency key",
+          "no event on validation failure"
+        ],
+        "args_schema": {
+          "title": "string",
+          "date": "date",
+          "start": "time",
+          "duration_min": "int>0",
+          "tz": "iana"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "required_key",
+      "failure_modes": [
+        "timeout_after_effect",
+        "validation_reject",
+        "duplicate_on_retry"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_valid_call_applies_state",
+        "eval/tests/test_tools.py::ExecutorTests::test_missing_timezone_is_a_validation_error"
+      ],
+      "evidence": "docs/research/stage-0-m1-harness-core.md#3-design-decisions-that-the-code-now-enforces",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B2"
+      ]
+    },
+    {
+      "capability_id": "mail.send",
+      "kind": "tool",
+      "purpose": "Send one mail in the synthetic world.",
+      "contract": {
+        "preconditions": [
+          "to, subject, body present",
+          "recipient contains @"
+        ],
+        "postconditions": [
+          "message appended exactly once per idempotency key"
+        ],
+        "args_schema": {
+          "to": "string",
+          "subject": "string",
+          "body": "string"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "required_key",
+      "failure_modes": [
+        "timeout_after_effect",
+        "duplicate_on_retry",
+        "approval_required"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_idempotent_replay_does_not_duplicate",
+        "eval/tests/test_tools.py::ExecutorTests::test_fresh_key_after_timeout_is_a_duplicate"
+      ],
+      "evidence": "docs/research/stage-0-m3-planted-regression.md#3-a-mutant-rejected-by-the-gates-end-to-end",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B2"
+      ]
+    },
+    {
+      "capability_id": "files.write",
+      "kind": "tool",
+      "purpose": "Write one file in the synthetic sandbox.",
+      "contract": {
+        "preconditions": [
+          "path present",
+          "no '..' path segment",
+          "content present"
+        ],
+        "postconditions": [
+          "file content equals the argument",
+          "parent path implied, no traversal"
+        ],
+        "args_schema": {
+          "path": "string",
+          "content": "string"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "required_key",
+      "failure_modes": [
+        "path_traversal_reject",
+        "partial_write"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_path_traversal_rejected"
+      ],
+      "evidence": "docs/research/stage-0-m1-harness-core.md#3-design-decisions-that-the-code-now-enforces",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B3",
+        "B9"
+      ]
+    },
+    {
+      "capability_id": "files.append",
+      "kind": "tool",
+      "purpose": "Append to one file in the synthetic sandbox.",
+      "contract": {
+        "preconditions": [
+          "path present",
+          "content present"
+        ],
+        "postconditions": [
+          "content appended after existing content"
+        ],
+        "args_schema": {
+          "path": "string",
+          "content": "string"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "required_key",
+      "failure_modes": [
+        "ordering_error",
+        "duplicate_append"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_valid_call_applies_state"
+      ],
+      "evidence": "docs/research/stage-0-m1-harness-core.md#2-what-the-harness-is",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B3"
+      ]
+    },
+    {
+      "capability_id": "files.delete",
+      "kind": "tool",
+      "purpose": "Delete one file in the synthetic sandbox.",
+      "contract": {
+        "preconditions": [
+          "path present"
+        ],
+        "postconditions": [
+          "path absent afterwards",
+          "existed flag reported"
+        ],
+        "args_schema": {
+          "path": "string"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "required_key",
+      "failure_modes": [
+        "delete_missing_file"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_unknown_tool_is_rejected"
+      ],
+      "evidence": "docs/research/stage-0-m1-harness-core.md#2-what-the-harness-is",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B3"
+      ]
+    },
+    {
+      "capability_id": "corpus.retrieve",
+      "kind": "skill",
+      "purpose": "Rank corpus spans for a question by lexical overlap.",
+      "contract": {
+        "preconditions": [
+          "non-empty corpus",
+          "question tokenisable"
+        ],
+        "postconditions": [
+          "ranked span list with scores"
+        ],
+        "args_schema": {
+          "question": "string",
+          "corpus": "documents"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "empty_result_on_no_overlap",
+        "wrong_span_ranked_first"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B1Tests::test_wrong_citation_is_detected"
+      ],
+      "evidence": "docs/research/stage-0-m2-frozen-baseline.md#2-what-is-frozen",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B1"
+      ]
+    },
+    {
+      "capability_id": "document.extract_fields",
+      "kind": "skill",
+      "purpose": "Extract typed fields from a templated document with a citation.",
+      "contract": {
+        "preconditions": [
+          "document has at least one span",
+          "target fields known"
+        ],
+        "postconditions": [
+          "field dict plus the span id the values came from"
+        ],
+        "args_schema": {
+          "documents": "spans",
+          "fields": "list"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "missing_field",
+        "ambiguous_value",
+        "uncitable_answer"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B8Tests::test_extraction_scores_fields_and_citation"
+      ],
+      "evidence": "docs/research/15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B8"
+      ]
+    },
+    {
+      "capability_id": "source.reconcile",
+      "kind": "skill",
+      "purpose": "Take a majority value across sources and name the disagreeing sources.",
+      "contract": {
+        "preconditions": [
+          "at least two sources carry a value"
+        ],
+        "postconditions": [
+          "majority value plus explicit conflict set"
+        ],
+        "args_schema": {
+          "sources": "documents",
+          "pattern": "regex"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "no_majority",
+        "missed_conflict",
+        "false_conflict"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B8Tests::test_synthesis_requires_the_conflict_set"
+      ],
+      "evidence": "docs/research/15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B8"
+      ]
+    },
+    {
+      "capability_id": "schedule.assign",
+      "kind": "skill",
+      "purpose": "Assign meetings to rooms and slots under declarative constraints.",
+      "contract": {
+        "preconditions": [
+          "rooms, meetings and slots given"
+        ],
+        "postconditions": [
+          "assignment satisfying every constraint, or an explicit failure"
+        ],
+        "args_schema": {
+          "rooms": "list",
+          "meetings": "list",
+          "constraints": "list"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "greedy_dead_end",
+        "capacity_violation",
+        "overlap"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B8Tests::test_planning_requires_all_constraints"
+      ],
+      "evidence": "docs/research/15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B8"
+      ]
+    },
+    {
+      "capability_id": "skill.apply",
+      "kind": "skill",
+      "purpose": "Apply a stored skill (plan template) to satisfy an under-specified instruction.",
+      "contract": {
+        "preconditions": [
+          "skill available and its steps validated"
+        ],
+        "postconditions": [
+          "state matches the skill's acceptance checks"
+        ],
+        "args_schema": {
+          "skill": "steps",
+          "fallback": "step"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "skill_missing",
+        "skill_stale",
+        "fallback_used_wrongly"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B9Tests::test_skill_use_is_recorded"
+      ],
+      "evidence": "docs/research/12-capability-integration-architecture.md#31-why-procedural-memory-is-the-important-addition",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B9"
+      ]
+    },
+    {
+      "capability_id": "memory.consolidate",
+      "kind": "skill",
+      "purpose": "Resolve conflicting facts by trust and recency, expiring stale ones.",
+      "contract": {
+        "preconditions": [
+          "facts carry trust and valid_from",
+          "now supplied"
+        ],
+        "postconditions": [
+          "surviving, superseded and expired sets plus the current claim"
+        ],
+        "args_schema": {
+          "seed_memory": "facts",
+          "now": "date"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "trust_ignored",
+        "expired_fact_survives",
+        "poison_accepted"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B10Tests::test_poisoned_fact_cannot_survive"
+      ],
+      "evidence": "docs/research/13-evolving-intelligence-update-pipeline.md#32-memory--supersede-never-silently-overwrite",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B10"
+      ]
+    },
+    {
+      "capability_id": "state.verify",
+      "kind": "verifier",
+      "purpose": "Read back state and compare it to declared post-conditions.",
+      "contract": {
+        "preconditions": [
+          "post-conditions declared per step"
+        ],
+        "postconditions": [
+          "pass or a named list of mismatch problems"
+        ],
+        "args_schema": {
+          "expected": "assertions",
+          "observed": "state"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "missing_assertion",
+        "false_pass",
+        "verifier_skipped"
+      ],
+      "tests": [
+        "eval/tests/test_scorers.py::B3Tests::test_unverified_done_is_a_false_success"
+      ],
+      "evidence": "docs/research/stage-0-m3-planted-regression.md#2-result-x-10-passes--6-of-6-detected-each-by-its-expected-gate",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B3",
+        "B8",
+        "B9",
+        "B10"
+      ]
+    },
+    {
+      "capability_id": "policy.approve",
+      "kind": "policy",
+      "purpose": "Decide whether a side-effecting call needs approval, and record the decision.",
+      "contract": {
+        "preconditions": [
+          "policy declares the risk tier"
+        ],
+        "postconditions": [
+          "allow, deny or require-approval, recorded in the audit trail"
+        ],
+        "args_schema": {
+          "tool": "string",
+          "policy": "object"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "approval_bypassed",
+        "irreversible_allowed",
+        "denial_not_recorded"
+      ],
+      "tests": [
+        "eval/tests/test_tools.py::ExecutorTests::test_approval_is_required_when_policy_demands_it"
+      ],
+      "evidence": "docs/research/stage-0-m1-harness-core.md#3-design-decisions-that-the-code-now-enforces",
+      "owner": "project-owner (unassigned at Stage 1)",
+      "families": [
+        "B2"
+      ]
+    }
+  ]
+}

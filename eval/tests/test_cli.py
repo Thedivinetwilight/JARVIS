@@ -17,7 +17,7 @@ class CliTests(unittest.TestCase):
     def test_selftest_passes(self):
         proc = cli("selftest")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("12/12 checks passed", proc.stdout)
+        self.assertIn("16/16 checks passed", proc.stdout)
 
     def test_x10_detects_every_planted_regression(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -28,7 +28,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("X-10 PASSED", proc.stdout)
             report = json.loads(Path(tmp, "report.json").read_text())
             self.assertTrue(all(row["detected"] for row in report["rows"]))
-            self.assertEqual(len(report["rows"]), 6)
+            self.assertEqual(len(report["rows"]), 9)
             for row in report["rows"]:
                 # Detection must come from the gate that protects the intended
                 # invariant, not from an unrelated failure.

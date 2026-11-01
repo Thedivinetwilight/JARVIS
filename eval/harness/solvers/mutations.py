@@ -62,6 +62,27 @@ MUTATIONS: dict[str, Mutation] = {
         expected_gate="false_successes_zero",
         phase_requirement="Phase 8 section 4: verification is not optional",
     ),
+    "skip_conflict_detection": Mutation(
+        name="skip_conflict_detection",
+        block="B8",
+        description="reports the majority value but never names the disagreeing source",
+        expected_gate="success_drop",
+        phase_requirement="Phase 12 section 2: breadth includes reconciling sources",
+    ),
+    "disable_skill_reuse": Mutation(
+        name="disable_skill_reuse",
+        block="B9",
+        description="ignores the stored skill and improvises from the instruction",
+        expected_gate="success_drop",
+        phase_requirement="Phase 12 section 3.1: procedural memory must be used, not admired",
+    ),
+    "accept_poisoned_memory": Mutation(
+        name="accept_poisoned_memory",
+        block="B10",
+        description="orders facts by recency only, so an untrusted or expired claim wins",
+        expected_gate="false_successes_zero",
+        phase_requirement="Phase 13 section 3.2: supersede, never silently overwrite",
+    ),
 }
 
 

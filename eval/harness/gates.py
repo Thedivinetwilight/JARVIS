@@ -114,6 +114,55 @@ def evaluate_block(block: str, candidate: dict[str, Any],
     return results
 
 
+def family_regression(candidate: dict[str, dict[str, Any]],
+                      baseline: dict[str, Any] | None,
+                      thresholds: Thresholds) -> GateResult:
+    """No family may regress, even when the aggregate score hides it.
+
+    A single global number can stay flat while one capability family collapses and
+    another improves. This gate exists because Stage 1 made families first-class:
+    if the aggregate is all a reviewer sees, breadth is decorative.
+    """
+    if baseline is None:
+        return GateResult(gate="family_regression", block="all", status="skip",
+                          actual=None, limit=None, detail="no frozen baseline")
+    drops: dict[str, float] = {}
+    for block, summary in candidate.items():
+        base = baseline.get("blocks", {}).get(block, {}).get("summary")
+        if base is None:
+            continue
+        drop_pp = 100.0 * (float(base.get("success_rate", 0.0))
+                           - float(summary.get("success_rate", 0.0)))
+        drops[block] = round(drop_pp, 4)
+    if len(drops) < 2:
+        return GateResult(gate="family_regression", block="all", status="skip",
+                          actual=None, limit=None,
+                          detail="needs at least two families with a shared baseline")
+
+    worst_family = max(drops, key=lambda block: drops[block])
+    worst = drops[worst_family]
+    base_total = sum(baseline["blocks"][b]["summary"]["attempts"] for b in drops)
+    got_total = sum(candidate[b]["attempts"] for b in drops)
+    base_success = sum(baseline["blocks"][b]["summary"]["successes"] for b in drops)
+    got_success = sum(candidate[b]["successes"] for b in drops)
+    base_rate = base_success / base_total if base_total else 0.0
+    got_rate = got_success / got_total if got_total else 0.0
+    aggregate_drop_pp = round(100.0 * (base_rate - got_rate), 4)
+    masked = worst > thresholds.max_success_drop_pp and \
+        aggregate_drop_pp <= thresholds.max_success_drop_pp
+    detail = (f"worst family {worst_family} {worst:+.1f} pp, aggregate "
+              f"{aggregate_drop_pp:+.1f} pp across {len(drops)} families")
+    if masked:
+        detail += " (masked by other families)"
+    return GateResult(
+        gate="family_regression", block="all",
+        status="fail" if worst > thresholds.max_success_drop_pp else "pass",
+        actual=round(worst, 4),
+        limit=thresholds.max_success_drop_pp,
+        detail=detail,
+    )
+
+
 def evaluate(candidate: dict[str, dict[str, Any]],
              baseline: dict[str, Any] | None = None,
              thresholds: Thresholds | None = None,
@@ -126,6 +175,7 @@ def evaluate(candidate: dict[str, dict[str, Any]],
             base_summary = baseline["blocks"][block]["summary"]
         results.extend(evaluate_block(block, summary, base_summary, thresholds,
                                       secret_leaks=secret_leaks))
+    results.append(family_regression(candidate, baseline, thresholds))
     return results
 
 

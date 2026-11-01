@@ -17,21 +17,18 @@ from typing import Any, Callable
 from . import gates as gates_mod
 from .config import Thresholds, git_dirty, git_revision
 from .ledger import read_run, write_run
+from .registry import (evaluator_digest, load_registry, registry_sha,
+                       validate_registry)
 from .runner import run_block
+from .solvers.ladder import LADDER_ORDER
 from .taskset import TaskSetError, load_taskset, load_tasksets
+from .solvers.mutations import MUTATIONS
 from .tools import Executor, World
 
 FORBIDDEN_IMPORTS = ("urllib", "requests", "httpx", "socket", "http.client",
                      "openai", "anthropic", "inspect_ai")
 
-MUTATION_BLOCKS = {
-    "drop_timezone": "B2",
-    "retry_without_idempotency": "B2",
-    "attempt_blocked_action": "B2",
-    "cite_top1_only": "B1",
-    "drop_last_step": "B3",
-    "skip_verification": "B3",
-}
+MUTATION_BLOCKS = {name: mutation.block for name, mutation in MUTATIONS.items()}
 
 
 class Checker:
@@ -65,10 +62,11 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_tasksets() -> str:
         sets = load_tasksets(Path("eval/tasks"))
-        assert set(sets) == {"B1", "B2", "B3"}, f"unexpected blocks {sorted(sets)}"
+        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10"}, \
+            f"unexpected blocks {sorted(sets)}"
         for block, ts in sets.items():
             assert ts.tasks, f"{block} has no tasks"
-        return "3 blocks: " + ", ".join(
+        return f"{len(sets)} blocks: " + ", ".join(
             f"{b}={len(ts)} tasks sha {ts.sha[:8]}" for b, ts in sorted(sets.items()))
 
     check_tasksets_sets: dict[str, Any] = {}
@@ -81,7 +79,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_deterministic() -> str:
         detail = []
-        for block in ("B1", "B2", "B3"):
+        for block in ("B1", "B2", "B3", "B8", "B9", "B10"):
             first = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             second = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             assert _hashes(first) == _hashes(second), f"{block} hashes differ between runs"
@@ -126,20 +124,75 @@ def run_selftest(verbose: bool = True) -> int:
     def check_mutations() -> str:
         caught = []
         for name, block in MUTATION_BLOCKS.items():
+            clean = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             mutant = run_block(check_tasksets_sets[block], mutations=(name,),
                                git_sha=sha, git_dirty=dirty)
-            results = gates_mod.evaluate_block(block, mutant.summary, None, Thresholds())
-            if name in {"drop_timezone", "drop_last_step"}:
-                # Baseline-relative gate: compare against the clean run instead.
-                clean = run_block(check_tasksets_sets[block], git_sha=sha,
-                                  git_dirty=dirty)
-                results = gates_mod.evaluate_block(block, mutant.summary,
-                                                   clean.summary, Thresholds())
-            assert gates_mod.failures(results), f"mutation {name} not detected"
-            caught.append(f"{name}({block})")
-        return "all six regressions detected: " + ", ".join(caught)
+            results = gates_mod.evaluate_block(block, mutant.summary,
+                                               clean.summary, Thresholds())
+            failed = {result.gate for result in gates_mod.failures(results)}
+            expected = MUTATIONS[name].expected_gate
+            assert expected in failed, \
+                f"{name} was not caught by {expected}; gates that fired: {sorted(failed)}"
+            caught.append(f"{name}->{expected}")
+        return (f"all {len(MUTATION_BLOCKS)} regressions caught by their expected gate: "
+                + ", ".join(caught))
 
     checker.check("mutation_detection", check_mutations)
+
+
+    def check_registry() -> str:
+        registry = load_registry()
+        problems = validate_registry(registry, list(check_tasksets_sets.values()))
+        assert not problems, f"registry problems: {problems[:5]}"
+        return (f"registry v{registry.version} sha {registry.sha[:8]}: "
+                f"{len(registry)} capabilities, all covered by the fixtures")
+
+    checker.check("capability_registry", check_registry)
+
+    def check_evaluator_isolation() -> str:
+        before = evaluator_digest(".")
+        before_sha = registry_sha()
+        for block in ("B1", "B8", "B9", "B10"):
+            run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
+        run_block(check_tasksets_sets["B9"], mutations=("disable_skill_reuse",),
+                  git_sha=sha, git_dirty=dirty)
+        assert evaluator_digest(".") == before, "a run modified evaluator-owned files"
+        assert registry_sha() == before_sha, "a run modified the capability registry"
+        return ("evaluator-owned files (registry, tasks, baselines) unchanged by "
+                "full-family runs, including a mutated one")
+
+    checker.check("evaluator_isolation", check_evaluator_isolation)
+
+    def check_ladder_separates() -> str:
+        results = {}
+        for name in LADDER_ORDER:
+            results[name] = {
+                block: run_block(check_tasksets_sets[block], solver_name=name,
+                                 git_sha=sha, git_dirty=dirty).summary["success_rate"]
+                for block in ("B1", "B8")}
+        spread = 100 * (results["stub"]["B8"] - results["stub_naive"]["B8"])
+        assert spread >= 10, f"ladder spread only {spread:.1f} pp on B8"
+        assert results["oracle_ceiling"]["B8"] >= results["stub"]["B8"], \
+            "the ceiling probe must not score below the reference solver"
+        return (f"reference vs naive on B8 = {spread:+.1f} pp; oracle ceiling "
+                f"{results['oracle_ceiling']['B8']:.2f} >= reference "
+                f"{results['stub']['B8']:.2f}")
+
+    checker.check("ladder_separates", check_ladder_separates)
+
+    def check_family_gate_masks() -> str:
+        baseline = {"blocks": {
+            "B1": {"summary": {"success_rate": 0.5, "attempts": 100, "successes": 50}},
+            "B8": {"summary": {"success_rate": 1.0, "attempts": 10, "successes": 10}}}}
+        candidate = {
+            "B1": {"success_rate": 1.0, "attempts": 100, "successes": 100},
+            "B8": {"success_rate": 0.2, "attempts": 10, "successes": 2}}
+        result = gates_mod.family_regression(candidate, baseline, Thresholds())
+        assert result.status == "fail", "family regression was not detected"
+        assert "masked" in result.detail, f"aggregate masking not reported: {result.detail}"
+        return f"a collapsing family is caught even when the aggregate improves ({result.detail})"
+
+    checker.check("family_regression_masking", check_family_gate_masks)
 
     def check_gate_negative_controls() -> str:
         clean = run_block(check_tasksets_sets["B1"], git_sha=sha, git_dirty=dirty)
