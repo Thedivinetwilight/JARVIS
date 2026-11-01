@@ -3,6 +3,7 @@
 - **Status:** draft; M5 is not complete and G-O1 remains blocked.
 - **Basis:** product capability specification v1.1.0 and roadmap v1.1.0 on `arena/bbffddd4-jarvis` at HEAD `986488f`.
 - **Purpose:** make explicit what can be evaluated with the repository's current synthetic harness, what new evaluation work is needed, and what requires the owner's actual server, language, account, or device inventory.
+- **M5 artefacts:** [`family-crosswalk.md`](family-crosswalk.md) resolves the B4–B7 naming conflict; [`family-backlog.md`](family-backlog.md) is the per-family implementation plan; [`ac-coverage.json`](ac-coverage.json) is the criterion-by-criterion mapping (summarised in §8).
 - **Boundary:** this document maps planned product requirements to measurement. It does not claim any product capability has been implemented or validated.
 
 ## 1. Coverage status
@@ -116,7 +117,7 @@ These are blockers when the product roadmap says they are blockers; they are not
 | A7 — confirmation of breadth priority | M5 scope | Open |
 | A8 — confirmation that gated updates taking days/weeks are tolerable | M11 | Open |
 | A9 — formal confirmation of approval workflow/owner for major updates | M15 | Open |
-| B4–B7 naming conflict in older Phase 8/M2 notes | Evaluation naming consistency | Open; resolve in M5 with an explicit supersession/crosswalk |
+| B4–B7 naming conflict in older Phase 8/M2 notes | Evaluation naming consistency | Resolved in M5 by [`family-crosswalk.md`](family-crosswalk.md): Phase 8 numbering retained as authoritative; M2/M3 rows superseded by name only, evidence unchanged |
 
 ## 7. M5 completion checklist
 
@@ -124,7 +125,10 @@ These are blockers when the product roadmap says they are blockers; they are not
 - [x] Separate current synthetic harness mechanisms from product-level evidence.
 - [x] Record the local-only processing rule and declared external service classes.
 - [x] Define the minimum planned evaluation scope for B4–B7 and B11–B20.
-- [ ] Freeze the canonical B4–B7 family naming/crosswalk.
+- [x] Freeze the canonical B4–B7 family naming/crosswalk — published as [`family-crosswalk.md`](family-crosswalk.md); review requested, no historical record edited.
+- [x] Map every acceptance criterion to a task type, named audit or human review — [`ac-coverage.json`](ac-coverage.json) and §8.
+- [x] Write the per-family implementation backlog for B4–B7 and B11–B20 — [`family-backlog.md`](family-backlog.md), generated from `family-backlog.json`.
+- [ ] Build the first family task sets and gates from the backlog; no family may be marked `implemented` before its suite passes.
 - [ ] Owner supplies first-year priority and success objective (Q13/Q14/A7).
 - [ ] Owner decides whether interaction data may be used (Q15).
 - [ ] Owner supplies target language matrix (Q19).
@@ -135,4 +139,91 @@ These are blockers when the product roadmap says they are blockers; they are not
 - [ ] Re-derive workload envelopes using the approved server and measured per-language results.
 - [ ] Review coverage report; only then reconsider G-O1.
 
-**Current conclusion:** this draft advances the coverage mapping and identifies the minimum evidence plan. It does not complete M5 because no server measurements or owner-specific inventories/language priorities exist in the repository. G-O1 remains blocked; no model recommendation is justified by this document.
+## 8. Criterion-level coverage (C-01…C-12 × acceptance criteria)
+
+All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts: `planned_suite` 32, `named_audit` 9, `human_review` 3, `blocked_owner_input` 6. 47 of 50 have an objective protocol (a behavioural suite or a named audit); 3 rely on human judgement and therefore have no automatable measurable test — C-08-AC1, C-09-AC2, C-10-AC3. 6 cannot produce a valid result until owner input arrives (Q17, Q19, Q20, Q24) or owner-held retrospective records exist (C-08-AC3); G-O1 stays blocked regardless. No criterion is marked validated, and no status here is evidence of capability.
+
+| Status | Meaning |
+|---|---|
+| `planned_suite` | an evaluation family or task type is named; no task set exists yet |
+| `named_audit` | measurement is an audit, inventory review or egress probe rather than a task outcome |
+| `human_review` | requires human judgement; no automatable proxy has been identified |
+| `blocked_owner_input` | the suite can be prepared but cannot produce a valid result without the named owner input or G-O1 |
+
+### 8.1 Criteria table
+
+| Criterion | Suite | Kind | Status | Blocked by |
+|---|---|---|---|---|
+| **C-01 — Preference use and personal context** | | | | |
+| C-01-AC1 | B13 | family | planned_suite | — |
+| C-01-AC2 | B13 | family | planned_suite | — |
+| C-01-AC3 | B7 | family | planned_suite | — |
+| **C-02 — Persistent memory and knowledge stores** | | | | |
+| C-02-AC1 | B4 | family | planned_suite | — |
+| C-02-AC2 | B4 | family | planned_suite | — |
+| C-02-AC3 | B4 | family | planned_suite | — |
+| C-02-AC4 | B7 | family | planned_suite | — |
+| **C-03 — Voice-first interaction and multilingual coverage** | | | | |
+| C-03-AC1 | G-UX | audit | named_audit | — |
+| C-03-AC2 | B6 | family | blocked_owner_input | Q19, Q20 |
+| C-03-AC3 | B6 | family | planned_suite | — |
+| C-03-AC4 | B19 | family | blocked_owner_input | Q19 |
+| C-03-AC5 | B19 | family | blocked_owner_input | Q19, Q20 |
+| **C-04 — Speaker verification and identity** | | | | |
+| C-04-AC1 | B11 | family | planned_suite | — |
+| C-04-AC2 | B11 | family | planned_suite | — |
+| C-04-AC3 | B11 | family | planned_suite | — |
+| C-04-AC4 | G-LOCAL | audit | named_audit | — |
+| **C-05 — PA call handling** | | | | |
+| C-05-AC1 | B12 | family | planned_suite | — |
+| C-05-AC2 | B12 | family | blocked_owner_input | Q17 |
+| C-05-AC3 | B12 | family | planned_suite | — |
+| C-05-AC4 | B12 | family | planned_suite | — |
+| C-05-AC5 | B12 | family | planned_suite | — |
+| C-05-AC6 | G-LOCAL | audit | named_audit | — |
+| **C-06 — Brain-inspired cognitive mechanisms** | | | | |
+| C-06-AC1 | B17 | audit | named_audit | — |
+| C-06-AC2 | B14 | family | planned_suite | — |
+| C-06-AC3 | B17 | audit | named_audit | — |
+| **C-07 — Self-evolution with immutable evaluation** | | | | |
+| C-07-AC1 | B14 | family | planned_suite | — |
+| C-07-AC2 | B14 | family | planned_suite | — |
+| C-07-AC3 | B7 | family | planned_suite | — |
+| C-07-AC4 | B14 | family | planned_suite | — |
+| C-07-AC5 | B14 | family | planned_suite | — |
+| **C-08 — Invention support** | | | | |
+| C-08-AC1 | B15 | family | human_review | — |
+| C-08-AC2 | B15 | family | planned_suite | — |
+| C-08-AC3 | B15 | family | blocked_owner_input | completed-project-records |
+| C-08-AC4 | G-LOCAL | audit | named_audit | — |
+| **C-09 — Limitation explanation** | | | | |
+| C-09-AC1 | B16 | family | planned_suite | — |
+| C-09-AC2 | B16 | family | human_review | — |
+| C-09-AC3 | B16 | family | planned_suite | — |
+| **C-10 — Canon parity and scope boundary** | | | | |
+| C-10-AC1 | B17 | audit | named_audit | — |
+| C-10-AC2 | B17 | audit | named_audit | — |
+| C-10-AC3 | B17 | audit | human_review | — |
+| **C-11 — Smart-home control and monitoring** | | | | |
+| C-11-AC1 | B18 | family | blocked_owner_input | Q24 |
+| C-11-AC2 | B18 | family | planned_suite | — |
+| C-11-AC3 | B18 | family | planned_suite | — |
+| C-11-AC4 | B7 | family | planned_suite | — |
+| C-11-AC5 | G-LOCAL | audit | named_audit | — |
+| **C-12 — Connector integration with scoping** | | | | |
+| C-12-AC1 | B20 | family | planned_suite | — |
+| C-12-AC2 | B20 | family | planned_suite | — |
+| C-12-AC3 | B20 | family | planned_suite | — |
+| C-12-AC4 | B20 | family | planned_suite | — |
+| C-12-AC5 | B7 | family | planned_suite | — |
+
+`kind` is `family` for a behavioural suite and `audit` for an inventory, editorial, egress or path review. `existing_fragment` marks the three criteria where a committed synthetic mechanism is already a partial fragment (C-06-AC2, C-07-AC3, C-09-AC3) — a fragment, not product evidence.
+
+### 8.2 What this mapping shows
+
+- Every capability has at least one planned suite or audit; no capability is unmapped.
+- Five criteria ride on B7 (adversarial), and four of those are zero-tolerance: injection, approval bypass, disclosure and scope escalation. B7, B12, B14 and B17 each carry five criteria, so they are the highest-leverage families to build after B4.
+- Six criteria are blocked on owner input, and three on human judgement; these are the honest gaps, not scheduling choices.
+- Eight capabilities (C-01, C-02, C-04, C-06, C-07, C-09, C-10, C-12) have no criterion blocked by owner input, so their suites can be built and pre-registered now.
+
+**Current conclusion:** the coverage mapping is complete at criterion level and the B4–B7 naming conflict is resolved by crosswalk. M5 is still not complete: no family task set, gate, fixture or measurement exists, and the owner inputs above are outstanding. G-O1 remains blocked; no model recommendation is justified by this document.

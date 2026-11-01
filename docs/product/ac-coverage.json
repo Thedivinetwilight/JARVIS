@@ -1,0 +1,922 @@
+{
+  "coverage_version": "1.0.0",
+  "published": "2026-11-01",
+  "basis": {
+    "spec": "1.1.0",
+    "roadmap": "1.1.0",
+    "backlog": "family-backlog.json",
+    "crosswalk": "family-crosswalk.md"
+  },
+  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing is executed and nothing here is evidence of product capability; no criterion is marked validated.",
+  "status_vocabulary": {
+    "planned_suite": "an evaluation family or task type is named; no task set exists yet",
+    "named_audit": "measurement is an audit, inventory review or egress probe rather than a task outcome",
+    "human_review": "requires human judgement; no automatable proxy has been identified",
+    "blocked_owner_input": "the suite can be prepared but cannot produce a valid result without the named owner input or G-O1"
+  },
+  "entries": [
+    {
+      "ac": "C-01-AC1",
+      "capability": "C-01",
+      "capability_name": "Preference use and personal context",
+      "suite": "B13",
+      "suite_kind": "family",
+      "task_types": [
+        "apply a relevant preference",
+        "honour an explicit override"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Measured by the B13 preference suite once the store schema exists."
+    },
+    {
+      "ac": "C-01-AC2",
+      "capability": "C-01",
+      "capability_name": "Preference use and personal context",
+      "suite": "B13",
+      "suite_kind": "family",
+      "task_types": [
+        "inspect and correct",
+        "deletion propagation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Shares the post-delete probe with B4."
+    },
+    {
+      "ac": "C-01-AC3",
+      "capability": "C-01",
+      "capability_name": "Preference use and personal context",
+      "suite": "B7",
+      "suite_kind": "family",
+      "task_types": [
+        "poisoned memory and consolidation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Adversarial family owns low-trust preference sources."
+    },
+    {
+      "ac": "C-02-AC1",
+      "capability": "C-02",
+      "capability_name": "Persistent memory and knowledge stores",
+      "suite": "B4",
+      "suite_kind": "family",
+      "task_types": [
+        "write with metadata"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "B4 write-metadata tasks."
+    },
+    {
+      "ac": "C-02-AC2",
+      "capability": "C-02",
+      "capability_name": "Persistent memory and knowledge stores",
+      "suite": "B4",
+      "suite_kind": "family",
+      "task_types": [
+        "expiry and staleness"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Clock fixture required."
+    },
+    {
+      "ac": "C-02-AC3",
+      "capability": "C-02",
+      "capability_name": "Persistent memory and knowledge stores",
+      "suite": "B4",
+      "suite_kind": "family",
+      "task_types": [
+        "deletion propagation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Three deletion drills plus replay."
+    },
+    {
+      "ac": "C-02-AC4",
+      "capability": "C-02",
+      "capability_name": "Persistent memory and knowledge stores",
+      "suite": "B7",
+      "suite_kind": "family",
+      "task_types": [
+        "scope escalation and contact disclosure"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Disclosure is an adversarial-family measurement."
+    },
+    {
+      "ac": "C-03-AC1",
+      "capability": "C-03",
+      "capability_name": "Voice-first interaction and multilingual coverage",
+      "suite": "G-UX",
+      "suite_kind": "audit",
+      "task_types": [
+        "surface inventory review"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Gate G-UX: no text-chat surface. Auditable by inventory + review, not by a task suite."
+    },
+    {
+      "ac": "C-03-AC2",
+      "capability": "C-03",
+      "capability_name": "Voice-first interaction and multilingual coverage",
+      "suite": "B6",
+      "suite_kind": "family",
+      "task_types": [
+        "command execution by voice"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q19",
+        "Q20"
+      ],
+      "note": "Provisional p50/p95; needs the server and real speech models (G-O1)."
+    },
+    {
+      "ac": "C-03-AC3",
+      "capability": "C-03",
+      "capability_name": "Voice-first interaction and multilingual coverage",
+      "suite": "B6",
+      "suite_kind": "family",
+      "task_types": [
+        "noisy and accented audio",
+        "barge-in and turn-taking"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Success and barge-in measurable with a stub recogniser."
+    },
+    {
+      "ac": "C-03-AC4",
+      "capability": "C-03",
+      "capability_name": "Voice-first interaction and multilingual coverage",
+      "suite": "B19",
+      "suite_kind": "family",
+      "task_types": [
+        "command suite per language"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q19"
+      ],
+      "note": "Language list is an owner decision; the matrix is empty by design."
+    },
+    {
+      "ac": "C-03-AC5",
+      "capability": "C-03",
+      "capability_name": "Voice-first interaction and multilingual coverage",
+      "suite": "B19",
+      "suite_kind": "family",
+      "task_types": [
+        "command suite per language"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q19",
+        "Q20"
+      ],
+      "note": "Per-language success needs models that pass G-O1."
+    },
+    {
+      "ac": "C-04-AC1",
+      "capability": "C-04",
+      "capability_name": "Speaker verification and identity",
+      "suite": "B11",
+      "suite_kind": "family",
+      "task_types": [
+        "enrolled vs impostor trials"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Paired FAR/FRR on a simulated verifier."
+    },
+    {
+      "ac": "C-04-AC2",
+      "capability": "C-04",
+      "capability_name": "Speaker verification and identity",
+      "suite": "B11",
+      "suite_kind": "family",
+      "task_types": [
+        "uncertain-identity fallback"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Fallback logic is model-independent."
+    },
+    {
+      "ac": "C-04-AC3",
+      "capability": "C-04",
+      "capability_name": "Speaker verification and identity",
+      "suite": "B11",
+      "suite_kind": "family",
+      "task_types": [
+        "voiceprint deletion drills"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Template residue probe on simulated embeddings."
+    },
+    {
+      "ac": "C-04-AC4",
+      "capability": "C-04",
+      "capability_name": "Speaker verification and identity",
+      "suite": "G-LOCAL",
+      "suite_kind": "audit",
+      "task_types": [
+        "egress probe on the verification path"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Locality is an audit, not a task outcome."
+    },
+    {
+      "ac": "C-05-AC1",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "decline and outbound allowlist"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Allowlist config comes from the fixture, not from an assumption."
+    },
+    {
+      "ac": "C-05-AC2",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "inbound attend and take a message"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q17"
+      ],
+      "note": "Disclosure wording and consent rules are jurisdiction-dependent."
+    },
+    {
+      "ac": "C-05-AC3",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "inbound handle within scope"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Mode matrix supplied by fixture."
+    },
+    {
+      "ac": "C-05-AC4",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "escalate to owner"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "30 gold triggers."
+    },
+    {
+      "ac": "C-05-AC5",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "inbound handle within scope",
+        "decline and outbound allowlist"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Purpose completion plus scope audit."
+    },
+    {
+      "ac": "C-05-AC6",
+      "capability": "C-05",
+      "capability_name": "PA call handling",
+      "suite": "G-LOCAL",
+      "suite_kind": "audit",
+      "task_types": [
+        "egress probe on the summary path"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Byte-level egress audit of transcripts and summaries."
+    },
+    {
+      "ac": "C-06-AC1",
+      "capability": "C-06",
+      "capability_name": "Brain-inspired cognitive mechanisms",
+      "suite": "B17",
+      "suite_kind": "audit",
+      "task_types": [
+        "claim-label audit"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Editorial audit of cognitive claims; not a behavioural test."
+    },
+    {
+      "ac": "C-06-AC2",
+      "capability": "C-06",
+      "capability_name": "Brain-inspired cognitive mechanisms",
+      "suite": "B14",
+      "suite_kind": "family",
+      "task_types": [
+        "candidate evaluation against a held-out set"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": true,
+      "blocked_by": [],
+      "note": "X-11/X-12/X-13 already exercise candidate evaluation with stub artefacts; the product AC is broader."
+    },
+    {
+      "ac": "C-06-AC3",
+      "capability": "C-06",
+      "capability_name": "Brain-inspired cognitive mechanisms",
+      "suite": "B17",
+      "suite_kind": "audit",
+      "task_types": [
+        "sentience phrase audit"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Banned-phrase list plus human sign-off."
+    },
+    {
+      "ac": "C-07-AC1",
+      "capability": "C-07",
+      "capability_name": "Self-evolution with immutable evaluation",
+      "suite": "B14",
+      "suite_kind": "family",
+      "task_types": [
+        "rollback drills",
+        "promotion and automatic demotion"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Two drills with residue diff."
+    },
+    {
+      "ac": "C-07-AC2",
+      "capability": "C-07",
+      "capability_name": "Self-evolution with immutable evaluation",
+      "suite": "B14",
+      "suite_kind": "family",
+      "task_types": [
+        "decision-record audit"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Append-only ledger completeness."
+    },
+    {
+      "ac": "C-07-AC3",
+      "capability": "C-07",
+      "capability_name": "Self-evolution with immutable evaluation",
+      "suite": "B7",
+      "suite_kind": "family",
+      "task_types": [
+        "approval and confirmation bypass"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": true,
+      "blocked_by": [],
+      "note": "The selftest already confirms the evaluator cannot be edited from inside; the AC covers gates, registry, policy and retention."
+    },
+    {
+      "ac": "C-07-AC4",
+      "capability": "C-07",
+      "capability_name": "Self-evolution with immutable evaluation",
+      "suite": "B14",
+      "suite_kind": "family",
+      "task_types": [
+        "candidate evaluation against a held-out set"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Threshold comparison plus family regression check."
+    },
+    {
+      "ac": "C-07-AC5",
+      "capability": "C-07",
+      "capability_name": "Self-evolution with immutable evaluation",
+      "suite": "B14",
+      "suite_kind": "family",
+      "task_types": [
+        "promotion and automatic demotion"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Stub artefacts only; real model adoption stays blocked by G-O1."
+    },
+    {
+      "ac": "C-08-AC1",
+      "capability": "C-08",
+      "capability_name": "Invention support",
+      "suite": "B15",
+      "suite_kind": "family",
+      "task_types": [
+        "generate and compare approaches"
+      ],
+      "status": "human_review",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Two blind human raters; no automatable proxy exists."
+    },
+    {
+      "ac": "C-08-AC2",
+      "capability": "C-08",
+      "capability_name": "Invention support",
+      "suite": "B15",
+      "suite_kind": "family",
+      "task_types": [
+        "prior-art investigation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Mechanical claim audit against a synthetic corpus."
+    },
+    {
+      "ac": "C-08-AC3",
+      "capability": "C-08",
+      "capability_name": "Invention support",
+      "suite": "B15",
+      "suite_kind": "family",
+      "task_types": [
+        "retrospective calibration"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "completed-project-records"
+      ],
+      "note": "Needs completed real projects, i.e. owner data that does not exist in the repository."
+    },
+    {
+      "ac": "C-08-AC4",
+      "capability": "C-08",
+      "capability_name": "Invention support",
+      "suite": "G-LOCAL",
+      "suite_kind": "audit",
+      "task_types": [
+        "query privacy zero"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Personal-data detector over outbound queries."
+    },
+    {
+      "ac": "C-09-AC1",
+      "capability": "C-09",
+      "capability_name": "Limitation explanation",
+      "suite": "B16",
+      "suite_kind": "family",
+      "task_types": [
+        "blocked request per cause class"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Nine-class gold labels."
+    },
+    {
+      "ac": "C-09-AC2",
+      "capability": "C-09",
+      "capability_name": "Limitation explanation",
+      "suite": "B16",
+      "suite_kind": "family",
+      "task_types": [
+        "degraded but completed request"
+      ],
+      "status": "human_review",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Action validity includes policy judgement; expert review required."
+    },
+    {
+      "ac": "C-09-AC3",
+      "capability": "C-09",
+      "capability_name": "Limitation explanation",
+      "suite": "B16",
+      "suite_kind": "family",
+      "task_types": [
+        "silent-failure probe"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": true,
+      "blocked_by": [],
+      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early."
+    },
+    {
+      "ac": "C-10-AC1",
+      "capability": "C-10",
+      "capability_name": "Canon parity and scope boundary",
+      "suite": "B17",
+      "suite_kind": "audit",
+      "task_types": [
+        "parity rows"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Parity matrix completeness; human review."
+    },
+    {
+      "ac": "C-10-AC2",
+      "capability": "C-10",
+      "capability_name": "Canon parity and scope boundary",
+      "suite": "B17",
+      "suite_kind": "audit",
+      "task_types": [
+        "canon separation checks"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "MCU AI vs comics AI vs human Edwin Jarvis."
+    },
+    {
+      "ac": "C-10-AC3",
+      "capability": "C-10",
+      "capability_name": "Canon parity and scope boundary",
+      "suite": "B17",
+      "suite_kind": "audit",
+      "task_types": [
+        "parity rows"
+      ],
+      "status": "human_review",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Owner sign-off on feasibility classes."
+    },
+    {
+      "ac": "C-11-AC1",
+      "capability": "C-11",
+      "capability_name": "Smart-home control and monitoring",
+      "suite": "B18",
+      "suite_kind": "family",
+      "task_types": [
+        "device control commands"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q24"
+      ],
+      "note": "Coverage is meaningless without the real inventory; the fixture is fictional."
+    },
+    {
+      "ac": "C-11-AC2",
+      "capability": "C-11",
+      "capability_name": "Smart-home control and monitoring",
+      "suite": "B18",
+      "suite_kind": "family",
+      "task_types": [
+        "device control commands"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "200-attempt scope audit on the simulator."
+    },
+    {
+      "ac": "C-11-AC3",
+      "capability": "C-11",
+      "capability_name": "Smart-home control and monitoring",
+      "suite": "B18",
+      "suite_kind": "family",
+      "task_types": [
+        "state monitoring transitions"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "50 transitions with truth timestamps."
+    },
+    {
+      "ac": "C-11-AC4",
+      "capability": "C-11",
+      "capability_name": "Smart-home control and monitoring",
+      "suite": "B7",
+      "suite_kind": "family",
+      "task_types": [
+        "approval and confirmation bypass"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Physical-action confirmation is adversarial."
+    },
+    {
+      "ac": "C-11-AC5",
+      "capability": "C-11",
+      "capability_name": "Smart-home control and monitoring",
+      "suite": "G-LOCAL",
+      "suite_kind": "audit",
+      "task_types": [
+        "local-vs-vendor path audit"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Per-device path audit for locally capable devices."
+    },
+    {
+      "ac": "C-12-AC1",
+      "capability": "C-12",
+      "capability_name": "Connector integration with scoping",
+      "suite": "B20",
+      "suite_kind": "family",
+      "task_types": [
+        "scope manifest validation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Manifest schema and wildcard detection."
+    },
+    {
+      "ac": "C-12-AC2",
+      "capability": "C-12",
+      "capability_name": "Connector integration with scoping",
+      "suite": "B20",
+      "suite_kind": "family",
+      "task_types": [
+        "least-privilege attempts"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "200 attempts across the connector set."
+    },
+    {
+      "ac": "C-12-AC3",
+      "capability": "C-12",
+      "capability_name": "Connector integration with scoping",
+      "suite": "B20",
+      "suite_kind": "family",
+      "task_types": [
+        "revocation drills"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Stop within 1 s and token residue probe."
+    },
+    {
+      "ac": "C-12-AC4",
+      "capability": "C-12",
+      "capability_name": "Connector integration with scoping",
+      "suite": "B20",
+      "suite_kind": "family",
+      "task_types": [
+        "audit reconciliation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Call-to-request reconciliation."
+    },
+    {
+      "ac": "C-12-AC5",
+      "capability": "C-12",
+      "capability_name": "Connector integration with scoping",
+      "suite": "B7",
+      "suite_kind": "family",
+      "task_types": [
+        "scope escalation and contact disclosure"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Broad-access requests are adversarial."
+    }
+  ],
+  "summary": {
+    "criteria_total": 50,
+    "capabilities_total": 12,
+    "by_status": {
+      "planned_suite": 32,
+      "named_audit": 9,
+      "human_review": 3,
+      "blocked_owner_input": 6
+    },
+    "with_objective_protocol": 47,
+    "human_review_only": [
+      "C-08-AC1",
+      "C-09-AC2",
+      "C-10-AC3"
+    ],
+    "blocked_by_owner_input": [
+      "Q17",
+      "Q19",
+      "Q20",
+      "Q24",
+      "completed-project-records"
+    ],
+    "existing_fragments": [
+      "C-06-AC2",
+      "C-07-AC3",
+      "C-09-AC3"
+    ],
+    "per_capability": {
+      "C-01": {
+        "criteria": 3,
+        "suites": [
+          "B13",
+          "B7"
+        ],
+        "human_review": [],
+        "blocked": []
+      },
+      "C-02": {
+        "criteria": 4,
+        "suites": [
+          "B4",
+          "B7"
+        ],
+        "human_review": [],
+        "blocked": []
+      },
+      "C-03": {
+        "criteria": 5,
+        "suites": [
+          "B19",
+          "B6",
+          "G-UX"
+        ],
+        "human_review": [],
+        "blocked": [
+          "C-03-AC2",
+          "C-03-AC4",
+          "C-03-AC5"
+        ]
+      },
+      "C-04": {
+        "criteria": 4,
+        "suites": [
+          "B11",
+          "G-LOCAL"
+        ],
+        "human_review": [],
+        "blocked": []
+      },
+      "C-05": {
+        "criteria": 6,
+        "suites": [
+          "B12",
+          "G-LOCAL"
+        ],
+        "human_review": [],
+        "blocked": [
+          "C-05-AC2"
+        ]
+      },
+      "C-06": {
+        "criteria": 3,
+        "suites": [
+          "B14",
+          "B17"
+        ],
+        "human_review": [],
+        "blocked": []
+      },
+      "C-07": {
+        "criteria": 5,
+        "suites": [
+          "B14",
+          "B7"
+        ],
+        "human_review": [],
+        "blocked": []
+      },
+      "C-08": {
+        "criteria": 4,
+        "suites": [
+          "B15",
+          "G-LOCAL"
+        ],
+        "human_review": [
+          "C-08-AC1"
+        ],
+        "blocked": [
+          "C-08-AC3"
+        ]
+      },
+      "C-09": {
+        "criteria": 3,
+        "suites": [
+          "B16"
+        ],
+        "human_review": [
+          "C-09-AC2"
+        ],
+        "blocked": []
+      },
+      "C-10": {
+        "criteria": 3,
+        "suites": [
+          "B17"
+        ],
+        "human_review": [
+          "C-10-AC3"
+        ],
+        "blocked": []
+      },
+      "C-11": {
+        "criteria": 5,
+        "suites": [
+          "B18",
+          "B7",
+          "G-LOCAL"
+        ],
+        "human_review": [],
+        "blocked": [
+          "C-11-AC1"
+        ]
+      },
+      "C-12": {
+        "criteria": 5,
+        "suites": [
+          "B20",
+          "B7"
+        ],
+        "human_review": [],
+        "blocked": []
+      }
+    },
+    "capabilities_without_blocked_criteria": [
+      "C-01",
+      "C-02",
+      "C-04",
+      "C-06",
+      "C-07",
+      "C-09",
+      "C-10",
+      "C-12"
+    ]
+  },
+  "unmapped": [],
+  "blocker_vocabulary": {
+    "Q13": "first-year priority and success objective",
+    "Q14": "measurable success objective for year one",
+    "Q15": "whether interaction data may be used for improvement",
+    "Q16": "answered: local-only inference",
+    "Q17": "telephony jurisdiction, disclosure and consent rules",
+    "Q18": "permitted people-database fields",
+    "Q19": "target language list",
+    "Q20": "dedicated-server constraints and measured hardware baseline",
+    "Q21": "account and connector inventory",
+    "Q22": "call modes and permissions",
+    "Q23": "P-1 blanket financial/medical/legal refusal",
+    "Q24": "smart-home inventory",
+    "A7": "first-year success objective",
+    "A8": "approval workflow owner",
+    "A9": "confirmation of approval workflow for major updates",
+    "G-O1": "model adoption gate; blocked",
+    "completed-project-records": "retrospective project outcomes that only the owner holds; no such record exists in the repository"
+  }
+}

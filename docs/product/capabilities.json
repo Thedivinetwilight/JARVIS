@@ -188,7 +188,7 @@
   ],
   "planned_families": {
     "B4": "memory stores (Phase 8 definition: working, episodic, profile, document, procedural)",
-    "B5": "multimodal documents, screenshots and video (Phase 8)",
+    "B5": "multimodal documents, screenshots and video (Phase 8); supporting suite - no acceptance criterion names it, pending M5 review",
     "B6": "voice sessions: ASR, TTS, barge-in, round-trip latency (Phase 8)",
     "B7": "adversarial: injection, poisoned memory, approval bypass (Phase 8)",
     "B11": "speaker verification and uncertain-identity fallback",
@@ -1709,11 +1709,10 @@
     {
       "id": "B4-B7",
       "item": "Phase 8 assigns B4 memory, B5 multimodal, B6 voice, B7 adversarial; the Stage 0 M2 note describes B4 voice, B5 memory, B6 latency, B7 long-horizon.",
-      "status": "open",
-      "decision": "Phase 8 is authoritative here; the conflict is recorded, not smoothed, and must be resolved in M5.",
-      "blocks": [
-        "M5"
-      ]
+      "status": "answered",
+      "decision": "Resolved in M5 by docs/product/family-crosswalk.md: the Phase 8 numbering (B4 memory, B5 multimodal, B6 voice, B7 adversarial) is authoritative and retained; the Stage-0 M2/M3 labels are superseded by name only, and their evidence is unchanged. Long-horizon behaviour, formerly called B7, is preserved as a named future suite rather than an acceptance criterion.",
+      "blocks": [],
+      "resolution": "docs/product/family-crosswalk.md"
     }
   ],
   "proposed_policies": [
@@ -1724,5 +1723,61 @@
       "status": "proposed - awaiting owner review",
       "note": "Not an owner-confirmed requirement. Safeguards that apply regardless: speaker verification, scope-limited authority, tier-2 confirmation, escalation by default, and legal/jurisdiction rules."
     }
-  ]
+  ],
+  "evaluation_backlog": {
+    "version": "1.0.0",
+    "published": "2026-11-01",
+    "status_statement": "Planning only: 14 families, 458 planned tasks and 45 planted regressions are described, but no task set, grader, gate or fixture exists and no family is implemented. Synthetic harness coverage is not product evidence.",
+    "documents": {
+      "crosswalk": "docs/product/family-crosswalk.md",
+      "backlog_markdown": "docs/product/family-backlog.md",
+      "backlog_json": "docs/product/family-backlog.json",
+      "ac_coverage": "docs/product/ac-coverage.json",
+      "coverage_matrix": "docs/product/coverage-matrix.md"
+    },
+    "families": {
+      "planned": 14,
+      "implemented": 0,
+      "ids": [
+        "B4",
+        "B5",
+        "B6",
+        "B7",
+        "B11",
+        "B12",
+        "B13",
+        "B14",
+        "B15",
+        "B16",
+        "B17",
+        "B18",
+        "B19",
+        "B20"
+      ],
+      "planned_tasks": 458,
+      "planted_regressions": 45
+    },
+    "acceptance_criteria": {
+      "total": 50,
+      "planned_suite": 32,
+      "named_audit": 9,
+      "human_review": 3,
+      "blocked_owner_input": 6,
+      "with_objective_protocol": 47,
+      "human_review_only": [
+        "C-08-AC1",
+        "C-09-AC2",
+        "C-10-AC3"
+      ],
+      "blocked_by_owner_input": [
+        "Q17",
+        "Q19",
+        "Q20",
+        "Q24",
+        "completed-project-records"
+      ],
+      "validated": 0
+    },
+    "verified_by": "eval/tests/test_product_spec.py::EvaluationBacklogTests"
+  }
 }
