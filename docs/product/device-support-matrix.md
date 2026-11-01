@@ -1,15 +1,18 @@
 # Device support matrix — J.A.R.V.I.S. (v1.0.0)
 
-- **Status:** specification of intent, **not** a support claim. **No client application exists for any target.**
+- **Status:** specification of intent, **not** a support claim. **No target has a working, verified client.** One
+  Windows PC companion source tree now exists (`client/`); it has never been run on Windows, so it is listed
+  as *built, platform checks not run* rather than as supported.
 - **Published:** 2026-11-01 · **Document version:** 1.0.0 · **Companion to spec 1.2.0** ([capability-specification.md](capability-specification.md))
 - **Normative capability:** [C-14 Device surfaces and platform limits](capability-specification.md#c-14--device-surfaces-and-platform-limits)
 - **Machine-readable copy:** [`capabilities.json`](capabilities.json) → `device_matrix`
 - **Owner decisions behind it:** O-1 (dedicated server), O-2 (local-only processing), O-9 (voice-first, no chat boxes), O-11 (declared targets, EDITH Glass separate), O-12 (AETHERION out of scope)
 
-> **Nothing here is implemented.** No device has been paired, no app has been built, no vendor API has been
-> called and no latency has been measured. Every "unverified" cell is genuinely unverified: it is a list of
-> things nobody has tested, not a euphemism for "works". The test suite checks that **0 of the 7 targets is
-> marked verified or supported**.
+> **Nothing here is implemented as a working device.** One client source tree exists — the Windows PC companion
+> in `client/` — and it has never been executed on Windows: no toast has been raised, no Credential Manager
+> entry written, no device paired in anger, no vendor API called and no latency measured. Every "unverified"
+> cell is genuinely unverified: it is a list of things nobody has tested, not a euphemism for "works". The test
+> suite checks that **0 of the 7 targets is marked verified or supported**.
 
 ## 1. How to read this matrix
 
@@ -27,7 +30,7 @@ screens exist; text conversations do not.
 
 | # | Target | Class | Status | Verified |
 |---|---|---|---|---|
-| 1 | PC (desktop or laptop) | declared target | specified, not built | no |
+| 1 | PC (desktop or laptop) | declared target | companion source complete; no Windows run yet | no |
 | 2 | Tablet (iPadOS or Android) | declared target | specified, not built | no |
 | 3 | iPhone | declared target | specified, not built | no |
 | 4 | Android phone | declared target | specified, not built | no |
@@ -54,9 +57,18 @@ not a client device.
   captures audio; it does not run inference.
 - **Platform dependency and permissions:** the operating system's audio capture and playback and a local
   network transport; microphone, notifications, and screen capture only if explicitly granted.
-- **Unverified:** no client application exists; local-network round-trip latency to the server is unmeasured;
-  microphone and output-device selection is untested on each OS; behaviour with the machine asleep or on a
-  metered link is unknown.
+- **Built now:** a **reminder-notification companion** (`client/`, documented in
+  [`../architecture/windows-companion.md`](../architecture/windows-companion.md)). It pairs with the server
+  using a code minted on the server console, stores its device token in Windows Credential Manager, polls its
+  own reminder queue every 10 seconds or faster, shows the events the server routed to it as local Windows
+  notifications, and acknowledges one only when the owner acts. It has no chat surface, no speech, no cloud
+  path and no autostart entry.
+- **Unverified, and why the status is not "implemented":** the companion has **never been executed on
+  Windows** — no notification has been shown, no credential round-trip performed, no sleep/resume observed and
+  no Windows version tested. The 13-step platform checklist in `client/README.md` §7 is what has to pass
+  first. Audio capture and playback, voice interaction and screen capture are not built at all;
+  local-network round-trip latency to the server remains unmeasured, and behaviour on a metered link is
+  unknown.
 
 ### 2.2 Tablet (iPadOS or Android)
 

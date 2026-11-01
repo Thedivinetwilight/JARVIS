@@ -2483,7 +2483,7 @@
     }
   ],
   "device_matrix": {
-    "status": "specification of intent; 0 of 7 targets has a client application",
+    "status": "specification of intent; 0 of 7 targets has a verified client application - the Windows PC companion source exists in client/ and has never been run on Windows",
     "owner_confirmed_targets": [
       "pc",
       "tablet",
@@ -2498,7 +2498,7 @@
     "out_of_scope": [
       "AETHERION - separate, postponed holographic-hardware research; no requirements, no interface and no dependency from this product specification"
     ],
-    "note": "The matrix states intent, platform limits and open questions. It is not a support claim: no client exists for any target, and no target is marked verified.",
+    "note": "The matrix states intent, platform limits and open questions. It is not a support claim: the Windows PC companion exists as source and has never been executed on Windows, the other six targets have no client at all, and no target is marked verified.",
     "distinctness": [
       "the home holographic interface (C-13) is a room-scale display, not VR and not either glasses target",
       "Ray-Ban glasses and EDITH Glass are different things: the first is a retail device the owner may already own, the second is a future custom project with no defined requirements",
@@ -2508,7 +2508,7 @@
       {
         "id": "pc",
         "name": "PC (desktop or laptop)",
-        "status": "specified, not built",
+        "status": "companion source complete; no Windows run yet",
         "interaction_modes": [
           "voice command and response",
           "visual output on the PC screen or an adjacent display",

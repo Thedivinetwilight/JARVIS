@@ -124,6 +124,22 @@ reports `late: true`, `late_by_seconds: 10`, `late_by_seconds_exact: 10.5` and a
   `503 display_timezone_unresolved`, both carrying the same sentence, and both return to `200` when
   the zone data comes back. Rendering itself still uses the cached object, which stays correct.
 
+## 5b. The first client (Windows PC companion)
+
+The client half is in `client/` and described in [windows-companion.md](windows-companion.md). Three
+of its properties belong to this document because they are properties of the queue:
+
+- it polls this client's inbox and nothing else — the server routes each reminder to one explicitly
+  selected target, and the client never chooses, filters or invents one;
+- **reading is not a new attempt** while inside `retry_interval_minutes`, so a 10-second cadence does
+  not consume the attempt budget (asserted against this server in
+  `client/tests/test_integration_loopback.py`);
+- it **does not acknowledge on display**. An acknowledgement follows the owner's own action, because
+  it closes the event for good and cancels the same reminder on any other target.
+
+It has never been executed on Windows, so no toast, no client-side surfacing time and no sleep/resume
+has been observed; the queue's own behaviour is unchanged by its existence.
+
 ## 6. Audit: the lifecycle, never the contents
 
 `reminder_delivery.enqueued`, `.attempt`, `.acknowledged`, `.expired`, `.failed`, `.cancelled`,

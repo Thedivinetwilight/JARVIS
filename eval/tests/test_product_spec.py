@@ -469,6 +469,37 @@ class InterfaceScopeTests(unittest.TestCase):
                 self.assertNotIn("blanket", grant.lower())
                 self.assertNotIn("any device", grant.lower())
 
+    def test_the_windows_companion_is_never_claimed_as_working(self):
+        """A client exists now; it has not been run on Windows, and no document may say otherwise."""
+        readme = (REPO / "client" / "README.md").read_text(encoding="utf-8")
+        lowered = readme.lower()
+        self.assertIn("no version has been tested", lowered)
+        self.assertIn("never run on windows", lowered)
+        for claim in ("tested on windows", "works on windows", "validated on windows"):
+            self.assertNotIn(claim, lowered)
+        pc = next(device for device in self.matrix["devices"] if device["id"] == "pc")
+        self.assertNotIn("verified", pc["status"].lower())
+        self.assertNotIn("supported", pc["status"].lower())
+        self.assertNotIn("implemented", pc["status"].lower())
+        self.assertIn("0 of 7", self.matrix["status"])
+        pc_section = self.matrix_text.split("### 2.1 PC")[1].split("### 2.2")[0].lower()
+        self.assertIn("never been executed on", pc_section)
+        self.assertIn("no windows version tested", pc_section)
+        self.assertIn("unverified", pc_section)
+
+    def test_the_companion_adds_no_capability_and_no_speech(self):
+        for identifier, capability in self.caps.items():
+            with self.subTest(capability=identifier):
+                self.assertNotEqual(capability["status"], "implemented")
+        companion_sources = "\n".join(
+            path.read_text(encoding="utf-8").lower()
+            for path in (REPO / "client" / "src").rglob("*.py")
+        )
+        for module in ("speech_recognition", "pyttsx3", "audioop"):
+            self.assertNotIn(module, companion_sources)
+        readme = (REPO / "client" / "README.md").read_text(encoding="utf-8").lower()
+        self.assertIn("no speech recognition and no speech output", readme)
+
     def test_interface_milestone_is_planned_and_gated(self):
         milestone = next(m for m in self.spec["milestones"] if m["id"] == "M16")
         self.assertEqual(milestone["status"], "planned")
@@ -562,12 +593,12 @@ class HarnessBoundaryTests(unittest.TestCase):
 
     def test_no_application_or_chat_ui_code_exists(self):
         # At spec 1.2.0 this asserted that no application area existed at all. The owner has
-        # since authorised exactly one: the local server in ``app/`` (docs/adr/0001), which is
-        # a service boundary, not a client and not a chat UI. The permitted top level is named
+        # since authorised two: the local server in ``app/`` (docs/adr/0001), a service boundary,
+        # and the Windows PC companion in ``client/`` (the first client, DR-8). Both are named
         # explicitly so any *other* application area still fails this test, and the UI-framework
-        # scan below still covers the whole repository including ``app/``.
+        # scan below still covers the whole repository including both.
         top_level = {p.name for p in REPO.iterdir() if not p.name.startswith(".")}
-        self.assertEqual(top_level, {"README.md", "docs", "eval", "app"})
+        self.assertEqual(top_level, {"README.md", "docs", "eval", "app", "client"})
         offenders = [p for p in REPO.rglob("*")
                      if p.is_file()
                      and p.suffix in {".tsx", ".jsx", ".vue", ".svelte", ".html"}
@@ -577,6 +608,11 @@ class HarnessBoundaryTests(unittest.TestCase):
         served = [p for p in (REPO / "app").rglob("*")
                   if p.is_file() and p.suffix in {".html", ".css", ".js", ".htm"}]
         self.assertEqual(served, [], f"served assets found: {served}")
+        # The companion is a notification client: no page, no stylesheet, no script bundle.
+        companion_assets = [p for p in (REPO / "client").rglob("*")
+                            if p.is_file() and p.suffix in {".html", ".css", ".js", ".htm", ".tsx",
+                                                            ".jsx", ".vue", ".svelte"}]
+        self.assertEqual(companion_assets, [], f"companion UI assets found: {companion_assets}")
 
     def test_root_readme_is_untouched_by_this_specification(self):
         root = (REPO / "README.md").read_text(encoding="utf-8")

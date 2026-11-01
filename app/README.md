@@ -183,9 +183,13 @@ window (24 hours) and the hand-off definition of an attempt are implementation p
 has directed that they stay configurable and must **not** be treated as approved defaults. The full
 record, with alternatives and consequences, is `docs/product/reminder-delivery-decision.md`.
 
-No client exists, so the companion, its notification and the 10-second target are **unverified**, and
-no server change was made for them. Speech stays unavailable either way, G-O1 stays blocked, and no
-capability status changes.
+A first client now exists as source: the **Windows PC companion** in `client/` (documented in
+`docs/architecture/windows-companion.md`). It pairs with a code minted here, stores its token in
+Windows Credential Manager, polls `GET /v1/reminders/inbox` at 10 seconds or faster, shows events as
+local OS notifications and acknowledges only on an explicit owner action. It has **never been run on
+Windows**, so the notification, the credential round-trip, sleep/resume and the 10-second surfacing
+target all remain **unverified**; polling is not a new attempt, and the server needed no change for it.
+Speech stays unavailable either way, G-O1 stays blocked, and no capability status changes.
 
 ## 6. Configuration
 

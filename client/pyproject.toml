@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-companion"
+version = "0.1.0"
+description = "Windows PC companion for a local J.A.R.V.I.S. server: OS notifications for reminders, no chat, no speech, no cloud."
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+# Deliberately empty. The client is standard library only, so it can be installed on a machine with
+# no package index and no network. `install.ps1` does not even use pip: it copies the package into a
+# private virtual environment.
+dependencies = []
+
+[project.optional-dependencies]
+# The primary toast backend. Optional on purpose: without it the client falls back to PowerShell's
+# built-in WinRT projection, so a stock Windows installation still works with nothing installed.
+windows = ["winsdk>=1.0.0b10; sys_platform == 'win32'"]
+
+[project.scripts]
+jarvis-companion = "jarvis_companion.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+jarvis_companion = ["py.typed"]
