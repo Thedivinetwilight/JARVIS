@@ -1,0 +1,58 @@
+# J.A.R.V.I.S. local server — production-shaped example configuration.
+#
+# There is no secret in this file and there must never be one. The server secret is read
+# from JARVIS_SERVER_SECRET (>= 32 bytes) or from auth.secret_file (a 0600 file).
+#
+#   sudo install -d -m 0750 -o jarvis -g jarvis /var/lib/jarvis /etc/jarvis
+#   sudo install -m 0640 -o jarvis -g jarvis config.example.toml /etc/jarvis/jarvis.toml
+#   printf 'JARVIS_SERVER_SECRET=%s\n' "$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')" \
+#       | sudo tee /etc/jarvis/jarvis.env >/dev/null
+#   sudo chmod 0600 /etc/jarvis/jarvis.env
+#
+# Then, as the service user:
+#   python3 -m app.jarvis migrate --config /etc/jarvis/jarvis.toml
+#   python3 -m app.jarvis operator --config /etc/jarvis/jarvis.toml
+#   python3 -m app.jarvis serve    --config /etc/jarvis/jarvis.toml
+
+[server]
+# Loopback by default. A non-loopback bind is refused unless TLS is configured.
+bind = "127.0.0.1"
+port = 7420
+tls_cert = ""
+tls_key = ""
+request_timeout_s = 30
+max_request_bytes = 1048576
+
+[storage]
+data_dir = "/var/lib/jarvis"
+database = "jarvis.sqlite3"
+audio_retention_days = 7
+max_audio_bytes_per_session = 20000000
+max_audio_chunk_bytes = 1048576
+audio_session_ttl_minutes = 15
+
+[auth]
+device_token_ttl_days = 90
+operator_token_ttl_days = 30
+pairing_code_ttl_minutes = 10
+pairing_max_failed_attempts = 5
+# Optional alternative to JARVIS_SERVER_SECRET; must be mode 0600.
+secret_file = ""
+
+# Every external service is declared here and every one must stay false until its adapter
+# exists, is individually scoped, and is approved by the owner. The server refuses to start
+# with any of them true (docs/product/capability-specification.md, section 0.2).
+[external_services]
+web_retrieval = false
+telephony = false
+device_vendor_cloud = false
+update_downloads = false
+
+# No model or speech component is selected (gate G-O1 is blocked). Anything other than
+# "unavailable" is refused at startup.
+[adapters]
+speech_asr = "unavailable"
+speech_tts = "unavailable"
+
+[logging]
+level = "info"

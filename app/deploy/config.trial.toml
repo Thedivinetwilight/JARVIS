@@ -1,0 +1,44 @@
+# J.A.R.V.I.S. local server — trial configuration for a checkout on one machine.
+#
+# data_dir is resolved relative to this file, so it lands in <repo>/var/jarvis, which is
+# already ignored by git. Nothing here contains a secret: export JARVIS_SERVER_SECRET first.
+#
+#   export JARVIS_SERVER_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')"
+#   python3 -m app.jarvis check-config --config app/deploy/config.trial.toml
+#   python3 -m app.jarvis migrate      --config app/deploy/config.trial.toml
+#   python3 -m app.jarvis operator     --config app/deploy/config.trial.toml
+#   python3 -m app.jarvis serve        --config app/deploy/config.trial.toml
+
+[server]
+bind = "127.0.0.1"
+port = 7420
+request_timeout_s = 30
+max_request_bytes = 1048576
+
+[storage]
+data_dir = "../../var/jarvis"
+database = "jarvis.sqlite3"
+audio_retention_days = 7
+max_audio_bytes_per_session = 20000000
+max_audio_chunk_bytes = 1048576
+audio_session_ttl_minutes = 15
+
+[auth]
+device_token_ttl_days = 90
+operator_token_ttl_days = 30
+pairing_code_ttl_minutes = 10
+pairing_max_failed_attempts = 5
+secret_file = ""
+
+[external_services]
+web_retrieval = false
+telephony = false
+device_vendor_cloud = false
+update_downloads = false
+
+[adapters]
+speech_asr = "unavailable"
+speech_tts = "unavailable"
+
+[logging]
+level = "info"

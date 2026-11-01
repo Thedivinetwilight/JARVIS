@@ -561,13 +561,22 @@ class HarnessBoundaryTests(unittest.TestCase):
         self.assertIn("../docs/product/capability-specification.md", text)
 
     def test_no_application_or_chat_ui_code_exists(self):
+        # At spec 1.2.0 this asserted that no application area existed at all. The owner has
+        # since authorised exactly one: the local server in ``app/`` (docs/adr/0001), which is
+        # a service boundary, not a client and not a chat UI. The permitted top level is named
+        # explicitly so any *other* application area still fails this test, and the UI-framework
+        # scan below still covers the whole repository including ``app/``.
         top_level = {p.name for p in REPO.iterdir() if not p.name.startswith(".")}
-        self.assertEqual(top_level, {"README.md", "docs", "eval"})
+        self.assertEqual(top_level, {"README.md", "docs", "eval", "app"})
         offenders = [p for p in REPO.rglob("*")
                      if p.is_file()
                      and p.suffix in {".tsx", ".jsx", ".vue", ".svelte", ".html"}
                      and ".git" not in p.parts]
         self.assertEqual(offenders, [], f"UI code found: {offenders}")
+        # The server serves JSON only: no templates, no static assets, no chat surface.
+        served = [p for p in (REPO / "app").rglob("*")
+                  if p.is_file() and p.suffix in {".html", ".css", ".js", ".htm"}]
+        self.assertEqual(served, [], f"served assets found: {served}")
 
     def test_root_readme_is_untouched_by_this_specification(self):
         root = (REPO / "README.md").read_text(encoding="utf-8")

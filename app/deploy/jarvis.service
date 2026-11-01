@@ -1,0 +1,42 @@
+# systemd unit for the J.A.R.V.I.S. local server (foundation build).
+# Install to /etc/systemd/system/jarvis.service and adjust paths for the host.
+[Unit]
+Description=J.A.R.V.I.S. local server (local-only, voice-first foundation)
+Documentation=file:/opt/jarvis/app/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jarvis
+Group=jarvis
+WorkingDirectory=/opt/jarvis
+
+# JARVIS_SERVER_SECRET lives here, mode 0600, owned by jarvis:jarvis. It is never in the
+# configuration file, the repository or the logs.
+EnvironmentFile=/etc/jarvis/jarvis.env
+
+ExecStart=/usr/bin/python3 -m app.jarvis serve --config /etc/jarvis/jarvis.toml
+Restart=on-failure
+RestartSec=3
+UMask=0077
+
+# Hardening: no new privileges, read-only system, private tmp, one writable data path,
+# only the address families a local server needs.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/jarvis
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
