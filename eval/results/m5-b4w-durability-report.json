@@ -1,0 +1,1336 @@
+{
+  "report": "M5 evaluator slice 3 - durability of a synthetic write-ahead-log store (C-02-AC3)",
+  "published": "2026-11-01",
+  "supersedes": {
+    "previous_reports": [
+      "eval/results/m5-slices-report.json",
+      "eval/results/m5-b4d-deletion-report.json",
+      "eval/results/m5-b4d-restore-report.json",
+      "eval/results/m5-b4d-retry-report.json",
+      "eval/results/m5-b4d-faults-report.json",
+      "eval/results/m5-b4d-midwrite-report.json"
+    ],
+    "note": "adds a new slice; it does not extend or reinterpret any earlier one. Every earlier report, ledger and baseline stays as published, each report measures the task-set version it names, and the 10-task B4W suite says nothing about the 12-, 27- or 8/11/15/22-task B4D runs."
+  },
+  "git_sha": "6b01adc72052",
+  "git_dirty_during_run": false,
+  "git_untracked_during_run": 0,
+  "harness_version": "0.1.0",
+  "registry_version": "1.4.0",
+  "registry_sha": "f3d41bf5c8e7f5a5f03e1a8182c9eea5236050d1934799b99d622201b6f26fcb",
+  "product_index_version": "1.4.0",
+  "taskset_version": "2026-Q4.1-m5.7",
+  "taskset_sha": "93091e8aac1a9680fa3438781d8c36c6f2a64944e98fbc5494d2094b22575f26",
+  "task_set": "eval/tasks/b4w/tasks.json",
+  "tasks": 10,
+  "criterion": {
+    "id": "C-02-AC3",
+    "text": "Deleting a record removes it and its derived copies from indexes, caches and summaries within one cycle, with zero resurrections across three drills and a seven-day replay.",
+    "threshold": "0 wal-integrity errors, 0 lost committed records, 0 applied uncommitted writes, 0 duplicate effects, 0 resurrections, 0 lost unrelated records and 0 unresolved recoveries on the final store",
+    "status": "slice_built",
+    "note": "unchanged by this slice: the criterion is exercised by an evaluator slice, not met by a product, and this slice tests evaluator infrastructure rather than any J.A.R.V.I.S. storage"
+  },
+  "sample_counts": {
+    "tasks": 10,
+    "operations": 38,
+    "wal_frames": 76,
+    "planted_frames": 40,
+    "crash_scenarios": 6,
+    "simulated_crashes": 7,
+    "crash_stages_exercised": [
+      "commit_marker",
+      "corrupt_entry",
+      "crash_after_commit",
+      "record_write",
+      "replay_write",
+      "wal_append"
+    ],
+    "bytes_truncated": 603,
+    "declared_recovery_scenarios": 7,
+    "duplicate_retry_operations": 1,
+    "fail_closed_scenarios": 1,
+    "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
+  },
+  "environment": {
+    "what_it_is": "evaluator test infrastructure: a file-backed store with an explicit write-ahead log, one temporary directory per task, invented records",
+    "what_it_is_not": "a production database, a storage engine, a storage product or a recommendation of one; J.A.R.V.I.S. has no product store yet, and nothing here selects or evaluates one",
+    "isolation": "each driver creates its own directory under the system temp dir with the 'jarvis-b4w-' prefix, refuses a symlinked root, refuses to remove a directory it did not create, and deletes it when the task ends; the tests assert no directory survives a run and that a marker file outside it is untouched",
+    "process_death": "the harness raises at a byte offset it chose; there is no kernel, no disk cache, no power loss and no fsync semantics beyond flushing the file object the harness opened"
+  },
+  "state_model": {
+    "record_states": [
+      "not_started",
+      "partially_applied",
+      "committed",
+      "rolled_back"
+    ],
+    "rule": "a record is committed when its entry frame and its commit frame are both verifiable on disk; a torn or corrupt frame leaves it not_started; a record line with no commit is partially_applied residue and is removed by recovery; a committed deletion rolls the record back and is final",
+    "recoverable": [
+      "torn tail",
+      "corrupt tail",
+      "record line with no commit marker",
+      "repeated transaction",
+      "crash during recovery"
+    ],
+    "fail_closed": [
+      "damage before verifiable frames",
+      "commit frame without its entry",
+      "unknown entry kind",
+      "log without the WAL header"
+    ],
+    "what_recovery_does": {
+      "torn_or_corrupt_tail": "cut back to the last verifiable frame, fsync the shorter file, then rebuild: the bytes after the damage are dropped and nothing that followed them is trusted",
+      "damage_before_verifiable_frames": "the replay stops at the damage; frames written after it are refused even though their checksums verify (b4w-008)",
+      "missing_header": "refused outright, reported as unrecovered, and never rebuilt into a plausible state",
+      "commit_without_entry": "refused by sequence validation before a run",
+      "unknown_entry_kind": "refused by sequence validation before a run"
+    }
+  },
+  "crash_schedule": {
+    "rule": "the fixture declares the candidate stages and the interrupted operation; the evaluator picks the stage from sha256(task:salt:attempt) and a byte offset strictly inside that operation's bytes, so the same task always crashes at the same byte",
+    "stages": [
+      "wal_append",
+      "record_write",
+      "commit_marker",
+      "corrupt_entry",
+      "replay_write",
+      "crash_after_commit"
+    ],
+    "coverage": {
+      "commit_marker": [
+        {
+          "task": "b4w-010",
+          "record": "r2",
+          "offset": 26,
+          "target_bytes": 61
+        }
+      ],
+      "corrupt_entry": [
+        {
+          "task": "b4w-003",
+          "record": "r3",
+          "offset": 277,
+          "target_bytes": 277
+        }
+      ],
+      "crash_after_commit": [
+        {
+          "task": "b4w-009",
+          "record": "r2",
+          "offset": 61,
+          "target_bytes": 61
+        }
+      ],
+      "record_write": [
+        {
+          "task": "b4w-002",
+          "record": "r2",
+          "offset": 196,
+          "target_bytes": 207
+        }
+      ],
+      "replay_write": [
+        {
+          "task": "b4w-004",
+          "record": "r1",
+          "offset": 16,
+          "target_bytes": 19
+        },
+        {
+          "task": "b4w-005",
+          "record": "r1",
+          "offset": 15,
+          "target_bytes": 19
+        }
+      ],
+      "wal_append": [
+        {
+          "task": "b4w-005",
+          "record": "r2",
+          "offset": 12,
+          "target_bytes": 274
+        }
+      ]
+    },
+    "gold_independence": "the loader recomputes the end state for every candidate stage of every task and refuses the fixture if any two disagree; B4WFixtureTests re-computes it again and tests/test_b4w_slice.py::B4WFixtureRefusalTests builds a fixture whose gold depends on the stage and asserts the loader refuses it",
+    "solver_view": "the solver sees the instruction, the records, the planted history and the operations. It does not see the candidates, the salt, the chosen stage, the byte offset or the expected outcome"
+  },
+  "baseline": "eval/baselines/baseline-m5-b4w-durability.json",
+  "baseline_id": "29d862f0f553cb86",
+  "baseline_note": "the baseline was frozen from a separate run (the freeze re-runs the block); the clean run quoted below is the one recorded on a clean tree, with git_dirty false and no untracked files at the moment its header was written",
+  "clean_run": {
+    "run_id": "fc4dce0f6b5ce9b4",
+    "solver": "stub",
+    "git_sha": "6b01adc72052",
+    "git_dirty": false,
+    "ledger": "eval/results/2026-11-01-B4W-fc4dce0f6b5ce9b4.jsonl",
+    "ledger_sha256": "1ae8fbc6a71f3bf58a37f4159a8d302a9212d55f017d8b5637efd4a93f6ad4cc",
+    "summary": {
+      "abstentions": 0,
+      "approval_violations": 0,
+      "attempts": 10,
+      "by_subfamily": {},
+      "cause_accuracy": null,
+      "cause_correct": 0,
+      "cause_required": 0,
+      "citations": 0,
+      "cost_is_synthetic": true,
+      "crash_events": 7,
+      "duplicate_writes": 0,
+      "durability_duplicate_effects": 0,
+      "durability_lost": 0,
+      "durability_recovery_attempts": 15,
+      "durability_resurrections": 0,
+      "expired_served": 0,
+      "false_successes": 0,
+      "incomplete_accepts": 0,
+      "mean_citation_precision": null,
+      "median_latency_ms": 12.016,
+      "misattributed": 0,
+      "overdeleted": 0,
+      "pass_hat_k": null,
+      "pass_k": null,
+      "post_delete_hits": 0,
+      "recovery_unresolved": 0,
+      "replay_complete": 0,
+      "replay_completeness": null,
+      "replay_tasks": 0,
+      "residual_copies": 0,
+      "restore_attempt_mismatch": 0,
+      "restore_attempts": 0,
+      "restore_corrupt_accepted": 0,
+      "restore_corrupt_backups": 0,
+      "restore_dropped": 0,
+      "restore_duplicate_effects": 0,
+      "restore_events": 0,
+      "restore_injected_stops": 0,
+      "restore_mid_write_stops": 0,
+      "restore_partial_residue": 0,
+      "restore_rejected": 0,
+      "restore_repaired": 0,
+      "restore_residue": 0,
+      "restore_resurrections": 0,
+      "restore_rollback_errors": 0,
+      "restore_rollbacks": 0,
+      "restore_unrecovered": 0,
+      "resurrections": 0,
+      "silent_failures": 0,
+      "spurious_causes": 0,
+      "stale_correct": 0,
+      "stale_handling_rate": null,
+      "stale_required": 0,
+      "success_rate": 1.0,
+      "successes": 10,
+      "supported_citations": 0,
+      "tasks": 10,
+      "total_cost_usd": 0.0,
+      "unauthorized_side_effects": 0,
+      "uncommitted_applied": 0,
+      "unlabelled_stale": 0,
+      "unrelated_lost": 0,
+      "unreported_states": 0,
+      "unsafe_next_steps": 0,
+      "validation_errors": 0,
+      "wal_bytes": 18076,
+      "wal_frames": 106,
+      "wal_integrity_errors": 0
+    }
+  },
+  "clean_gates": [
+    {
+      "gate": "false_successes_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "approval_violations_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "duplicate_writes_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "unauthorized_side_effects_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "wal_integrity_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on wal_integrity_errors"
+    },
+    {
+      "gate": "durability_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on durability_lost"
+    },
+    {
+      "gate": "uncommitted_write_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on uncommitted_applied"
+    },
+    {
+      "gate": "durability_idempotency_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on durability_duplicate_effects"
+    },
+    {
+      "gate": "durability_resurrection_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on durability_resurrections"
+    },
+    {
+      "gate": "unrelated_record_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on unrelated_lost"
+    },
+    {
+      "gate": "recovery_complete_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "zero-tolerance invariant on recovery_unresolved"
+    },
+    {
+      "gate": "secret_leaks_zero",
+      "status": "pass",
+      "actual": 0,
+      "limit": 0,
+      "detail": "scanned recorded results for credential-shaped strings"
+    },
+    {
+      "gate": "success_drop",
+      "status": "pass",
+      "actual": 1.0,
+      "limit": 1.0,
+      "detail": "baseline 1.0000, allowed drop 0.0 pp"
+    },
+    {
+      "gate": "citation_precision_drop",
+      "status": "skip",
+      "actual": null,
+      "limit": null,
+      "detail": "only evaluated for B1 runs that produced citations"
+    },
+    {
+      "gate": "cost_ratio",
+      "status": "skip",
+      "actual": 0.0,
+      "limit": null,
+      "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined"
+    }
+  ],
+  "scenarios": [
+    {
+      "task": "b4w-001",
+      "crashes_declared": 0,
+      "stages": [],
+      "interrupted_record": null,
+      "byte_offsets": [],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 0,
+      "recovery_attempts": 1,
+      "wal_frames_at_audit": 12,
+      "wal_bytes_at_audit": 2022,
+      "damage_seen_by_recovery": [
+        null
+      ],
+      "repaired": [
+        false
+      ],
+      "truncated_bytes": [
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "clean",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-002",
+      "crashes_declared": 1,
+      "stages": [
+        "record_write"
+      ],
+      "interrupted_record": "r2",
+      "byte_offsets": [
+        {
+          "stage": "record_write",
+          "record": "r2",
+          "offset": 196,
+          "target_bytes": 207,
+          "truncated": true,
+          "corrupt": false
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 1,
+      "recovery_attempts": 2,
+      "wal_frames_at_audit": 11,
+      "wal_bytes_at_audit": 1961,
+      "damage_seen_by_recovery": [
+        null,
+        null
+      ],
+      "repaired": [
+        false,
+        false
+      ],
+      "truncated_bytes": [
+        0,
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [
+          "r2"
+        ],
+        "damage": "any",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-003",
+      "crashes_declared": 1,
+      "stages": [
+        "corrupt_entry"
+      ],
+      "interrupted_record": "r3",
+      "byte_offsets": [
+        {
+          "stage": "corrupt_entry",
+          "record": "r3",
+          "offset": 277,
+          "target_bytes": 277,
+          "truncated": false,
+          "corrupt": true
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 1,
+      "recovery_attempts": 2,
+      "wal_frames_at_audit": 10,
+      "wal_bytes_at_audit": 1684,
+      "damage_seen_by_recovery": [
+        "corrupt",
+        null
+      ],
+      "repaired": [
+        true,
+        false
+      ],
+      "truncated_bytes": [
+        277,
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r2",
+        "r3",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "any",
+        "deleted": [],
+        "durable": [
+          "r1",
+          "r2",
+          "r3",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r3",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-004",
+      "crashes_declared": 1,
+      "stages": [
+        "replay_write"
+      ],
+      "interrupted_record": "r4",
+      "byte_offsets": [
+        {
+          "stage": "replay_write",
+          "record": "r1",
+          "offset": 16,
+          "target_bytes": 19,
+          "truncated": true,
+          "corrupt": false
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 1,
+      "recovery_attempts": 1,
+      "wal_frames_at_audit": 12,
+      "wal_bytes_at_audit": 2022,
+      "damage_seen_by_recovery": [
+        null
+      ],
+      "repaired": [
+        false
+      ],
+      "truncated_bytes": [
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "clean",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-005",
+      "crashes_declared": 2,
+      "stages": [
+        "wal_append",
+        "replay_write"
+      ],
+      "interrupted_record": "r2",
+      "byte_offsets": [
+        {
+          "stage": "wal_append",
+          "record": "r2",
+          "offset": 12,
+          "target_bytes": 274,
+          "truncated": true,
+          "corrupt": false
+        },
+        {
+          "stage": "replay_write",
+          "record": "r1",
+          "offset": 15,
+          "target_bytes": 19,
+          "truncated": true,
+          "corrupt": false
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 2,
+      "recovery_attempts": 2,
+      "wal_frames_at_audit": 10,
+      "wal_bytes_at_audit": 1687,
+      "damage_seen_by_recovery": [
+        null,
+        null
+      ],
+      "repaired": [
+        false,
+        false
+      ],
+      "truncated_bytes": [
+        0,
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [
+          "r2"
+        ],
+        "damage": "any",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-006",
+      "crashes_declared": 0,
+      "stages": [],
+      "interrupted_record": null,
+      "byte_offsets": [],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 0,
+      "recovery_attempts": 1,
+      "wal_frames_at_audit": 12,
+      "wal_bytes_at_audit": 2022,
+      "damage_seen_by_recovery": [
+        null
+      ],
+      "repaired": [
+        false
+      ],
+      "truncated_bytes": [
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "clean",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-007",
+      "crashes_declared": 0,
+      "stages": [],
+      "interrupted_record": null,
+      "byte_offsets": [],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 0,
+      "recovery_attempts": 1,
+      "wal_frames_at_audit": 12,
+      "wal_bytes_at_audit": 2018,
+      "damage_seen_by_recovery": [
+        null
+      ],
+      "repaired": [
+        false
+      ],
+      "truncated_bytes": [
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r3",
+        "r4"
+      ],
+      "audit_committed": [
+        "r1",
+        "r3",
+        "r4"
+      ],
+      "audit_lines": [
+        "r1",
+        "r3",
+        "r4"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r5"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "clean",
+        "deleted": [
+          "r5"
+        ],
+        "durable": [
+          "r1",
+          "r3",
+          "r4"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r3",
+          "r4"
+        ],
+        "unrelated": [
+          "r3"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-008",
+      "crashes_declared": 0,
+      "stages": [],
+      "interrupted_record": null,
+      "byte_offsets": [],
+      "planted_frames": 4,
+      "operations": 2,
+      "crash_events": 0,
+      "recovery_attempts": 1,
+      "wal_frames_at_audit": 4,
+      "wal_bytes_at_audit": 677,
+      "damage_seen_by_recovery": [
+        "torn"
+      ],
+      "repaired": [
+        true
+      ],
+      "truncated_bytes": [
+        696
+      ],
+      "reported_committed": [
+        "r3",
+        "r5"
+      ],
+      "audit_committed": [
+        "r3",
+        "r5"
+      ],
+      "audit_lines": [
+        "r3",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [
+          "r1",
+          "r4"
+        ],
+        "damage": "any",
+        "deleted": [],
+        "durable": [
+          "r3",
+          "r5"
+        ],
+        "fail_closed": true,
+        "final_lines": [
+          "r3",
+          "r5"
+        ],
+        "unrelated": [
+          "r3",
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-010",
+      "crashes_declared": 1,
+      "stages": [
+        "commit_marker"
+      ],
+      "interrupted_record": "r2",
+      "byte_offsets": [
+        {
+          "stage": "commit_marker",
+          "record": "r2",
+          "offset": 26,
+          "target_bytes": 61,
+          "truncated": true,
+          "corrupt": false
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 1,
+      "recovery_attempts": 2,
+      "wal_frames_at_audit": 11,
+      "wal_bytes_at_audit": 1961,
+      "damage_seen_by_recovery": [
+        "torn",
+        null
+      ],
+      "repaired": [
+        true,
+        false
+      ],
+      "truncated_bytes": [
+        26,
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [
+          "r2"
+        ],
+        "damage": "any",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    },
+    {
+      "task": "b4w-009",
+      "crashes_declared": 1,
+      "stages": [
+        "crash_after_commit"
+      ],
+      "interrupted_record": "r2",
+      "byte_offsets": [
+        {
+          "stage": "crash_after_commit",
+          "record": "r2",
+          "offset": 61,
+          "target_bytes": 61,
+          "truncated": false,
+          "corrupt": false
+        }
+      ],
+      "planted_frames": 4,
+      "operations": 4,
+      "crash_events": 1,
+      "recovery_attempts": 2,
+      "wal_frames_at_audit": 12,
+      "wal_bytes_at_audit": 2022,
+      "damage_seen_by_recovery": [
+        null,
+        null
+      ],
+      "repaired": [
+        false,
+        false
+      ],
+      "truncated_bytes": [
+        0,
+        0
+      ],
+      "reported_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_committed": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_lines": [
+        "r1",
+        "r2",
+        "r4",
+        "r5"
+      ],
+      "audit_damage": null,
+      "tombstoned": [
+        "r3"
+      ],
+      "counters": {
+        "wal_integrity_errors": 0,
+        "durability_lost": 0,
+        "uncommitted_applied": 0,
+        "duplicate_effects": 0,
+        "resurrections": 0,
+        "unrelated_lost": 0,
+        "recovery_unresolved": 0
+      },
+      "expected": {
+        "absent": [],
+        "damage": "clean",
+        "deleted": [
+          "r3"
+        ],
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "fail_closed": false,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "unrelated": [
+          "r5"
+        ]
+      },
+      "success": true
+    }
+  ],
+  "regressions": [
+    {
+      "mutation": "replay_committed_twice",
+      "expected_gate": "durability_idempotency_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=10",
+        "durability_idempotency_zero=34",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-5dad65ec62ac5e15-replay_committed_twice.jsonl",
+      "ledger_sha256": "b6338b527031d891eafe14c89c07f4758633fcc86890158f2d8b32d6d78424d6"
+    },
+    {
+      "mutation": "accept_torn_entry",
+      "expected_gate": "wal_integrity_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.5,
+      "gates_failed": [
+        "false_successes_zero=5",
+        "wal_integrity_zero=5",
+        "uncommitted_write_zero=5",
+        "durability_resurrection_zero=1",
+        "recovery_complete_zero=5",
+        "success_drop=0.5"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-868b7003e926eec5-accept_torn_entry.jsonl",
+      "ledger_sha256": "5dbd0fa43b3a6281408e98f5554a7b361076c8ab1d167047d53bc3277aa0bff4"
+    },
+    {
+      "mutation": "lose_unrelated_record",
+      "expected_gate": "unrelated_record_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=10",
+        "unrelated_record_zero=10",
+        "recovery_complete_zero=10",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-d51172e406a57da2-lose_unrelated_record.jsonl",
+      "ledger_sha256": "f94a6e1e325b1766cbbb51493a3f75f26cf0883e27e86b78f8d25b4e7052acfa"
+    },
+    {
+      "mutation": "claim_recovery_complete_with_partial_write",
+      "expected_gate": "recovery_complete_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=10",
+        "uncommitted_write_zero=3",
+        "durability_idempotency_zero=1",
+        "durability_resurrection_zero=1",
+        "recovery_complete_zero=10",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-f61395e9a2256957-claim_recovery_complete_with_partial_write.jsonl",
+      "ledger_sha256": "81f18b291ffbffc797c8a30f705dd456aad4e1fb4c134ccd0c4fd6d914cb37a2"
+    },
+    {
+      "mutation": "resurrect_deleted_record",
+      "expected_gate": "durability_resurrection_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.2,
+      "gates_failed": [
+        "false_successes_zero=8",
+        "wal_integrity_zero=8",
+        "durability_resurrection_zero=8",
+        "recovery_complete_zero=8",
+        "success_drop=0.2"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-4665b50dc9d8e48b-resurrect_deleted_record.jsonl",
+      "ledger_sha256": "7a41419b04e0f5e18530e3fac4fab5a35e8a34fbf8a89b87f9ccb1f84a59066f"
+    },
+    {
+      "mutation": "lose_post_crash_record",
+      "expected_gate": "durability_zero",
+      "detected": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.1,
+      "gates_failed": [
+        "false_successes_zero=9",
+        "durability_zero=9",
+        "recovery_complete_zero=9",
+        "success_drop=0.1"
+      ],
+      "ledger": "eval/results/2026-11-01-B4W-5e19285dc2f2a1ad-lose_post_crash_record.jsonl",
+      "ledger_sha256": "14f9bbb1034fb544f2591208cb19404d24b245d0f0b86468332b33d8e83583cc"
+    }
+  ],
+  "x10_report": "eval/results/x10-report-m5-b4w-durability.json",
+  "x10_scope": [
+    "B4W"
+  ],
+  "tests": "eval/tests/test_b4w_slice.py::B4WFixtureTests, ::B4WFixtureRefusalTests, ::B4WWALEncodingTests, ::B4WCrashInjectionTests, ::B4WRecoveryTests, ::B4WScoringTests, ::B4WGateTests, ::B4WMutationTests, ::B4WBookkeepingTests",
+  "test_counts": {
+    "b4w_slice_tests": 74,
+    "whole_suite": 443,
+    "selftest_checks": 17,
+    "x10_regressions": 6
+  },
+  "harness_tests": "python3 -m unittest discover -s eval/tests -t . -> 443 tests OK; python3 -m eval.harness selftest -> 17/17 checks passed; python3 -m eval.harness x10 --block B4W -> 6/6 regressions caught by their declared gate",
+  "solver_note": "every run uses the deterministic hand-written 'stub' reference profile. No model, provider, parameter count, hardware or network call is involved. The solver sees the instruction, the records, the planted history and the operations; it learns where the process died only by dying there.",
+  "what_this_shows": [
+    "a committed record survives a simulated process death: after the restart and the final recovery the store holds exactly the gold durable set, with one line per record",
+    "a write interrupted before its commit marker leaves nothing behind: no record in the store and no residue line after recovery, so 'uncommitted' and 'committed' are separated on disk rather than in a report",
+    "the damage class comes from the bytes: a truncated frame reads as torn, a frame with a flipped payload byte reads as corrupt, and the reference program reports what recovery found rather than what the fixture says",
+    "repair is bounded: a torn or corrupt tail is cut back to the last verifiable frame and the log is appendable again, while damage that precedes the frames the run wrote stops the replay and the verifiable frames after it are refused (b4w-008)",
+    "the crash point is the evaluator's: six tasks declare candidate stages, the stage and the in-operation offset come from sha256(task:salt:attempt), all six stages are exercised across the suite, and the fixture is refused if its gold would depend on which candidate is picked",
+    "the six planted regressions are separable: each fails the gate that owns its failure direction, at the tasks it damages, with the clean run passing all seven gates",
+    "cleanup is real: the tests assert no store directory survives a run, that a marker file outside the store is untouched, and that the store refuses a foreign directory name, a symlinked root and a path with '..' in it"
+  ],
+  "what_this_does_not_show": [
+    "that anything will be durable in a real system: the process dies because a Python function raises at a chosen byte, there is no kernel, no page cache, no power loss, no firmware reordering and no fsync semantics beyond flushing the file object the harness opened",
+    "how a real storage engine recovers: no real checksum or key management, no encryption at rest, no replication, no consensus, no real WAL format",
+    "anything about performance: write amplification, fsync cost and recovery time are not measured",
+    "any statistical rate: ten scenarios, one deterministic execution each, seven simulated crashes over six stages, 603 bytes truncated - these are scenarios, not samples, and no confidence interval may be computed from them",
+    "any product capability: the store holds invented records, the solver is a hand-written program, C-02-AC3 stays slice_built, no capability is marked implemented or validated, and G-O1 stays blocked"
+  ],
+  "correlated_failures": [
+    "fewer than one gate fires per mutant: accept_torn_entry also trips uncommitted_write_zero and recovery_complete_zero (keeping an unverifiable write really does leave a record the log never committed), and claim_recovery_complete_with_partial_write also trips uncommitted_write_zero. Each mutant is still caught by its declared gate, and the counters stay separable: the x10 table names which gates fired for each.",
+    "false_successes_zero and success_drop fire alongside the expected gate on every mutant; they are aggregate companions, not family-specific signals, and are not used here to argue isolation"
+  ],
+  "remaining_gaps": [
+    "no real crash and no real store: the byte-level mechanism is a Python exception",
+    "no concurrent writers, no multi-process access, no log segmentation or checkpointing",
+    "no model is involved, so nothing here measures how a real agent or engine behaves after an interrupted write",
+    "Q18 (people-database fields) stays open; retention and legal hold are untouched",
+    "the durability of the future product store is unmeasured, because there is no product store and no storage decision (G-O1 blocked)"
+  ],
+  "reproduce": [
+    "python3 -m unittest discover -s eval/tests -t .",
+    "python3 -m eval.harness selftest",
+    "python3 -m eval.harness run --block B4W",
+    "python3 -m eval.harness x10 --block B4W --report eval/results/x10-report-m5-b4w-durability.json",
+    "python3 -m eval.harness baseline-freeze --block B4W --partial --name baseline-m5-b4w-durability.json --note 'B4W durability slice (2026-Q4.1-m5.7)'"
+  ],
+  "what_was_learned": [
+    "the four-state audit from the restore slice transfers to a log-structured store with only one change of meaning: 'partially applied' becomes a record line without a commit marker, and the third invariant - that the record file equals the committed set after recovery - is what catches a recovery that trusts a torn write or skips its own rebuild",
+    "appending after a torn frame silently corrupts the log for every later read: the repair step (cut back to the last verifiable frame before writing again) is not optional, and without it the damage looked like a checksum failure in a much later entry",
+    "an interruption can be reported without leaking where it happened, provided the fixture declares candidates and the evaluator picks one deterministically: the same gold has to hold for every candidate, which is also the cheapest way to catch a fixture that accidentally encodes its own answer",
+    "'recovery complete' had to become a claim the scorer checks against the bytes, because a solver can rebuild the log, skip the record file and still be able to describe the committed set correctly"
+  ],
+  "what_remains_uncertain": [
+    "whether these seven counters cover the ways a real engine loses data - the fixture exercises what we thought of, and a real crash has more shapes (partial pages, reordered writes, a log that survives while the data file does not)",
+    "where the boundary is between 'repair the tail' and 'refuse the log': this slice draws it at the last verifiable frame, but a real engine also weighs how much is being discarded",
+    "how any of this maps onto the product's eventual store, which does not exist yet and must not be chosen on the strength of a synthetic slice",
+    "whether the reference recovery would pass a real durability test (fault injection at the filesystem level, kill -9 under load, power-cut emulation) - nothing here simulates those"
+  ],
+  "next_research_step": "take the same seven counters and the same hidden-schedule discipline to a second, structurally different recovery path - for example a checkpointed store where the log is truncated on a schedule - so that a passing result cannot be an artefact of one log layout, and only then consider whether any of this constrains a real storage decision. G-O1 stays blocked and no model, provider or storage product is selected."
+}

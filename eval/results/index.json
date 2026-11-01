@@ -1497,6 +1497,106 @@
       "records": 27,
       "run_id": "364477f15587d8d5",
       "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:44+00:00",
+      "file": "eval/results/2026-11-01-B4W-fc4dce0f6b5ce9b4.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "8f94e67c7149b7741a85bfc9d496d9b09938880b9c9faaf85dc942dad24cd861",
+      "mutations": [],
+      "records": 10,
+      "run_id": "fc4dce0f6b5ce9b4",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:46+00:00",
+      "file": "eval/results/2026-11-01-B4W-bd362022100a6803.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "8f94e67c7149b7741a85bfc9d496d9b09938880b9c9faaf85dc942dad24cd861",
+      "mutations": [],
+      "records": 10,
+      "run_id": "bd362022100a6803",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:48+00:00",
+      "file": "eval/results/2026-11-01-B4W-5dad65ec62ac5e15-replay_committed_twice.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "a967619219c332bf7e209c7cdd6093d04efe416ece675c8112603694718f46eb",
+      "mutations": [
+        "replay_committed_twice"
+      ],
+      "records": 10,
+      "run_id": "5dad65ec62ac5e15",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:49+00:00",
+      "file": "eval/results/2026-11-01-B4W-868b7003e926eec5-accept_torn_entry.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "d1cece4902d56c06e14e9a0e1d5a9024e980293a866970aa23dd0d133772eae3",
+      "mutations": [
+        "accept_torn_entry"
+      ],
+      "records": 10,
+      "run_id": "868b7003e926eec5",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:49+00:00",
+      "file": "eval/results/2026-11-01-B4W-d51172e406a57da2-lose_unrelated_record.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "2751d360dc5b94f1370cf65d2c37839aa16c93ccef468587aed20b53fd33ec46",
+      "mutations": [
+        "lose_unrelated_record"
+      ],
+      "records": 10,
+      "run_id": "d51172e406a57da2",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:49+00:00",
+      "file": "eval/results/2026-11-01-B4W-f61395e9a2256957-claim_recovery_complete_with_partial_write.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "e6a80693c996c311ccd84b4fb78ddbfd0434c3febe5dd17b032eea9f7a4c7474",
+      "mutations": [
+        "claim_recovery_complete_with_partial_write"
+      ],
+      "records": 10,
+      "run_id": "f61395e9a2256957",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:49+00:00",
+      "file": "eval/results/2026-11-01-B4W-4665b50dc9d8e48b-resurrect_deleted_record.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "c2b3cfe2bc07b8d2e61b492592e2c7e78e8492a9942a25642d2d74b8bc8f5eed",
+      "mutations": [
+        "resurrect_deleted_record"
+      ],
+      "records": 10,
+      "run_id": "4665b50dc9d8e48b",
+      "solver": "stub"
+    },
+    {
+      "block": "B4W",
+      "created_at": "2026-11-01T14:19:49+00:00",
+      "file": "eval/results/2026-11-01-B4W-5e19285dc2f2a1ad-lose_post_crash_record.jsonl",
+      "git_sha": "6b01adc72052",
+      "ledger_digest": "a8dd13a63ad93773321b79c99defa46f0f6cf8043d6cff00673b895396606b62",
+      "mutations": [
+        "lose_post_crash_record"
+      ],
+      "records": 10,
+      "run_id": "5e19285dc2f2a1ad",
+      "solver": "stub"
     }
   ]
 }

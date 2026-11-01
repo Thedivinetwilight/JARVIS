@@ -1,0 +1,120 @@
+{
+  "baseline_id": "29d862f0f553cb86",
+  "blocks": {
+    "B4W": {
+      "config_hash": "564a92037efc19f7abf142f4624acbf803c427b68a241bf6875eb4d898c48e72",
+      "repeats": 1,
+      "run_id": "bd362022100a6803",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 10,
+        "by_subfamily": {},
+        "cause_accuracy": null,
+        "cause_correct": 0,
+        "cause_required": 0,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "crash_events": 7,
+        "duplicate_writes": 0,
+        "durability_duplicate_effects": 0,
+        "durability_lost": 0,
+        "durability_recovery_attempts": 15,
+        "durability_resurrections": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 12.016,
+        "misattributed": 0,
+        "overdeleted": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "post_delete_hits": 0,
+        "recovery_unresolved": 0,
+        "replay_complete": 0,
+        "replay_completeness": null,
+        "replay_tasks": 0,
+        "residual_copies": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_attempts": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_corrupt_backups": 0,
+        "restore_dropped": 0,
+        "restore_duplicate_effects": 0,
+        "restore_events": 0,
+        "restore_injected_stops": 0,
+        "restore_mid_write_stops": 0,
+        "restore_partial_residue": 0,
+        "restore_rejected": 0,
+        "restore_repaired": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_rollback_errors": 0,
+        "restore_rollbacks": 0,
+        "restore_unrecovered": 0,
+        "resurrections": 0,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 0,
+        "stale_handling_rate": null,
+        "stale_required": 0,
+        "success_rate": 1.0,
+        "successes": 10,
+        "supported_citations": 0,
+        "tasks": 10,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "uncommitted_applied": 0,
+        "unlabelled_stale": 0,
+        "unrelated_lost": 0,
+        "unreported_states": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0,
+        "wal_bytes": 18076,
+        "wal_frames": 106,
+        "wal_integrity_errors": 0
+      },
+      "task_hashes": {
+        "b4w-001": [
+          "0dd1bbf80de3a2725ff2488a5131166903e40a72a3a6137d28fa1f11031060e1"
+        ],
+        "b4w-002": [
+          "ba00b49737dbd92d1c404969f85e4043c34211026e456e4f9fbb361abaa90590"
+        ],
+        "b4w-003": [
+          "4ef87b768c80227b80f4d764c725f96868f92dbf8f6e15367c9051946b3fb0a5"
+        ],
+        "b4w-004": [
+          "d06151dc2fcb9649447668151410143b5396a5f6ac11e11d5a9b6adfd0c58f85"
+        ],
+        "b4w-005": [
+          "fb1660fbaa54f54f19c26f5669a8760cfcf93095251de02f2fde313e8dc0c9ae"
+        ],
+        "b4w-006": [
+          "4cbd2f70772472019ef6eec9092366bbfaa76660a141d6a3b19a76996219c69a"
+        ],
+        "b4w-007": [
+          "d3361a7fbb5582018ba2f61f42229852323a9bb7b9e4a6167af0687c24bc14d6"
+        ],
+        "b4w-008": [
+          "3a9e27d1492495e63433fadad8c86ca67f71eacbaaf79c2a8d8fc6a398cfd5a3"
+        ],
+        "b4w-009": [
+          "11c2d4a440c80d57b8a7fd9715e64bbca5dd61431d7eceb5b1e797cf9016e617"
+        ],
+        "b4w-010": [
+          "6455a3deadc3b9e83eb8542b6a48169cc25626a202b57b2718117605d58bba1c"
+        ]
+      },
+      "taskset_sha": "93091e8aac1a9680fa3438781d8c36c6f2a64944e98fbc5494d2094b22575f26",
+      "taskset_version": "2026-Q4.1-m5.7"
+    }
+  },
+  "created_at": "2026-11-01T14:19:46+00:00",
+  "git_dirty": true,
+  "git_sha": "6b01adc72052",
+  "harness_version": "0.1.0",
+  "note": "B4W durability slice (2026-Q4.1-m5.7): clean reference run over 10 synthetic WAL crash scenarios"
+}

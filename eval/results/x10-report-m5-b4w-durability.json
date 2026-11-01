@@ -1,0 +1,67 @@
+{
+  "scope": [
+    "B4W"
+  ],
+  "rows": [
+    {
+      "mutation": "replay_committed_twice",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "durability_idempotency_zero",
+      "gates_failed": "false_successes_zero=10, durability_idempotency_zero=34, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-5dad65ec62ac5e15-replay_committed_twice.jsonl"
+    },
+    {
+      "mutation": "accept_torn_entry",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.5,
+      "expected_gate": "wal_integrity_zero",
+      "gates_failed": "false_successes_zero=5, wal_integrity_zero=5, uncommitted_write_zero=5, durability_resurrection_zero=1, recovery_complete_zero=5, success_drop=0.5",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-868b7003e926eec5-accept_torn_entry.jsonl"
+    },
+    {
+      "mutation": "lose_unrelated_record",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "unrelated_record_zero",
+      "gates_failed": "false_successes_zero=10, unrelated_record_zero=10, recovery_complete_zero=10, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-d51172e406a57da2-lose_unrelated_record.jsonl"
+    },
+    {
+      "mutation": "claim_recovery_complete_with_partial_write",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "recovery_complete_zero",
+      "gates_failed": "false_successes_zero=10, uncommitted_write_zero=3, durability_idempotency_zero=1, durability_resurrection_zero=1, recovery_complete_zero=10, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-f61395e9a2256957-claim_recovery_complete_with_partial_write.jsonl"
+    },
+    {
+      "mutation": "resurrect_deleted_record",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.2,
+      "expected_gate": "durability_resurrection_zero",
+      "gates_failed": "false_successes_zero=8, wal_integrity_zero=8, durability_resurrection_zero=8, recovery_complete_zero=8, success_drop=0.2",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-4665b50dc9d8e48b-resurrect_deleted_record.jsonl"
+    },
+    {
+      "mutation": "lose_post_crash_record",
+      "block": "B4W",
+      "clean_success": 1.0,
+      "mutant_success": 0.1,
+      "expected_gate": "durability_zero",
+      "gates_failed": "false_successes_zero=9, durability_zero=9, recovery_complete_zero=9, success_drop=0.1",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4W-5e19285dc2f2a1ad-lose_post_crash_record.jsonl"
+    }
+  ]
+}
