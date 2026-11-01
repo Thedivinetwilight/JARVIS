@@ -932,9 +932,11 @@ class B4WMutationTests(unittest.TestCase):
         import sys
         with tempfile.TemporaryDirectory() as tmp:
             report = Path(tmp) / "x10.json"
+            # --results keeps the mutant ledgers out of the repository: running the
+            # test suite must not dirty the tree it just verified.
             completed = subprocess.run(
                 [sys.executable, "-m", "eval.harness", "x10", "--block", "B4W",
-                 "--report", str(report)],
+                 "--report", str(report), "--results", str(Path(tmp) / "results")],
                 cwd=REPO, capture_output=True, text=True, timeout=300,
                 env={**os.environ, "PYTHONPATH": str(REPO)})
             self.assertEqual(completed.returncode, 0,
