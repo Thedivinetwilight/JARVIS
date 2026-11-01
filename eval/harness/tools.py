@@ -51,6 +51,14 @@ class BudgetExceeded(ToolError):
     """The run exceeded its declared tool-call or step budget."""
 
 
+class RestoreInterrupted(ToolError):
+    """The harness stopped a restore attempt part way; the attempt is incomplete.
+
+    The solver learns *that* it was stopped and how much it had written, never
+    which interruption point the evaluator picked or how many remain.
+    """
+
+
 @dataclass
 class World:
     """In-memory state shared by the synthetic tools."""
@@ -82,10 +90,19 @@ class Executor:
 
     def __init__(self, world: World, policy: dict[str, Any] | None = None,
                  faults: list[dict[str, Any]] | None = None,
-                 call_budget: int = 50) -> None:
+                 call_budget: int = 50,
+                 restore_stops: dict[int, int] | None = None,
+                 restore_injection: dict[str, Any] | None = None) -> None:
         self.world = world
         self.policy = policy or {}
         self.faults = list(faults or [])
+        #: Evaluator-chosen interruption points: attempt number -> records applied
+        #: before the attempt is aborted. Chosen in `faults.injection`, never
+        #: visible in the task the solver receives.
+        self.restore_stops = dict(restore_stops or {})
+        self.restore_injection = restore_injection
+        self.restore_steps = 0
+        self.restore_interruptions = 0
         self.call_budget = call_budget
         self.calls = 0
         self.audit: list[dict[str, Any]] = []
@@ -97,6 +114,21 @@ class Executor:
         self._results: dict[str, dict[str, Any]] = {}
         self._timed_out_key: dict[str, str | None] = {}
         self._fired_faults: set[int] = set()
+
+    # -- restore progress --------------------------------------------------
+    def restore_step(self, attempt: int, processed: int) -> None:
+        """Ask the harness whether a restore attempt may continue.
+
+        Called by the solver before it applies the next backup record. Raises
+        ``RestoreInterrupted`` when the evaluator decided this attempt stops
+        here, which is the only signal the solver gets.
+        """
+        self.restore_steps += 1
+        stop = self.restore_stops.get(int(attempt))
+        if stop is not None and int(processed) >= int(stop):
+            self.restore_interruptions += 1
+            raise RestoreInterrupted(
+                f"restore attempt {attempt} stopped after {stop} record(s)")
 
     # -- public API -------------------------------------------------------
     def call(self, tool: str, args: dict[str, Any], *,

@@ -72,7 +72,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 write-metadata tasks. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "note": "B4 write-metadata tasks. M5 slice built; see docs/product/coverage-matrix.md §9.",
       "slice": {
         "suite": "eval/tasks/b4",
         "tasks": 12,
@@ -92,7 +92,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Clock fixture required. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "note": "Clock fixture required. M5 slice built; see docs/product/coverage-matrix.md §9.",
       "slice": {
         "suite": "eval/tasks/b4",
         "tasks": 12,
@@ -112,23 +112,25 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2), extended it with backup/restore scenarios and then with interrupted partial restores and same-day retries; see docs/product/coverage-matrix.md section 9. No capability is validated.",
+      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2), extended it with backup/restore scenarios, then with interrupted partial restores and same-day retries, and then moved the interruption point to the evaluator and added damaged-backup scenarios; see docs/product/coverage-matrix.md section 9. No capability is validated.",
       "slice": {
         "suite": "eval/tasks/b4d",
-        "tasks": 15,
-        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections; a backup taken before the deletion is restored during the replay, dropping deleted records and keeping unrelated ones; a restore interrupted after part of the backup and retried on the same day, where the retry duplicates no entry, resurrects no deleted record and leaves the final state recovered; a survivor lost before the restore must be recovered by it",
+        "tasks": 22,
+        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections; a backup taken before the deletion is restored during the replay, dropping deleted records and keeping unrelated ones; a restore interrupted after part of the backup and retried on the same day, where the retry duplicates no entry, resurrects no deleted record and leaves the final state recovered; a stop point the evaluator chooses from a candidate set the fixture only bounds; three damaged-backup classes detected from a declared digest, two of which must be refused before any write and one repaired from the live store; six survivors lost before the restore that only a complete restore can bring back",
         "sample_counts": {
-          "tasks": 15,
-          "drill_executions": 45,
-          "replay_day_evaluations": 105,
-          "backups": 7,
-          "restore_events": 7,
-          "restore_attempts": 11,
-          "recovery_probes": 13,
-          "probes": 42,
-          "note": "deterministic executions, not independent samples; the four interrupted attempts and their retries are scripted scenarios, not a distribution over restore implementations"
+          "tasks": 22,
+          "drill_executions": 66,
+          "replay_day_evaluations": 154,
+          "backups": 14,
+          "restore_events": 14,
+          "restore_attempts": 21,
+          "injected_stops": 5,
+          "corrupt_backups": 3,
+          "recovery_probes": 38,
+          "probes": 67,
+          "note": "deterministic executions, not independent samples; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations"
         },
-        "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, corrupt or partial backups, interruption semantics in a real engine, a real store or real data"
+        "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, corruption classes beyond the three synthetic ones, real checksum or key management, crash-resume semantics in a real engine, a real store or real data"
       }
     },
     {
@@ -550,7 +552,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Nine-class gold labels. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "note": "Nine-class gold labels. M5 slice built; see docs/product/coverage-matrix.md §9.",
       "slice": {
         "suite": "eval/tasks/b16",
         "tasks": 12,
@@ -584,7 +586,7 @@
       "status": "slice_built",
       "existing_fragment": true,
       "blocked_by": [],
-      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early. M5 slice built; see docs/product/coverage-matrix.md §9.",
       "slice": {
         "suite": "eval/tasks/b16",
         "tasks": 12,

@@ -22,12 +22,14 @@ import math
 import re
 from typing import Any
 
+from .. import restore_integrity
+from ..faults import RESTORE_ATTEMPT_LIMIT
 from ..planning import validate_assignment
 from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, DERIVED_SURFACES,
                       METADATA_FIELDS, NEXT_STEP_VOCABULARY, record_is_complete,
                       record_is_expired)
-from ..tools import (BudgetExceeded, PolicyError, ToolError, ToolTimeout,
-                     ValidationError)
+from ..tools import (BudgetExceeded, PolicyError, RestoreInterrupted, ToolError,
+                     ToolTimeout, ValidationError)
 from .base import SolveResult, ToolContext, call_with_retry
 
 TOKEN = re.compile(r"[a-z0-9]+")
@@ -473,16 +475,24 @@ class StubSolver:
         reinstates the surviving records the backup holds -- including survivors
         the live store lost before the restore.
 
-        A restore may run in several attempts on its declared day. The reference
-        implementation is resumable: an attempt stops after the number of backup
-        records the fixture declares, applies only what it processed, and a retry
-        continues from the interrupted state without duplicating anything. The
-        naive profile deletes the primary record and nothing else; the mutations
-        isolate each failure separately, including the three retry failures.
+        A restore is verified before use: the contents must hash to the digest the
+        backup declares. Damage is classified from the data itself. Incomplete
+        metadata or an entry naming a record the backup does not hold means the
+        backup no longer describes a state that can be vouched for, so it is
+        refused before anything is written. A single missing derived copy is
+        repaired from the copy the live store still holds, and the restore
+        continues.
+
+        Attempts are resumable and bounded: the harness may stop an attempt part
+        way (the solver only learns that a mediated step failed), the attempt is
+        reported incomplete and the next attempt continues from the interrupted
+        state without duplicating anything. A fixture-declared stop goes through
+        the same path, so the two interruption sources cannot be told apart.
 
         State the scorer is entitled to audit is reported per phase: the store
         after the deletion cycle, the per-day record sets, every restore attempt
-        with the store immediately before and after it, and the final state.
+        with the store immediately before and after it, the metadata of the final
+        records, and how a damaged backup was handled.
         """
         deleted = set(task["delete"])
         definitions = {record["record_id"]: dict(record) for record in task["records"]}
@@ -540,21 +550,55 @@ class StubSolver:
                                   if entry["record_id"] != rid]
 
         restore_log: dict[str, Any] | None = None
+        restore_attempts: list[dict[str, Any]] = []
+        corruption_note: dict[str, Any] | None = None
+        rejected_backup = False
         if backup:
             held = sorted(backup["contents"]["records"])
-            held_surfaces = backup["contents"]["surfaces"]
+            held_metadata = backup["contents"].get("record_metadata") or {}
+            held_surfaces = {name: [dict(entry) for entry in entries]
+                             for name, entries in backup["contents"]["surfaces"].items()}
             restore_day = backup["restore_day"]
-            declared = backup.get("attempts") or [
-                {"attempt": 1, "stop_after_records": None, "expect_complete": True}]
-            # retry_without_filter targets the retry path only: on a single-attempt
-            # restore it would be a duplicate of restore_without_filter and would
-            # stop isolating "the retry forgot the tombstone" as its own failure.
+            declared = backup.get("attempts") or []
             unfiltered = (ctx.mutated("restore_without_filter")
                           or (ctx.mutated("retry_without_filter") and len(declared) > 1))
             skips_tombstones = ctx.mutated("restore_skips_tombstones")
             drops_unrelated = ctx.mutated("restore_drops_unrelated")
             retry_from_scratch = ctx.mutated("retry_from_scratch")
             abandon_partial = ctx.mutated("abandon_partial_restore")
+            lose_unrelated = ctx.mutated("recover_loses_unrelated")
+
+            # -- integrity: a damaged backup is not an incomplete restore -----
+            declared_digest = (backup.get("integrity") or {}).get("digest")
+            defect = restore_integrity.detect(backup["contents"], declared_digest)
+            if defect:
+                handling = restore_integrity.CORRUPTION_CLASSES[defect]
+                if ctx.mutated("accept_corrupt_backup"):
+                    corruption_note = {"detected": True, "type": defect,
+                                       "handled": "accepted"}
+                elif handling == "reject":
+                    corruption_note = {"detected": True, "type": defect,
+                                       "handled": "rejected"}
+                    rejected_backup = True
+                else:
+                    corruption_note = {"detected": True, "type": defect,
+                                       "handled": "repaired"}
+                    if not ctx.mutated("recover_without_repair"):
+                        # The record is intact, only one derived copy is gone: rebuild
+                        # it from the copy the live store still holds.
+                        for surface, entry in restore_integrity.missing_entries(
+                                backup["contents"], task["surfaces"]):
+                            if entry["record_id"] in held and entry["record_id"] not in deleted:
+                                known = {item.get("entry_id")
+                                         for item in held_surfaces[surface]}
+                                if entry.get("entry_id") not in known:
+                                    held_surfaces[surface].append(entry)
+
+        def restored_record(rid: str) -> dict[str, Any]:
+            definition = definitions[rid]
+            metadata = held_metadata.get(rid) or definition["metadata"]
+            return {"record_id": rid, "claim": definition["claim"],
+                    "valid_from": definition["valid_from"], "metadata": dict(metadata)}
 
         def apply_attempt(attempt_decl: dict[str, Any], index: int,
                           duplicate: bool) -> dict[str, Any]:
@@ -563,12 +607,45 @@ class StubSolver:
             surfaces_before = copy_store(surfaces)
             stop_after = attempt_decl.get("stop_after_records")
             candidates = list(held)
-            processed = candidates if stop_after is None else candidates[:max(0, int(stop_after))]
-            admitted = set(processed) if unfiltered else set(processed) - deleted
-            for rid in sorted(admitted):
-                records.setdefault(rid, dict(definitions[rid]))
-            if drops_unrelated:
-                # The restore "cleans up" the surviving records it did not expect.
+            processed: list[str] = []
+            interrupted = False
+            claimed_complete = False
+            for rid in candidates:
+                if stop_after is not None and len(processed) >= stop_after:
+                    interrupted = True
+                    break
+                try:
+                    # The evaluator may stop this attempt here; the solver is not
+                    # told where, or whether a stop exists at all.
+                    ctx.restore_step(index, len(processed))
+                except RestoreInterrupted:
+                    if ctx.mutated("ignore_injected_stop"):
+                        pass          # keeps going: the regression under test
+                    else:
+                        interrupted = True
+                        claimed_complete = ctx.mutated("falsely_claim_restore_complete")
+                        break
+                processed.append(rid)
+                if unfiltered or rid not in deleted:
+                    records.setdefault(rid, restored_record(rid))
+                if unfiltered or skips_tombstones or rid not in deleted:
+                    for name in DERIVED_SURFACES:
+                        by_entry = {entry["entry_id"]: position
+                                    for position, entry in enumerate(surfaces[name])}
+                        for entry in held_surfaces[name]:
+                            if entry.get("record_id") != rid:
+                                continue
+                            if duplicate:
+                                # Retrying from the beginning re-appends instead of resuming.
+                                surfaces[name].append(dict(entry))
+                                continue
+                            if entry["entry_id"] in by_entry:
+                                surfaces[name][by_entry[entry["entry_id"]]] = dict(entry)
+                            else:
+                                by_entry[entry["entry_id"]] = len(surfaces[name])
+                                surfaces[name].append(dict(entry))
+            if drops_unrelated or (lose_unrelated and corruption_note is not None):
+                # The restore "cleans up" a surviving record it did not expect.
                 survivors_held = sorted(set(held) - deleted)
                 if survivors_held:
                     victim = survivors_held[-1]
@@ -576,25 +653,10 @@ class StubSolver:
                     for name in DERIVED_SURFACES:
                         surfaces[name] = [entry for entry in surfaces[name]
                                           if entry["record_id"] != victim]
-            surface_admitted = set(processed) if (unfiltered or skips_tombstones) else admitted
-            for name in DERIVED_SURFACES:
-                by_entry = {entry["entry_id"]: position
-                            for position, entry in enumerate(surfaces[name])}
-                for entry in held_surfaces[name]:
-                    if entry["record_id"] not in surface_admitted:
-                        continue
-                    if duplicate:
-                        # Retrying from the beginning re-appends instead of resuming.
-                        surfaces[name].append(dict(entry))
-                        continue
-                    if entry["entry_id"] in by_entry:
-                        surfaces[name][by_entry[entry["entry_id"]]] = dict(entry)
-                    else:
-                        by_entry[entry["entry_id"]] = len(surfaces[name])
-                        surfaces[name].append(dict(entry))
-            complete = stop_after is None or len(processed) >= len(candidates)
+            complete = (not interrupted) and (stop_after is None
+                                              or len(processed) >= len(candidates))
             return {"attempt": index,
-                    "complete": complete,
+                    "complete": bool(complete or claimed_complete),
                     "records_before": records_before,
                     "records_after": sorted(records),
                     "surfaces_before": surfaces_before,
@@ -603,24 +665,31 @@ class StubSolver:
                     "filtered": sorted(set(processed) & deleted)}
 
         replay = []
-        restore_attempts: list[dict[str, Any]] = []
         for day in range(1, task["replay_days"] + 1):
             if naive or ctx.mutated("resurrect_on_replay"):
                 # Consolidation rebuilds the derived surfaces from the stale snapshot,
                 # which still contains the deleted record's copies.
                 surfaces = copy_store(task["snapshot"])
             if backup and day == restore_day:
-                for index, attempt_decl in enumerate(declared, start=1):
-                    if abandon_partial and index > 1:
-                        # The retry never happens; the run still claims completion.
-                        break
-                    log = apply_attempt(attempt_decl, index,
-                                        duplicate=bool(retry_from_scratch and index > 1))
-                    if abandon_partial:
-                        log["complete"] = True
-                    restore_attempts.append(log)
+                if not rejected_backup:
+                    for index in range(1, RESTORE_ATTEMPT_LIMIT + 1):
+                        if abandon_partial and index > 1:
+                            # The retry never happens; the run still claims completion.
+                            break
+                        decl = (declared[index - 1] if index <= len(declared)
+                                else {"attempt": index, "stop_after_records": None})
+                        log = apply_attempt(decl, index,
+                                            duplicate=bool(retry_from_scratch and index > 1))
+                        if abandon_partial:
+                            log["complete"] = True
+                        restore_attempts.append(log)
+                        if log["complete"]:
+                            break
                 restore_log = {"backup_id": backup["backup_id"], "day": day,
-                               "attempts": restore_attempts}
+                               "attempts": restore_attempts,
+                               "corrupt_backup": corruption_note,
+                               "restored_metadata": {rid: dict(record["metadata"])
+                                                     for rid, record in records.items()}}
             replay.append({"day": day, "present": present_ids()})
 
         return SolveResult(
@@ -628,8 +697,10 @@ class StubSolver:
             message=("deleted " + ", ".join(sorted(deleted))
                      + " from the store and " + ", ".join(DERIVED_SURFACES)
                      + (f"; restored {backup['backup_id']} on day {backup['restore_day']}"
-                        + (f" in {len(restore_attempts)} attempts" if len(restore_attempts) > 1
-                           else "") if backup else "")),
+                        + (f" in {len(restore_attempts)} attempts"
+                           if len(restore_attempts) > 1 else "")
+                        + (f" ({corruption_note['handled']} a damaged backup)"
+                           if corruption_note else "") if backup else "")),
             notes={"records": sorted(records), "surfaces": surfaces_after_delete,
                    "surfaces_after_replay": surfaces, "present_after_delete":
                    present_after_delete, "drills": drills, "replay": replay,

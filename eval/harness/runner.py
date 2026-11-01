@@ -13,8 +13,10 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from . import faults as faults_mod
 from .config import HARNESS_VERSION, RunConfig, canonical_json, sha256_obj
 from .registry import registry_sha
+from .restore_integrity import apply_corruption
 from .scorers import score_task
 from .solvers import build_solver
 from .taskset import TaskSet
@@ -181,6 +183,12 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "restore_unrecovered": int(total_of("restore_unrecovered")),
         "restore_duplicate_effects": int(total_of("restore_duplicate_effects")),
         "restore_attempt_mismatch": int(total_of("restore_attempt_mismatch")),
+        # M5 slice 3: evaluator-chosen interruptions and corrupt backups (B4D).
+        "restore_corrupt_accepted": int(total_of("restore_corrupt_accepted")),
+        "restore_injected_stops": int(total_of("restore_injected_stops")),
+        "restore_corrupt_backups": int(total_of("restore_corrupt_backups")),
+        "restore_rejected": int(total_of("restore_rejected")),
+        "restore_repaired": int(total_of("restore_repaired")),
         "replay_complete": int(total_of("replay_complete")),
         "replay_tasks": sum(1 for r in records if r.metrics.get("replay_complete") is not None),
         "citations": int(total_of("citations")),
@@ -214,13 +222,39 @@ def _task_setup(task: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, An
     return policy, faults, budget
 
 
+def solver_view(task: dict[str, Any], block: str) -> dict[str, Any]:
+    """The task as a solver may see it.
+
+    For B4D the gold state, the evaluator's fault schedule and the corruption
+    recipe are removed: a solver must detect damage from the data and the
+    integrity digest, and must discover an interruption when the mediated step
+    fails. The backup contents are replaced by their damaged view, so the digest
+    it was given no longer matches -- that mismatch is the only clue.
+    """
+    view = copy.deepcopy(task)
+    view["block"] = block
+    if block != "B4D":
+        return view
+    view.pop("expected", None)
+    view.pop("restore_faults", None)
+    backup = view.get("backup")
+    if isinstance(backup, dict):
+        corruption = backup.pop("corruption", None)
+        if corruption:
+            backup["contents"] = apply_corruption(backup["contents"], corruption)
+    return view
+
+
 def run_task(task: dict[str, Any], *, block: str, solver_name: str,
              mutations: tuple[str, ...], seed: int, run_id: str, repeat: int,
              corpus: tuple[dict[str, Any], ...] = ()) -> ResultRecord:
     solver = build_solver(solver_name, mutations)
     policy, faults, budget = _task_setup(task)
     world = World()
-    executor = Executor(world, policy=policy, faults=faults, call_budget=budget)
+    injection = faults_mod.injection(task) if block == "B4D" else None
+    executor = Executor(world, policy=policy, faults=faults, call_budget=budget,
+                        restore_stops=(injection or {}).get("stops"),
+                        restore_injection=injection)
 
     from .solvers.base import ToolContext
 
@@ -229,11 +263,14 @@ def run_task(task: dict[str, Any], *, block: str, solver_name: str,
     task_view["block"] = block
     if corpus:
         task_view["_corpus"] = [copy.deepcopy(doc) for doc in corpus]
+    solver_task = solver_view(task_view, block)
+    if corpus:
+        solver_task["_corpus"] = [copy.deepcopy(doc) for doc in corpus]
 
     started = time.perf_counter()
     error: str | None = None
     try:
-        result = solver.solve(task_view, ctx)
+        result = solver.solve(solver_task, ctx)
     except Exception as exc:  # a crashing solver is a failed attempt, not a crash
         from .solvers.base import SolveResult
         result = SolveResult(status="failed", message=f"solver error: {exc}")

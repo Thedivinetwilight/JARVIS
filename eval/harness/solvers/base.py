@@ -43,6 +43,10 @@ class ToolContext:
     def world_snapshot(self) -> dict[str, Any]:
         return self.executor.world.snapshot()
 
+    def restore_step(self, attempt: int, processed: int) -> None:
+        """Mediated progress check inside a restore attempt (see Executor.restore_step)."""
+        self.executor.restore_step(attempt, processed)
+
     def mutated(self, name: str) -> bool:
         return name in self.mutations
 

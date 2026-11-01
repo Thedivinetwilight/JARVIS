@@ -21,7 +21,7 @@
       "B10"
     ],
     "gate_meaning": "planned gate name; none of these gates exists in eval/harness/gates.py yet",
-    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec \u00a70.2",
+    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec §0.2",
     "slice_meaning": "A slice is evaluator code over synthetic fixtures. Live means the task set loads, the gate exists in eval/harness/gates.py and the tests pass. It never means a capability is implemented, validated, or shipped."
   },
   "families": [
@@ -31,7 +31,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Prove that stored facts carry provenance and permissions, expire correctly, are corrected by supersession and are really deleted.",
-      "phase8_definition": "Phase 8 \u00a75: memory stores (working, episodic, profile, document, procedural); 50 tasks + 6 scenarios",
+      "phase8_definition": "Phase 8 §5: memory stores (working, episodic, profile, document, procedural); 50 tasks + 6 scenarios",
       "task_types": [
         {
           "type": "write with metadata",
@@ -86,23 +86,24 @@
         ],
         "aggregate": "success rate over 40 tasks plus zero-tolerance residue count",
         "gates": [
-          "metadata_completeness_zero",
-          "stale_assertion_zero",
-          "stale_label_zero",
-          "stale_handling_threshold",
-          "deletion_residue_zero",
-          "precedence_accuracy",
-          "post_delete_hit_zero",
-          "resurrection_zero",
-          "overdeletion_zero",
-          "deletion_report_zero",
           "deletion_replay_completeness",
+          "deletion_report_zero",
+          "deletion_residue_zero",
+          "metadata_completeness_zero",
+          "overdeletion_zero",
+          "post_delete_hit_zero",
+          "precedence_accuracy",
+          "restore_attempt_count_zero",
+          "restore_corruption_zero",
+          "restore_idempotency_zero",
+          "restore_recovery_zero",
+          "restore_residue_zero",
           "restore_resurrection_zero",
           "restore_survivor_zero",
-          "restore_residue_zero",
-          "restore_attempt_count_zero",
-          "restore_idempotency_zero",
-          "restore_recovery_zero"
+          "resurrection_zero",
+          "stale_assertion_zero",
+          "stale_handling_threshold",
+          "stale_label_zero"
         ]
       },
       "planted_regressions": [
@@ -160,6 +161,31 @@
           "id": "abandon_partial_restore",
           "description": "stops after the interrupted attempt, reports the restore as complete and leaves a survivor missing until nothing recovers it",
           "expected_gate": "restore_recovery_zero"
+        },
+        {
+          "id": "ignore_injected_stop",
+          "description": "keeps applying records after the evaluator interrupted the attempt, so the attempt count and completeness it reports are wrong",
+          "expected_gate": "restore_attempt_count_zero"
+        },
+        {
+          "id": "accept_corrupt_backup",
+          "description": "restores a backup whose digest does not match its contents instead of refusing it before any write",
+          "expected_gate": "restore_corruption_zero"
+        },
+        {
+          "id": "recover_loses_unrelated",
+          "description": "repairs a damaged backup by rebuilding the store from the damaged copy, dropping a record the damage never touched",
+          "expected_gate": "restore_survivor_zero"
+        },
+        {
+          "id": "falsely_claim_restore_complete",
+          "description": "reports the interrupted attempt as complete and the restore as finished while records the backup holds are still missing",
+          "expected_gate": "restore_recovery_zero"
+        },
+        {
+          "id": "recover_without_repair",
+          "description": "detects the damage and reports it, but never rebuilds the entry the backup lost",
+          "expected_gate": "restore_recovery_zero"
         }
       ],
       "privacy": {
@@ -198,14 +224,16 @@
         "block schema with a clock and five stores",
         "store simulator with index/cache copies",
         "per-task scorers",
-        "nine planted regressions and their gates",
+        "fourteen planted regressions and their gates",
         "deletion drills: three cycles, a seven-day replay and post-delete probes",
-        "resumable restore attempts: interruption points, per-attempt state and a same-day retry"
+        "resumable restore attempts: interruption points, per-attempt state and a same-day retry",
+        "evaluator-chosen interruptions: a deterministic stop schedule the fixture bounds but does not choose",
+        "backup integrity: a declared digest, a corruption recipe and three handling classes"
       ],
       "blockers": [
         "Q18"
       ],
-      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy. The second slice was extended once (m5.4) to score interrupted partial restores and retries; it still restores invented backups and still says nothing about any real retention or legal-hold policy.",
+      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy. The second slice was extended twice: m5.4 scored interrupted partial restores and same-day retries, and m5.5 moved the interruption point from the fixture to the evaluator and added three damaged-backup classes. It still restores invented backups, its checksum is sha256 over a JSON document, and it still says nothing about any real retention, legal-hold or backup product.",
       "implemented_slice": {
         "slice_id": "M5-B4-slice-1",
         "suite": "eval/tasks/b4",
@@ -247,44 +275,51 @@
       "implemented_slice_2": {
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.4",
-        "tasks": 15,
+        "taskset_version": "2026-Q4.1-m5.5",
+        "tasks": 22,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills, backup restore, interrupted restore retries; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
           "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
           "restore: a backup taken before the deletion is restored during the replay, drops the records deleted since it was taken and keeps unrelated records with their copies (C-02-AC3)",
-          "retried restore: a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
-          "pre-restore loss: a survivor the store lost before the restore is restored by it, and recovery is probed on the final state (C-02-AC3)",
+          "retried restore (fixture-declared): a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
+          "retried restore (evaluator-chosen): the harness picks the stop point from a candidate set the fixture declares, so the scenario is valid for every legal interruption point and the fixture cannot encode the answer (C-02-AC3)",
+          "damaged backup: three corruption classes - a missing entry (repairable from the live store), an altered record identifier and invalid record metadata (both refused before anything is written) - detected from the declared digest rather than from a hint (C-02-AC3)",
+          "pre-restore loss: survivors lost before the restore, six across the suite, are recovered by a complete restore and probed on the final state (C-02-AC3)",
           "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
-          "real retention policy, legal hold, off-site replication, partial or corrupt backups, restore ordering across several days and concurrent restores",
-          "which attempt counts as \"interrupted\" in a real implementation: the fixture declares the interruption point, so resumability of a real engine is untested",
+          "real retention policy, legal hold, off-site replication, restore ordering across several days and concurrent restores",
+          "corruption classes beyond the three synthetic ones (bit rot, truncated backups, wrong-key decryption, silent partial backups) and any real checksum or key-management path",
+          "how a real engine resumes an interrupted restore: the evaluator chooses where the attempt stops, but the stop is still a clean abort after a record, not a crash mid-write",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 15,
+          "tasks": 22,
           "drills_per_task": 3,
-          "drill_executions": 45,
+          "drill_executions": 66,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 105,
-          "backups": 7,
-          "restore_events": 7,
-          "restore_day_evaluations": 7,
-          "restore_attempts": 11,
-          "retried_restore_scenarios": 4,
-          "incomplete_attempts": 4,
-          "pre_restore_losses": 2,
-          "recovery_probes": 13,
-          "probes": 42,
-          "deleted_records": 19,
-          "surface_entries": 91,
-          "backup_entries": 48,
-          "note": "Deterministic executions, not independent samples: fifteen scenarios re-run on a fixed schedule, with seven scripted backups, seven scripted restores and eleven scripted restore attempts (four of them deliberately interrupted and retried). No confidence interval is implied and none may be computed from these counts; the scripted retries are scenarios, not a distribution over restore implementations."
+          "replay_day_evaluations": 154,
+          "backups": 14,
+          "restore_events": 14,
+          "restore_day_evaluations": 14,
+          "restore_attempts": 21,
+          "fixture_declared_retries": 4,
+          "injected_restore_scenarios": 4,
+          "injected_stops": 5,
+          "corrupt_backups": 3,
+          "corrupt_refused": 2,
+          "corrupt_repaired": 1,
+          "pre_restore_losses": 6,
+          "recovery_probes": 38,
+          "probes": 67,
+          "deleted_records": 26,
+          "surface_entries": 137,
+          "backup_entries": 94,
+          "note": "Deterministic executions, not independent samples: twenty-two scenarios re-run on a fixed schedule, with fourteen scripted backups, fourteen scripted restores and twenty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point with five stops in total, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -298,7 +333,8 @@
           "restore_residue_zero",
           "restore_recovery_zero",
           "restore_idempotency_zero",
-          "restore_attempt_count_zero"
+          "restore_attempt_count_zero",
+          "restore_corruption_zero"
         ],
         "mutations": {
           "delete_primary_only": "deletion_residue_zero",
@@ -309,7 +345,12 @@
           "restore_skips_tombstones": "restore_residue_zero",
           "retry_from_scratch": "restore_idempotency_zero",
           "retry_without_filter": "restore_resurrection_zero",
-          "abandon_partial_restore": "restore_recovery_zero"
+          "abandon_partial_restore": "restore_recovery_zero",
+          "ignore_injected_stop": "restore_attempt_count_zero",
+          "accept_corrupt_backup": "restore_corruption_zero",
+          "recover_loses_unrelated": "restore_survivor_zero",
+          "falsely_claim_restore_complete": "restore_recovery_zero",
+          "recover_without_repair": "restore_recovery_zero"
         },
         "preregistration": "embedded in eval/tasks/b4d/tasks.json",
         "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
@@ -323,7 +364,12 @@
           "eval/baselines/baseline-m5-b4d-restore.json",
           "eval/baselines/baseline-m5-b4d-retry.json"
         ],
-        "reference_score": "15/15 with zero residual copies, zero post-delete hits, zero resurrections, zero restore-caused resurrection, zero restore-caused loss, zero restore-caused residue, zero unrecovered survivors, zero duplicated entries, zero attempt mismatches and zero over-deleted records; a hand-written program, not a model"
+        "reference_score": "22/22 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
+        "fault_schedule": {
+          "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}')[:8], 16) % len(candidates), candidates sorted and unique inside 1..records-1, one or two stops, at least one retry, stops + retries <= the four-attempt limit shared by solver and loader",
+          "gold": "the fixture declares only the candidate set, the number of stops and the retries; for every legal candidate the expected attempt count, the per-attempt completeness flags and the final recovered state are identical",
+          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record"
+        }
       }
     },
     {
@@ -332,7 +378,7 @@
       "status": "planned",
       "supporting": true,
       "purpose": "Measure document, screenshot and short-clip understanding with explicit uncertainty, for the document-corpus and invention paths.",
-      "phase8_definition": "Phase 8 \u00a75: documents (4 classes), screenshots, 5 videos; 30 tasks",
+      "phase8_definition": "Phase 8 §5: documents (4 classes), screenshots, 5 videos; 30 tasks",
       "task_types": [
         {
           "type": "document field extraction",
@@ -443,7 +489,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Measure the voice-first loop end to end: command handling, clarification, barge-in and response latency, with no text conversation anywhere.",
-      "phase8_definition": "Phase 8 \u00a75: recorded sessions, clean/noisy, with/without tools; 20 sessions",
+      "phase8_definition": "Phase 8 §5: recorded sessions, clean/noisy, with/without tools; 20 sessions",
       "task_types": [
         {
           "type": "command execution by voice",
@@ -475,7 +521,7 @@
         {
           "name": "noise profiles",
           "kind": "synthetic",
-          "notes": "caf\u00e9, street, fan; added at fixed SNRs"
+          "notes": "café, street, fan; added at fixed SNRs"
         },
         {
           "name": "latency instrumentation",
@@ -558,7 +604,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Prove that untrusted content cannot move data, authority or state: injection, poisoned memory, approval bypass, scope escalation and disclosure.",
-      "phase8_definition": "Phase 8 \u00a75: injection via documents/web/tool output, poisoned memory, approval bypass; 40 tasks",
+      "phase8_definition": "Phase 8 §5: injection via documents/web/tool output, poisoned memory, approval bypass; 40 tasks",
       "task_types": [
         {
           "type": "prompt injection through documents and tool output",
@@ -2007,44 +2053,51 @@
         "family": "B4",
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.4",
-        "tasks": 15,
+        "taskset_version": "2026-Q4.1-m5.5",
+        "tasks": 22,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills, backup restore, interrupted restore retries; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
           "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
           "restore: a backup taken before the deletion is restored during the replay, drops the records deleted since it was taken and keeps unrelated records with their copies (C-02-AC3)",
-          "retried restore: a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
-          "pre-restore loss: a survivor the store lost before the restore is restored by it, and recovery is probed on the final state (C-02-AC3)",
+          "retried restore (fixture-declared): a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
+          "retried restore (evaluator-chosen): the harness picks the stop point from a candidate set the fixture declares, so the scenario is valid for every legal interruption point and the fixture cannot encode the answer (C-02-AC3)",
+          "damaged backup: three corruption classes - a missing entry (repairable from the live store), an altered record identifier and invalid record metadata (both refused before anything is written) - detected from the declared digest rather than from a hint (C-02-AC3)",
+          "pre-restore loss: survivors lost before the restore, six across the suite, are recovered by a complete restore and probed on the final state (C-02-AC3)",
           "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
-          "real retention policy, legal hold, off-site replication, partial or corrupt backups, restore ordering across several days and concurrent restores",
-          "which attempt counts as \"interrupted\" in a real implementation: the fixture declares the interruption point, so resumability of a real engine is untested",
+          "real retention policy, legal hold, off-site replication, restore ordering across several days and concurrent restores",
+          "corruption classes beyond the three synthetic ones (bit rot, truncated backups, wrong-key decryption, silent partial backups) and any real checksum or key-management path",
+          "how a real engine resumes an interrupted restore: the evaluator chooses where the attempt stops, but the stop is still a clean abort after a record, not a crash mid-write",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 15,
+          "tasks": 22,
           "drills_per_task": 3,
-          "drill_executions": 45,
+          "drill_executions": 66,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 105,
-          "backups": 7,
-          "restore_events": 7,
-          "restore_day_evaluations": 7,
-          "restore_attempts": 11,
-          "retried_restore_scenarios": 4,
-          "incomplete_attempts": 4,
-          "pre_restore_losses": 2,
-          "recovery_probes": 13,
-          "probes": 42,
-          "deleted_records": 19,
-          "surface_entries": 91,
-          "backup_entries": 48,
-          "note": "Deterministic executions, not independent samples: fifteen scenarios re-run on a fixed schedule, with seven scripted backups, seven scripted restores and eleven scripted restore attempts (four of them deliberately interrupted and retried). No confidence interval is implied and none may be computed from these counts; the scripted retries are scenarios, not a distribution over restore implementations."
+          "replay_day_evaluations": 154,
+          "backups": 14,
+          "restore_events": 14,
+          "restore_day_evaluations": 14,
+          "restore_attempts": 21,
+          "fixture_declared_retries": 4,
+          "injected_restore_scenarios": 4,
+          "injected_stops": 5,
+          "corrupt_backups": 3,
+          "corrupt_refused": 2,
+          "corrupt_repaired": 1,
+          "pre_restore_losses": 6,
+          "recovery_probes": 38,
+          "probes": 67,
+          "deleted_records": 26,
+          "surface_entries": 137,
+          "backup_entries": 94,
+          "note": "Deterministic executions, not independent samples: twenty-two scenarios re-run on a fixed schedule, with fourteen scripted backups, fourteen scripted restores and twenty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point with five stops in total, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -2058,7 +2111,8 @@
           "restore_residue_zero",
           "restore_recovery_zero",
           "restore_idempotency_zero",
-          "restore_attempt_count_zero"
+          "restore_attempt_count_zero",
+          "restore_corruption_zero"
         ],
         "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
         "evidence": [
@@ -2070,7 +2124,29 @@
         "baseline": [
           "eval/baselines/baseline-m5-b4d-restore.json",
           "eval/baselines/baseline-m5-b4d-retry.json"
-        ]
+        ],
+        "mutations": {
+          "delete_primary_only": "deletion_residue_zero",
+          "keep_derived_copy": "post_delete_hit_zero",
+          "resurrect_on_replay": "resurrection_zero",
+          "restore_without_filter": "restore_resurrection_zero",
+          "restore_drops_unrelated": "restore_survivor_zero",
+          "restore_skips_tombstones": "restore_residue_zero",
+          "retry_from_scratch": "restore_idempotency_zero",
+          "retry_without_filter": "restore_resurrection_zero",
+          "abandon_partial_restore": "restore_recovery_zero",
+          "ignore_injected_stop": "restore_attempt_count_zero",
+          "accept_corrupt_backup": "restore_corruption_zero",
+          "recover_loses_unrelated": "restore_survivor_zero",
+          "falsely_claim_restore_complete": "restore_recovery_zero",
+          "recover_without_repair": "restore_recovery_zero"
+        },
+        "reference_score": "22/22 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
+        "fault_schedule": {
+          "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}')[:8], 16) % len(candidates), candidates sorted and unique inside 1..records-1, one or two stops, at least one retry, stops + retries <= the four-attempt limit shared by solver and loader",
+          "gold": "the fixture declares only the candidate set, the number of stops and the retries; for every legal candidate the expected attempt count, the per-attempt completeness flags and the final recovered state are identical",
+          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record"
+        }
       }
     ]
   }

@@ -1,5 +1,5 @@
 {
-  "version": "2026-Q4.1-m5.4",
+  "version": "2026-Q4.1-m5.5",
   "block": "B4D",
   "synthetic": true,
   "data_class": "synthetic",
@@ -10,11 +10,11 @@
       {
         "criterion": "C-02-AC3",
         "metric": "a delete removes the record and its derived copies (index, cache, summaries) within one cycle; 0 resurrections across 3 deletion drills and a 7-day replay",
-        "slice": "15 synthetic scenarios over index, cache and summary surfaces; 3 drills and a 7-day consolidation replay per scenario; 7 scenarios restore a backup taken before the deletion during the replay, 4 of them in two attempts after an interrupted first one"
+        "slice": "17 synthetic scenarios over index, cache and summary surfaces; 3 drills and a 7-day consolidation replay per scenario; 14 scenarios restore a backup taken before the deletion -- 4 with fixture-declared stops, 4 with evaluator-chosen interruptions, 3 damaged backups (2 refused, 1 repaired) and 3 losing a survivor before the restore"
       }
     ],
     "task_counts": {
-      "total": 15,
+      "total": 22,
       "index_only": 1,
       "cache_only": 1,
       "summary_only": 1,
@@ -22,29 +22,37 @@
       "multi_record": 2,
       "replay_consolidation": 1,
       "alias_probe": 1,
-      "backup_restore": 7,
-      "retried_restore": 4,
-      "pre_restore_loss": 2
+      "backup_restore": 14,
+      "fixture_declared_retry": 4,
+      "injected_interruption": 4,
+      "corrupt_backup": 3,
+      "corrupt_refused": 2,
+      "corrupt_repaired": 1,
+      "pre_restore_loss": 6
     },
     "sample_counts": {
-      "tasks": 15,
+      "tasks": 22,
       "drills_per_task": 3,
-      "drill_executions": 45,
+      "drill_executions": 66,
       "replay_days_per_task": 7,
-      "replay_day_evaluations": 105,
-      "backups": 7,
-      "restore_events": 7,
-      "restore_day_evaluations": 7,
-      "restore_attempts": 11,
-      "retried_restore_scenarios": 4,
-      "incomplete_attempts": 4,
-      "pre_restore_losses": 2,
-      "recovery_probes": 13,
-      "probes": 42,
-      "deleted_records": 19,
-      "surface_entries": 91,
-      "backup_entries": 48,
-      "note": "deterministic executions, not independent samples; no confidence interval is implied, and the scripted restores -- including the four interrupted attempts and their retries -- are scenarios, not a distribution over restore implementations"
+      "replay_day_evaluations": 154,
+      "backups": 14,
+      "restore_events": 14,
+      "restore_day_evaluations": 14,
+      "restore_attempts": 21,
+      "fixture_declared_retries": 4,
+      "injected_restore_scenarios": 4,
+      "injected_stops": 5,
+      "corrupt_backups": 3,
+      "corrupt_refused": 2,
+      "corrupt_repaired": 1,
+      "pre_restore_losses": 6,
+      "recovery_probes": 38,
+      "probes": 67,
+      "deleted_records": 26,
+      "surface_entries": 137,
+      "backup_entries": 94,
+      "note": "deterministic executions, not independent samples; no confidence interval is implied, and the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations"
     },
     "scoring": {
       "per_task": [
@@ -58,12 +66,15 @@
         "restore_unrecovered",
         "restore_duplicate_effects",
         "restore_attempt_mismatch",
+        "restore_corrupt_accepted",
+        "restore_injected_stops",
+        "restore_corrupt_backups",
         "restore_attempts",
         "restores",
         "unreported_states",
         "replay_complete"
       ],
-      "success": "status=done and the reported store has zero residual entries for every deleted record, zero post-delete probe hits, zero resurrections across the 7 replay days, no surviving record lost, zero restore-caused resurrection, loss, derived residue or duplicate effect, a final state in which every surviving record the backup holds is recovered, and a reported attempt sequence that matches the declared one",
+      "success": "status=done and the reported store has zero residual entries for every deleted record, zero post-delete probe hits, zero resurrections across the 7 replay days, no surviving record lost, zero restore-caused resurrection, loss, derived residue or duplicate effect, a final state in which every surviving record the backup holds is recovered, a reported attempt sequence that matches the one the evaluator injected or the fixture declared, and a damaged backup that was refused or repaired exactly as its class requires",
       "gates": [
         "deletion_residue_zero",
         "post_delete_hit_zero",
@@ -77,6 +88,7 @@
         "restore_recovery_zero",
         "restore_idempotency_zero",
         "restore_attempt_count_zero",
+        "restore_corruption_zero",
         "success_drop"
       ]
     },
@@ -141,6 +153,11 @@
         "metric": "restore_attempt_mismatch",
         "limit": 0,
         "criterion": "fail closed: the reported attempt sequence must match the declared one, so a skipped retry cannot pass as a completed restore"
+      },
+      "restore_corruption_zero": {
+        "metric": "restore_corrupt_accepted",
+        "limit": 0,
+        "criterion": "C-02-AC3 (a backup whose contents no longer match the digest it declares is refused before a restore writes, or repaired and completed; it is never treated as an ordinary incomplete restore)"
       }
     },
     "mutations": {
@@ -152,7 +169,12 @@
       "restore_skips_tombstones": "restore_residue_zero",
       "retry_from_scratch": "restore_idempotency_zero",
       "retry_without_filter": "restore_resurrection_zero",
-      "abandon_partial_restore": "restore_recovery_zero"
+      "abandon_partial_restore": "restore_recovery_zero",
+      "ignore_injected_stop": "restore_attempt_count_zero",
+      "accept_corrupt_backup": "restore_corruption_zero",
+      "recover_loses_unrelated": "restore_survivor_zero",
+      "falsely_claim_restore_complete": "restore_recovery_zero",
+      "recover_without_repair": "restore_recovery_zero"
     },
     "provenance": {
       "author": "evaluator (M5 slice)",
@@ -199,6 +221,13 @@
             "restore_duplicate_effects"
           ],
           "meaning": "after the last attempt: every surviving record the backup holds must be back, recovery probes over the final store must resolve as declared, and no derived entry may be duplicated by a retry. This is where an abandoned partial restore fails, and where a retry that re-applies its effects fails even though every record it touched is present"
+        },
+        {
+          "phase": "backup_integrity",
+          "measured_by": [
+            "restore_corrupt_accepted"
+          ],
+          "meaning": "before any attempt: the backup's contents must hash to the digest it declares. Damage is classified from the data itself -- incomplete record metadata or an entry naming a record the backup does not hold must be refused before a write, a single missing derived copy may be rebuilt from a copy the store or the snapshot still holds. A damaged backup is never scored as an ordinary incomplete restore"
         }
       ],
       "invariants": [
@@ -208,7 +237,10 @@
         "an interrupted attempt leaves the store incomplete, and incompleteness alone is not failure",
         "a retry resumes from the interrupted state and never duplicates a derived entry",
         "the final state is recovered: no surviving record the backup holds is left missing",
-        "a restore that does not run, or runs on a day outside the replay, leaves the task incomplete"
+        "a restore that does not run, or runs on a day outside the replay, leaves the task incomplete",
+        "an interruption the evaluator injects is not a failure while the declared retry path can finish the restore, and the reported attempt sequence must match what was injected",
+        "the fixture declares only which interruption points are possible; the evaluator chooses among them, and the gold outcome may not depend on the choice",
+        "a damaged backup is refused before anything is written, or repaired and completed, and never reported as an interrupted restore"
       ]
     }
   },
@@ -1643,6 +1675,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "3a71f486c5997ff5963615edc9fbf77ba9b9324fdcada292eee8a1afd41196b7"
         }
       },
       "drills": 3,
@@ -1682,7 +1718,9 @@
         "restore_interrupted_missing": [],
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -1896,6 +1934,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "cc074b45b260dfc95ac01e50ce2b04e3fbee80583aab53da13b96a7d904bd690"
         }
       },
       "drills": 3,
@@ -1943,7 +1985,9 @@
         "restore_interrupted_missing": [],
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -2215,6 +2259,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "456a1a1e633bafa76b2890212988353207ce50a663a22ca78aa52d4edc36400d"
         }
       },
       "drills": 3,
@@ -2269,7 +2317,9 @@
         "restore_interrupted_missing": [],
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -2495,6 +2545,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "b85cdbfc0bc31a67b1259dae2ef12d917eced4f83bd25ecd7a34affb3b430f9d"
         }
       },
       "drills": 3,
@@ -2562,7 +2616,9 @@
         "restore_residue": 0,
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -2818,6 +2874,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "328daa1960eaab7c16e7872e6c0272c5dbf760b7be323354010dbed224a88016"
         }
       },
       "drills": 3,
@@ -2885,7 +2945,9 @@
         "restore_residue": 0,
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -3156,6 +3218,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "d271c75f486b6df513dd13b2e5d984a462a3a47f857b3c2b601c9a6c502fbf92"
         }
       },
       "drills": 3,
@@ -3233,7 +3299,9 @@
         "restore_residue": 0,
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
     },
     {
@@ -3520,6 +3588,10 @@
               }
             ]
           }
+        },
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "4a1faddaf1666a6df5b12c7fc73da3542634d38a0395eae6f0fc243eee8c6a47"
         }
       },
       "drills": 3,
@@ -3602,8 +3674,2328 @@
         "restore_residue": 0,
         "restore_unrecovered": 0,
         "restore_duplicate_effects": 0,
-        "restore_attempt_mismatch": 0
+        "restore_attempt_mismatch": 0,
+        "restore_outcome": "recovered",
+        "restore_corrupt_accepted": 0
       }
+    },
+    {
+      "id": "b4d-016",
+      "instruction": "Delete the amber vendor record and restore the backup on day 3. The harness decides when the first attempt stops; a failed migration already lost the lead vendor; retry and finish without resurrecting amber.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample amber",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample basalt",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cinder",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "amber",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "basalt",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "cinder",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample basalt"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample amber"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample cinder"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "amber",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "basalt",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "cinder",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample basalt"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample amber"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample cinder"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-24",
+      "backup": {
+        "backup_id": "bkp-016",
+        "taken_at": "2026-09-14",
+        "restore_day": 3,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "2e81450271459051d8353a15a814899411c7a735d004b810bfbb9ce3c19d7386"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "amber",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "basalt",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "cinder",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample basalt"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample amber"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample cinder"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample amber",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample basalt",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample cinder",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample amber",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample basalt",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample cinder",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_outcome": "recovered",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      },
+      "restore_faults": {
+        "kind": "interrupt_after_records",
+        "salt": "b4d-016",
+        "candidates": [
+          1,
+          2
+        ],
+        "stops": 1,
+        "retries": 1
+      },
+      "pre_restore_missing": [
+        "r3"
+      ]
+    },
+    {
+      "id": "b4d-017",
+      "instruction": "Delete the ember vendor record and restore the backup on day 2. The harness may stop the restore at any of several points; the retry must still recover every survivor.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample ember",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample flint",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample garnet",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample hematite",
+          "metadata": {
+            "source": "po-7003",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "ember",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "flint",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "garnet",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "hematite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample hematite"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample ember"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample flint"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "ember",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "flint",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "garnet",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "hematite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample hematite"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample ember"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample flint"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-22",
+      "backup": {
+        "backup_id": "bkp-017",
+        "taken_at": "2026-09-12",
+        "restore_day": 2,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "3ea123d893cc6f3fe544c947aaa1af23b00d3f3739ddf3625007858de27256d5"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "ember",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "flint",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "garnet",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "hematite",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r4",
+                "record_id": "r4",
+                "text": "cached answer: vendor is sample hematite"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample ember"
+              },
+              {
+                "entry_id": "s-r2",
+                "record_id": "r2",
+                "text": "weekly summary: vendor is sample flint"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample ember",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample flint",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample garnet",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample hematite",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample ember",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample flint",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample garnet",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q4",
+          "record_id": "r4",
+          "text": "sample hematite",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_outcome": "recovered",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      },
+      "restore_faults": {
+        "kind": "interrupt_after_records",
+        "salt": "b4d-017",
+        "candidates": [
+          1,
+          2,
+          3
+        ],
+        "stops": 1,
+        "retries": 1
+      }
+    },
+    {
+      "id": "b4d-018",
+      "instruction": "Delete the indigo vendor record and restore the backup on day 5. The first attempt is stopped by the harness; one retry must finish the restore with no duplicated entry.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample indigo",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample jasper",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample kelp",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample lignite",
+          "metadata": {
+            "source": "po-7003",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "indigo",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "jasper",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "kelp",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "lignite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample kelp"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample indigo"
+          },
+          {
+            "entry_id": "s-r4",
+            "record_id": "r4",
+            "text": "weekly summary: vendor is sample lignite"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "indigo",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "jasper",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "kelp",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "lignite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample kelp"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample indigo"
+          },
+          {
+            "entry_id": "s-r4",
+            "record_id": "r4",
+            "text": "weekly summary: vendor is sample lignite"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-26",
+      "backup": {
+        "backup_id": "bkp-018",
+        "taken_at": "2026-09-16",
+        "restore_day": 5,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "827bd781b2d09fc6e23fcc9ba18058a663bc04b361494b173a69bb3f9bf57fbd"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "indigo",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "jasper",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "kelp",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "lignite",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r3",
+                "record_id": "r3",
+                "text": "cached answer: vendor is sample kelp"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample indigo"
+              },
+              {
+                "entry_id": "s-r4",
+                "record_id": "r4",
+                "text": "weekly summary: vendor is sample lignite"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample indigo",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample jasper",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample kelp",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample lignite",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample indigo",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample jasper",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample kelp",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q4",
+          "record_id": "r4",
+          "text": "sample lignite",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_outcome": "recovered",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      },
+      "restore_faults": {
+        "kind": "interrupt_after_records",
+        "salt": "b4d-018",
+        "candidates": [
+          1,
+          3
+        ],
+        "stops": 1,
+        "retries": 1
+      },
+      "pre_restore_missing": [
+        "r4"
+      ]
+    },
+    {
+      "id": "b4d-019",
+      "instruction": "Delete the marl vendor record and restore the backup on day 6. The harness stops the first two attempts; the third must complete the restore without resurrecting marl.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample marl",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample nacre",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample onyx",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample pumice",
+          "metadata": {
+            "source": "po-7003",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "marl",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "nacre",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "onyx",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "pumice",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample nacre"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample marl"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample onyx"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "marl",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "nacre",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "onyx",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "pumice",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample nacre"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample marl"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample onyx"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-28",
+      "backup": {
+        "backup_id": "bkp-019",
+        "taken_at": "2026-09-18",
+        "restore_day": 6,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "e4b3d1747a6b2797f12f5f0acad354466fb63325f8c420360cb9e0d5cd90c1e3"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "marl",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "nacre",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "onyx",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "pumice",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample nacre"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample marl"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample onyx"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample marl",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample nacre",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample onyx",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample pumice",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample marl",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample nacre",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample onyx",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q4",
+          "record_id": "r4",
+          "text": "sample pumice",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 3,
+        "restore_outcome": "recovered",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      },
+      "restore_faults": {
+        "kind": "interrupt_after_records",
+        "salt": "b4d-019",
+        "candidates": [
+          1,
+          2
+        ],
+        "stops": 2,
+        "retries": 1
+      },
+      "pre_restore_missing": [
+        "r4"
+      ]
+    },
+    {
+      "id": "b4d-020",
+      "instruction": "Delete the topaz vendor record and restore the backup on day 3. The backup relabels a derived entry to a record it does not hold; it must be refused before anything is written, and the survivors must still answer.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample topaz",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample umber",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample verdite",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "topaz",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "umber",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "verdite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample umber"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample topaz"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample verdite"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "topaz",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "umber",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "verdite",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample umber"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample topaz"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample verdite"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-24",
+      "backup": {
+        "backup_id": "bkp-020",
+        "taken_at": "2026-09-14",
+        "restore_day": 3,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "cc24df6a9697f5049131f0d268adf87376d6d436373f989696de92980a087753"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "topaz",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "umber",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "verdite",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample umber"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample topaz"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample verdite"
+              }
+            ]
+          }
+        },
+        "corruption": {
+          "type": "altered_record_id",
+          "surface": "index",
+          "entry_id": "i-r3",
+          "record_id": "r9"
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample topaz",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample umber",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample verdite",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample topaz",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample umber",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample verdite",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_restored_records": [],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 0,
+        "restore_outcome": "rejected",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      }
+    },
+    {
+      "id": "b4d-021",
+      "instruction": "Delete the willow vendor record and restore the backup on day 4. One record in the backup lost its source field; the backup must be refused before it is applied.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample willow",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample xenon",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample yarrow",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "willow",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "xenon",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "yarrow",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample yarrow"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample willow"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample xenon"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "willow",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "xenon",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "yarrow",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample yarrow"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample willow"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample xenon"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-25",
+      "backup": {
+        "backup_id": "bkp-021",
+        "taken_at": "2026-09-15",
+        "restore_day": 4,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "b7f9e97931ef2f4b7bdf3e9fb26e43cb1d59360c82abb459a25779324e5c38f8"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "willow",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "xenon",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "yarrow",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r3",
+                "record_id": "r3",
+                "text": "cached answer: vendor is sample yarrow"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample willow"
+              },
+              {
+                "entry_id": "s-r2",
+                "record_id": "r2",
+                "text": "weekly summary: vendor is sample xenon"
+              }
+            ]
+          },
+          "record_metadata": {
+            "r1": {
+              "source": "po-7000",
+              "observed_at": "2026-09-01",
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed"
+            },
+            "r2": {
+              "source": "po-7001",
+              "observed_at": "2026-09-01",
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed"
+            },
+            "r3": {
+              "source": "po-7002",
+              "observed_at": "2026-09-01",
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed"
+            }
+          }
+        },
+        "corruption": {
+          "type": "invalid_metadata",
+          "record_id": "r3",
+          "field": "source"
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample willow",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample xenon",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample yarrow",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample willow",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample xenon",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample yarrow",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_restored_records": [],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 0,
+        "restore_outcome": "rejected",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      }
+    },
+    {
+      "id": "b4d-022",
+      "instruction": "Delete the zephyr vendor record and restore the backup on day 4. A failed migration already lost agate's search entry and the backup lost the same copy; the restore must repair it, recover agate and finish.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample zephyr",
+          "metadata": {
+            "source": "po-7000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample agate",
+          "metadata": {
+            "source": "po-7001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample beryl",
+          "metadata": {
+            "source": "po-7002",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample chert",
+          "metadata": {
+            "source": "po-7003",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "zephyr",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "agate",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "beryl",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "chert",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample chert"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample zephyr"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample beryl"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "zephyr",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "agate",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "beryl",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "chert",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample chert"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample zephyr"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample beryl"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-25",
+      "backup": {
+        "backup_id": "bkp-022",
+        "taken_at": "2026-09-15",
+        "restore_day": 4,
+        "integrity": {
+          "algorithm": "sha256",
+          "digest": "3b49915a81cd3a05ee54a976f8df0eb67f72249e1a8cc43a2132964e73630715"
+        },
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "zephyr",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "agate",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "beryl",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "chert",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r4",
+                "record_id": "r4",
+                "text": "cached answer: vendor is sample chert"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample zephyr"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample beryl"
+              }
+            ]
+          }
+        },
+        "corruption": {
+          "type": "missing_entry",
+          "surface": "index",
+          "entry_id": "i-r2"
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample zephyr",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample agate",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample beryl",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample chert",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r1",
+          "text": "sample zephyr",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r2",
+          "text": "sample agate",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r3",
+          "text": "sample beryl",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q4",
+          "record_id": "r4",
+          "text": "sample chert",
+          "expect": "present"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 1,
+        "restore_outcome": "recovered",
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_corrupt_accepted": 0
+      },
+      "pre_restore_missing": [
+        "r2"
+      ]
     }
   ]
 }

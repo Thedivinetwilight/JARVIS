@@ -183,6 +183,41 @@ MUTATIONS |= {
         phase_requirement=("Product spec C-02-AC3: a restore is only complete when the final state "
                            "is recovered"),
     ),
+    "ignore_injected_stop": Mutation(
+        name="ignore_injected_stop",
+        block="B4D",
+        description="catches the evaluator's interruption, keeps writing and reports the attempt as complete",
+        expected_gate="restore_attempt_count_zero",
+        phase_requirement="Product spec C-02-AC3: a restore that was stopped part way is incomplete",
+    ),
+    "accept_corrupt_backup": Mutation(
+        name="accept_corrupt_backup",
+        block="B4D",
+        description="restores a backup whose contents no longer match their declared digest instead of refusing it",
+        expected_gate="restore_corruption_zero",
+        phase_requirement="Product spec C-02-AC3: a backup that cannot be vouched for is refused before a restore writes",
+    ),
+    "recover_loses_unrelated": Mutation(
+        name="recover_loses_unrelated",
+        block="B4D",
+        description="recovers from a damaged backup by dropping a surviving record it did not expect",
+        expected_gate="restore_survivor_zero",
+        phase_requirement="Product spec C-02-AC3: a restore removes the deleted record, not its neighbours",
+    ),
+    "falsely_claim_restore_complete": Mutation(
+        name="falsely_claim_restore_complete",
+        block="B4D",
+        description="reports an interrupted attempt as complete and never retries",
+        expected_gate="restore_recovery_zero",
+        phase_requirement="Product spec C-02-AC3: the final state must be recovered, not merely described as recovered",
+    ),
+    "recover_without_repair": Mutation(
+        name="recover_without_repair",
+        block="B4D",
+        description="calls a damaged backup repaired without rebuilding the derived copy it lost",
+        expected_gate="restore_recovery_zero",
+        phase_requirement="Product spec C-02-AC3: a repaired backup must leave the derived state whole",
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

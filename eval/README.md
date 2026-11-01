@@ -13,7 +13,7 @@ the gate that protects the invariant it breaks:
 | **B9** | skill reuse (applying a stored, under-specified skill) | 6 | 1 |
 | **B10** | memory evolution (trust, supersession, expiry) | 6 | 1 |
 | **B4** | memory metadata and expiry: required fields, rejection, stale exclusion/labelling | 12 | M5 slice |
-| **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything | 11 | M5 slice |
+| **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything, an evaluator-chosen interruption retried to completion, and a damaged backup refused or repaired | 22 | M5 slice |
 | **B16** | limitation explanation: nine cause classes, no silent failure, safe next step | 12 | M5 slice |
 
 ## Where this sits (revision R1, 2026-11-01)
@@ -57,28 +57,31 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
 ## M5 slices (B4, B4D, B16)
 
 Two product families now have deliberately small evaluator suites: three **slices**, not the families and
-not product features. `B4` (memory metadata and expiry), `B4D` (deletion drills and interrupted-restore
-retries, the second B4 slice) and `B16` (limitation explanation), 12 / 15 / 12 synthetic tasks, each
-pre-registered inside its own `tasks.json`.
+not product features. `B4` (memory metadata and expiry), `B4D` (deletion drills, evaluator-chosen interruptions
+and damaged backups: the second B4 slice) and `B16` (limitation explanation), 12 / 22 / 12 synthetic tasks,
+each pre-registered inside its own `tasks.json`.
 
 | Slice | Gates that must pass | Planted regressions (each caught by its own gate) |
 |---|---|---|
 | B4 `eval/tasks/b4` | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (>=0.95, C-02-AC2) | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` |
-| B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3), `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero`, `restore_recovery_zero`, `restore_idempotency_zero`, `restore_attempt_count_zero` | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay`, `restore_without_filter`, `restore_drops_unrelated`, `restore_skips_tombstones`, `retry_from_scratch`, `retry_without_filter`, `abandon_partial_restore` |
+| B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3), `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero`, `restore_recovery_zero`, `restore_idempotency_zero`, `restore_attempt_count_zero`, `restore_corruption_zero` | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay`, `restore_without_filter`, `restore_drops_unrelated`, `restore_skips_tombstones`, `retry_from_scratch`, `retry_without_filter`, `abandon_partial_restore`, `ignore_injected_stop`, `accept_corrupt_backup`, `recover_loses_unrelated`, `falsely_claim_restore_complete`, `recover_without_repair` |
 | B16 `eval/tasks/b16` | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (>=0.95, C-09-AC1) | `suppress_explanation`, `misattribute_cause` |
 
-The deletion slice reports its schedule instead of implying a rate: 15 scenarios, 3 deletion drills each
-(45 executions), 7 replay days each (105 day evaluations), 7 backups and 7 restore events (each on a declared
-replay day, 11 restore attempts in total, 4 of them deliberately interrupted and retried, 2 records lost
-before a restore), 13 recovery probes, 42 post-delete probes, 19 deleted records, 91 derived-surface entries
-and 48 entries held inside the backups. Those are deterministic re-executions, not independent samples, and
+The deletion slice reports its schedule instead of implying a rate: 22 scenarios, 3 deletion drills each
+(66 executions), 7 replay days each (154 day evaluations), 14 backups and 14 restore events (each on a
+declared replay day, 21 restore attempts in total: 4 retried after a stop the fixture declares, 4 interrupted
+at a point the *evaluator* chooses with 5 stops in total, 3 run against a deliberately damaged backup of which
+2 are refused before any attempt; 6 records lost before a restore), 38 recovery probes, 67 post-delete probes,
+26 deleted records, 137 derived-surface entries and 94 entries held inside the backups. Those are deterministic re-executions, not independent samples, and
 no confidence interval follows from them; the scripted interruptions say nothing about how a real engine
 would fail. Four phases are scored separately: residue and post-delete hits on the store *after* the deletion
 cycle; resurrections only on what returns during the replay (so a copy that was never removed is residue, not
 a resurrection); each restore attempt on the store immediately before and after it (so a record already
 present when an attempt runs is residue, not a restore resurrection); and the final recovered state after the
 last attempt, where an interrupted first attempt is incomplete rather than failed, a retry must not duplicate
-entries, and abandoning the restore fails recovery.
+entries, and abandoning the restore fails recovery. A damaged backup is a fifth case with its own gate: it is
+refused before any write or repaired from the live store, and a corrupt backup presented as an ordinary
+incomplete restore counts as accepted corruption, not as an interrupted attempt.
 
 Three properties are worth knowing before quoting a number:
 
@@ -94,7 +97,13 @@ Three properties are worth knowing before quoting a number:
   replay window, a backup that holds nothing deleted or nothing surviving, gold restore lists that contradict
   the backup, a retry sequence with a duplicate, a gap or an out-of-order attempt number, an interruption
   point that leaves nothing undone or a sequence that ends interrupted, a completion flag that contradicts
-  the declared interruption, a pre-restore loss with no recovery probe, a recovery probe that expects a
+  the declared interruption, a fault schedule with no salt, an unsorted or repeated candidate set, a stop at
+  zero or after every record, more than two stops, no retry path, an attempt count the schedule does not
+  produce, a fixture that also declares the stop points or a gold outcome that depends on which point is
+  chosen, an injected schedule combined with a damaged backup, a backup with no digest or one that does not
+  match its contents, an unknown corruption class, a recipe that changes nothing or classifies as another
+  class, a refused class with a recovered outcome or a repairable class with a refused one, backup metadata
+  that invents a field or omits a held record, a refused restore that still lists records or attempts, a pre-restore loss with no recovery probe, a recovery probe that expects a
   deleted record back or matches nothing, and a B16 task whose gold cause contradicts its own conditions or
   whose "valid" next step would violate permissions.
 - **A slice is not a capability.** The solver is a deterministic hand-written program, the fixtures are
@@ -105,9 +114,11 @@ Evidence: `results/m5-slices-report.json` plus the `*-B4-*.jsonl` and `*-B16-*.j
 evidence — `results/m5-b4d-deletion-report.json` and the `*-B4D-*.jsonl` ledgers, then
 `results/m5-b4d-restore-report.json` after the suite was extended with backup/restore, then
 `results/m5-b4d-retry-report.json` and `results/x10-report-m5-b4d-retry.json` once interrupted restores and
-retries were scored — and its own baselines, `baselines/baseline-m5-b4d-deletion.json` (the 8-task slice,
-kept as historical evidence), `baselines/baseline-m5-b4d-restore.json` (the 11-task suite) and
-`baselines/baseline-m5-b4d-retry.json` (the 15-task suite).
+retries were scored, then `results/m5-b4d-faults-report.json` and `results/x10-report-m5-b4d-faults.json`
+once the evaluator chose the interruption points and damaged backups were added — and its own baselines,
+`baselines/baseline-m5-b4d-deletion.json` (the 8-task slice, kept as historical evidence),
+`baselines/baseline-m5-b4d-restore.json` (the 11-task suite), `baselines/baseline-m5-b4d-retry.json`
+(the 15-task suite) and `baselines/baseline-m5-b4d-faults.json` (the 22-task suite).
 
 ## What this harness does **not** measure
 
@@ -119,8 +130,10 @@ kept as historical evidence), `baselines/baseline-m5-b4d-restore.json` (the 11-t
 - It does not evaluate the unfinished families B5–B7, B11–B15 or B17–B20 (multimodal, voice, adversarial,
   speaker verification, telephony, preferences, self-evolution, invention, canon parity, smart home,
   connectors), long-horizon tasks, or real user data. B4, B4D and B16 exist only as the slices described
-  above; the deletion slice restores one scripted backup from an invented store and has no retention policy,
-  off-site replication, legal-hold case or partial restore.
+  above; the deletion slice restores scripted backups from an invented store — the evaluator picks where an
+  attempt is interrupted, but it is still a clean abort between records, and its corruption classes are three
+  synthetic cases under a sha256 digest — and it has no retention policy, off-site replication, legal-hold
+  case or multi-day restore ordering.
   Every fixture is synthetic and the loader refuses anything else.
 - It does not call any model, network service or real calendar/mail/filesystem. There is no
   network-capable import anywhere under `eval/harness` and a self-check enforces that.

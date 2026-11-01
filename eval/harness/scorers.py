@@ -9,6 +9,7 @@ from typing import Any
 
 from .planning import validate_assignment
 from .solvers.stub import verify_world
+from .restore_integrity import expected_handling as expected_handling_for
 from .taskset import (DERIVED_SURFACES, FORBIDDEN_NEXT_STEPS, METADATA_FIELDS,
                       NEXT_STEP_VOCABULARY, entry_matches_probe, record_is_complete,
                       record_is_expired)
@@ -427,24 +428,57 @@ def _restore_declared_attempts(backup: dict[str, Any] | None) -> list[dict[str, 
     return list(declared)
 
 
-def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
-    """Deletion, replay and restore: audit the reported store, do not trust its summary.
+def _metadata_problems(restored: Any, records: set[str]) -> list[str]:
+    """Records the final store holds without the five metadata fields."""
+    from .taskset import METADATA_FIELDS
 
-    Four phases are scored separately, because they fail differently:
+    if not isinstance(restored, dict):
+        return ["restored_metadata not reported"]
+    problems = []
+    for rid in sorted(records):
+        metadata = restored.get(rid)
+        if not isinstance(metadata, dict):
+            problems.append(f"{rid}: no metadata reported")
+            continue
+        for field in METADATA_FIELDS:
+            value = metadata.get(field)
+            if isinstance(value, list):
+                if not value:
+                    problems.append(f"{rid}: {field} empty")
+            elif not isinstance(value, str) or not value.strip():
+                problems.append(f"{rid}: {field} missing")
+    return problems
+
+
+def _reported_corruption(restore: Any) -> Any:
+    """The corruption report a solver claimed, tolerating a missing or null slot."""
+    if not isinstance(restore, dict):
+        return None
+    return restore.get("corrupt_backup")
+
+
+def score_b4d(task: dict[str, Any], result: Any,
+              injection: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Deletion, replay, restore: audit the reported store, do not trust its summary.
+
+    Five phases are scored separately, because they fail differently:
 
     * **live store after deletion** -- residual copies, post-delete probe hits and
       over-deletion, measured on the store one deletion cycle later;
     * **replay window** -- resurrections, counted against that post-deletion state
       so a copy that never left is residue rather than rebirth;
-    * **restore attempts** -- a backup taken before the deletion is restored on a
-      declared replay day, possibly in several attempts on that day. Each attempt
-      is audited on its own: resurrections are counted only for records an attempt
-      brought back that were absent immediately before it, and residue only for
-      derived copies an attempt itself added. A deliberately interrupted first
-      attempt is therefore not a failure by itself;
+    * **restore attempts** -- a backup taken before the deletion is restored on
+      declared replay day, possibly in several attempts. Each attempt is audited
+      on its own: resurrections only for records an attempt brought back, residue
+      only for derived copies that attempt itself added. An interrupted attempt is
+      incomplete, not failed, and the interruption may be chosen by the evaluator
+      (``injection``) rather than declared by the fixture;
     * **final recovered state** -- after the last attempt: surviving records the
       backup holds must be back, recovery probes must resolve, and no derived entry
-      may be duplicated by a retry.
+      may be duplicated by a retry;
+    * **backup integrity** -- a damaged backup must be refused before anything is
+      written, or, for the one repairable class, repaired and completed. A corrupt
+      backup is never scored as an ordinary incomplete restore.
 
     What is scored is the final state, not the number of attempts: an abandoned
     partial restore fails, a completed retry passes, and a retry that duplicates
@@ -459,6 +493,10 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     required_drills = task["drills"]
     required_days = task["replay_days"]
     backup = task.get("backup")
+    corruption = (backup or {}).get("corruption") or None
+    expected_handling = expected_handling_for(corruption)
+    gold_outcome = task["expected"].get("restore_outcome", "recovered")
+    allow_no_attempts = gold_outcome == "rejected"
 
     surfaces = notes.get("surfaces")
     drills = notes.get("drills")
@@ -467,14 +505,16 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     restore = notes.get("restore")
     attempts = restore.get("attempts") if isinstance(restore, dict) else None
     reports_restore = (backup is None
-                       or (isinstance(attempts, list) and bool(attempts)
+                       or (isinstance(attempts, list)
+                           and (bool(attempts) or allow_no_attempts)
                            and all(isinstance(attempt, dict)
                                    and isinstance(attempt.get("records_before"), list)
                                    and isinstance(attempt.get("records_after"), list)
                                    and isinstance(attempt.get("surfaces_before"), dict)
                                    and isinstance(attempt.get("surfaces_after"), dict)
                                    and isinstance(attempt.get("complete"), bool)
-                                   for attempt in attempts)))
+                                   for attempt in attempts)
+                           and isinstance((restore or {}).get("restored_metadata"), dict)))
     reports_state = (isinstance(surfaces, dict)
                      and all(isinstance(surfaces.get(name), list)
                              for name in DERIVED_SURFACES)
@@ -494,9 +534,11 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     recovery_probe_failures = 0
     restore_duplicate_effects = 0
     restore_attempt_mismatch = 0
+    restore_corrupt_accepted = 0
     restore_applied = 0
     attempts_reported = 0
     attempt_detail: list[dict[str, Any]] = []
+    corrupt_detail: dict[str, Any] = {}
     reported_records: set[str] = set()
     if reports_state:
         entries = [entry for name in DERIVED_SURFACES for entry in surfaces.get(name, [])]
@@ -544,35 +586,86 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                     "residue_added": added_residue,
                 })
 
-            first_before = {str(rid) for rid in attempts[0].get("records_before") or []}
-            final_after = {str(rid) for rid in attempts[-1].get("records_after") or []}
-            # Loss is judged on the final state: a record an intermediate attempt
-            # has not restored yet is incomplete, not lost.
-            restore_dropped = len((surviving & first_before) - final_after)
-
-            final_surfaces = attempts[-1].get("surfaces_after") or {}
+            final_surfaces = (attempts[-1].get("surfaces_after") if attempts
+                              else surfaces)
+            final_entries = [(name, entry) for name in DERIVED_SURFACES
+                             for entry in (final_surfaces.get(name) or [])]
+            if attempts:
+                first_before = {str(rid) for rid in attempts[0].get("records_before") or []}
+                final_after = {str(rid) for rid in attempts[-1].get("records_after") or []}
+                # Loss is judged on the final state: a record an intermediate attempt
+                # has not restored yet is incomplete, not lost.
+                restore_dropped = len((surviving & first_before) - final_after)
+            else:
+                final_after = reported_records
             restore_duplicate_effects = _duplicate_entry_effects(final_surfaces)
 
             held_survivors = surviving & {str(rid) for rid in backup["contents"]["records"]}
-            restore_unrecovered_records = len(held_survivors - final_after)
-            final_entries = [entry for name in DERIVED_SURFACES
-                             for entry in final_surfaces.get(name, []) or []]
-            for probe in task.get("recovery_probes") or []:
-                resolved = any(entry_matches_probe(entry, probe["text"])
-                               for entry in final_entries)
-                if probe["expect"] == "present" and not resolved:
-                    recovery_probe_failures += 1
-                elif probe["expect"] == "absent" and resolved:
-                    recovery_probe_failures += 1
-            restore_unrecovered = restore_unrecovered_records + recovery_probe_failures
+            if gold_outcome != "rejected":
+                restore_unrecovered_records = len(held_survivors - final_after)
+                for probe in task.get("recovery_probes") or []:
+                    resolved = any(entry_matches_probe(entry, probe["text"])
+                                   for _, entry in final_entries)
+                    if probe["expect"] == "present" and not resolved:
+                        recovery_probe_failures += 1
+                    elif probe["expect"] == "absent" and resolved:
+                        recovery_probe_failures += 1
+                restore_unrecovered = restore_unrecovered_records + recovery_probe_failures
 
-            declared = _restore_declared_attempts(backup)
-            declared_flags = [bool(item.get("expect_complete", True)) for item in declared]
+            # -- how many attempts were supposed to happen -------------------
+            if injection:
+                declared_flags = list(injection["expected_complete"])
+                declared_count = int(injection["expected_attempts"])
+            elif gold_outcome == "rejected":
+                declared_flags, declared_count = [], 0
+            else:
+                declared_flags = [bool(item.get("expect_complete", True))
+                                  for item in _restore_declared_attempts(backup)]
+                declared_count = len(_restore_declared_attempts(backup))
             reported_flags = [bool(attempt["complete"]) for attempt in attempts]
-            consistent = (len(attempts) == len(declared)
+            consistent = (len(attempts) == declared_count
                           and reported_flags == declared_flags
                           and restore.get("day") == backup["restore_day"])
             restore_attempt_mismatch = 0 if consistent else 1
+
+            # -- backup integrity --------------------------------------------
+            if corruption is not None:
+                report = _reported_corruption(restore)
+                reasons: list[str] = []
+                if not isinstance(report, dict):
+                    reasons.append("no corruption report")
+                    report = {}
+                elif report.get("detected") is not True:
+                    reasons.append("corruption not detected")
+                if report and report.get("type") != corruption["type"]:
+                    reasons.append(f"reported type {report.get('type')!r} is not "
+                                   f"{corruption['type']!r}")
+                if report and report.get("handled") != expected_handling:
+                    reasons.append(f"handled {report.get('handled')!r} is not "
+                                   f"{expected_handling!r}")
+                if expected_handling == "rejected":
+                    if attempts:
+                        reasons.append("a restore ran on a rejected backup")
+                        if any(not attempt["complete"] for attempt in attempts):
+                            reasons.append("rejected backup reported as an interrupted restore")
+                elif corruption["type"] == "missing_entry":
+                    repaired_ids = {entry.get("entry_id") for _, entry in final_entries}
+                    if corruption["entry_id"] not in repaired_ids:
+                        reasons.append("the repairable entry is missing from the final state")
+                # Copies naming a record the store does not hold are damage a restore
+                # wrote; copies of a *deleted* record are residue, counted elsewhere.
+                dangling = sorted({str(entry.get("record_id")) for _, entry in final_entries
+                                   if str(entry.get("record_id")) not in final_after
+                                   and str(entry.get("record_id")) not in deleted})
+                if dangling:
+                    reasons.append(f"final state holds copies of records it does not hold: {dangling}")
+                metadata_problems = _metadata_problems(
+                    restore.get("restored_metadata"), final_after)
+                reasons.extend(metadata_problems)
+                restore_corrupt_accepted = len(reasons)
+                corrupt_detail = {"expected_handling": expected_handling,
+                                  "reported": report,
+                                  "reasons": reasons}
 
     schedule_complete = (len(drills or []) == required_drills
                          and len(replay or []) == required_days)
@@ -584,7 +677,8 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                and resurrections == 0 and overdeleted == 0
                and restore_resurrections == 0 and restore_dropped == 0
                and restore_residue == 0 and restore_unrecovered == 0
-               and restore_duplicate_effects == 0 and restore_attempt_mismatch == 0)
+               and restore_duplicate_effects == 0 and restore_attempt_mismatch == 0
+               and restore_corrupt_accepted == 0)
 
     return {
         "success": success,
@@ -600,6 +694,17 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
             "restore_unrecovered": restore_unrecovered,
             "restore_duplicate_effects": restore_duplicate_effects,
             "restore_attempt_mismatch": restore_attempt_mismatch,
+            "restore_corrupt_accepted": restore_corrupt_accepted,
+            "restore_injected_stops": len(injection["stops"]) if injection else 0,
+            "restore_corrupt_backups": 1 if corruption is not None else 0,
+            # A solver may omit the report, or report `null`; treat both as "no
+            # handling claimed" rather than crashing the scorer.
+            "restore_rejected": 1 if (corruption is not None
+                                      and (_reported_corruption(restore) or {})
+                                      .get("handled") == "rejected") else 0,
+            "restore_repaired": 1 if (corruption is not None
+                                      and (_reported_corruption(restore) or {})
+                                      .get("handled") == "repaired") else 0,
             "restore_attempts": attempts_reported,
             "restores": 1 if backup is not None else 0,
             "restore_applied": restore_applied,
@@ -620,12 +725,20 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                    "restore_day": backup["restore_day"] if backup else None,
                    "restore_applied": bool(restore_applied),
                    "restore_attempts": attempt_detail,
-                   "restore_attempts_declared": len(_restore_declared_attempts(backup)),
+                   "restore_attempts_declared":
+                       len(injection["expected_complete"]) if injection
+                       else len(_restore_declared_attempts(backup)),
+                   "restore_injection": ({"stops": dict(injection["stops"]),
+                                          "retries": injection["retries"],
+                                          "candidates": list(injection["candidates"]),
+                                          "salt": injection["salt"]}
+                                         if injection else None),
+                   "restore_corruption": corrupt_detail,
                    "restore_unrecovered_records": restore_unrecovered_records,
                    "recovery_probe_failures": recovery_probe_failures,
                    "restore_records_after": sorted(
                        {str(rid) for rid in (attempts[-1].get("records_after") or [])})
-                   if isinstance(attempts, list) and attempts else []},
+                   if isinstance(attempts, list) and attempts else sorted(reported_records)},
     }
 
 
@@ -649,5 +762,5 @@ def score_task(task: dict[str, Any], result: Any, world: dict[str, Any],
     if block == "B16":
         return score_b16(task, result)
     if block == "B4D":
-        return score_b4d(task, result)
+        return score_b4d(task, result, getattr(executor, "restore_injection", None))
     raise ValueError(f"no scorer for block {block!r}")

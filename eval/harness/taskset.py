@@ -12,7 +12,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
+from . import restore_integrity
 from .config import sha256_obj
+from .faults import RESTORE_ATTEMPT_LIMIT
 
 REQUIRED_BLOCK_FIELDS = {"version", "block", "synthetic", "data_class", "tasks"}
 
@@ -323,7 +325,7 @@ PROBE_NORM = re.compile(r"[^a-z0-9]+")
 B4D_ZERO_COUNTERS = ("residual_copies", "post_delete_hits", "resurrections", "overdeleted",
                      "restore_resurrections", "restore_dropped", "restore_residue",
                      "restore_unrecovered", "restore_duplicate_effects",
-                     "restore_attempt_mismatch")
+                     "restore_attempt_mismatch", "restore_corrupt_accepted")
 
 
 def parse_timestamp(value: Any) -> datetime | None:
@@ -780,6 +782,321 @@ def _validate_b4d(directory: Path, task: dict[str, Any]) -> None:
                 "zero-tolerance, so a fixture may not encode a tolerated residue")
 
 
+def _validate_b4d_integrity(directory: Path, task: dict[str, Any], held: list[str],
+                            filtered: list[str]) -> None:
+    """A backup declares the digest it was taken with; a damaged one says how it is damaged.
+
+    The digest is what lets a solver notice damage without being told about it, so a
+    fixture that gets it wrong would make the detection path meaningless. The recipe
+    is replayed here: the damaged view must differ from the intact one and must
+    classify as the type the fixture claims, or the fixture is refused.
+    """
+    tid = task["id"]
+    backup = task["backup"]
+    integrity = backup.get("integrity")
+    if not isinstance(integrity, dict):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup has no integrity block; a restore cannot "
+            "tell a damaged backup from an intact one without one")
+    if integrity.get("algorithm") != "sha256":
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup integrity algorithm "
+            f"{integrity.get('algorithm')!r} is not 'sha256'")
+    digest = integrity.get("digest")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup digest {digest!r} is not a sha256 hex digest")
+    actual = restore_integrity.backup_digest(backup["contents"])
+    if actual != digest:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup contents hash to {actual}, not the declared "
+            f"{digest}; the fixture's own integrity metadata is wrong")
+
+    corruption = backup.get("corruption")
+    outcome = task["expected"].get("restore_outcome", "recovered")
+    if corruption is None:
+        if outcome == "rejected":
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} declares a refused restore without a corruption "
+                "recipe; nothing would be wrong with the backup")
+        return
+    if not isinstance(corruption, dict):
+        raise TaskSetError(f"{directory}: B4D task {tid} backup corruption must be an object")
+    kind = corruption.get("type")
+    if kind not in restore_integrity.CORRUPTION_CLASSES:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption type {kind!r} is not one of "
+            f"{sorted(restore_integrity.CORRUPTION_CLASSES)}")
+    expected_handling = restore_integrity.handling_for(corruption)
+    if expected_handling == "reject" and outcome != "rejected":
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption {kind!r} must be refused before a restore, "
+            f"but the fixture expects {outcome!r}")
+    if expected_handling == "repair" and outcome != "recovered":
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption {kind!r} is repairable, but the fixture "
+            f"expects {outcome!r}")
+
+    metadata = backup["contents"].get("record_metadata")
+    if kind == "invalid_metadata":
+        if not isinstance(metadata, dict):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} plants invalid metadata without a "
+                "record_metadata map to damage")
+        if corruption.get("record_id") not in metadata:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} corrupts metadata of "
+                f"{corruption.get('record_id')!r}, which the backup does not describe")
+        if corruption.get("field") not in METADATA_FIELDS:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} corrupts metadata field "
+                f"{corruption.get('field')!r}, which is not a metadata field")
+    if isinstance(metadata, dict):
+        if set(metadata) != set(held):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} record_metadata does not describe exactly the "
+                f"records the backup holds ({sorted(set(metadata) ^ set(held))} differ)")
+        known = {record["record_id"]: record["metadata"] for record in task["records"]}
+        for rid, values in metadata.items():
+            if not isinstance(values, dict):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} record_metadata[{rid}] must be an object")
+            extra = set(values) - set(METADATA_FIELDS)
+            if extra:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} record_metadata[{rid}] invents field(s) "
+                    f"{sorted(extra)}")
+            if values != known[rid]:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} record_metadata[{rid}] disagrees with the "
+                    "record the backup describes; a backup may not invent metadata")
+
+    try:
+        damaged = restore_integrity.apply_corruption(backup["contents"], corruption)
+    except (KeyError, IndexError, TypeError) as exc:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption recipe does not apply to its own backup "
+            f"({exc.__class__.__name__}: {exc})") from exc
+    if restore_integrity.backup_digest(damaged) == digest:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption recipe leaves the backup unchanged; the "
+            "digest could not reveal it")
+    detected = restore_integrity.detect(damaged, digest)
+    if detected != kind:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} corruption recipe classifies as {detected!r}, not the "
+            f"declared {kind!r}")
+    if kind == "altered_record_id" and corruption.get("record_id") in held:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} relabels an entry to {corruption.get('record_id')!r}, "
+            "which the backup holds; the defect would not be visible")
+    if kind == "missing_entry":
+        entry_id = corruption.get("entry_id")
+        live_ids = {entry.get("entry_id") for entries in task["surfaces"].values()
+                    for entry in entries}
+        if entry_id not in live_ids:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} drops entry {entry_id!r}, which the live store does "
+                "not hold either; the repair path could not rebuild it")
+        surface = corruption.get("surface")
+        holders = [entry for entry in task["surfaces"].get(surface, [])
+                   if entry.get("entry_id") == entry_id]
+        if not holders or holders[0].get("record_id") in filtered:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} drops a copy of a record the restore must filter; "
+                "repairing it would reintroduce derived residue")
+
+
+def _validate_b4d_recovery(directory: Path, task: dict[str, Any], held: list[str],
+                           filtered: list[str], restored: list[str],
+                           copies: dict[str, list[str]]) -> None:
+    """A record lost before the restore needs a probe that must resolve afterwards.
+
+    Shared by every restore scenario -- fixture-declared stops, evaluator-injected
+    stops and damaged backups -- because "the final state is recovered" is the claim
+    all of them make.
+    """
+    tid = task["id"]
+    backup = task["backup"]
+    lost = task.get("pre_restore_missing", [])
+    if not isinstance(lost, list):
+        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing must be a list")
+    if len(set(lost)) != len(lost):
+        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing repeats a record")
+    unknown = set(lost) - set(restored)
+    if unknown:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} pre_restore_missing names {sorted(unknown)}, which the "
+            "backup does not hold as surviving records; the restore could not recover them")
+    for rid in lost:
+        if not copies.get(rid):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} pre_restore_missing names {rid} but the backup holds "
+                "no derived copy of it")
+
+    recovery = task.get("recovery_probes")
+    if lost and not recovery:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} loses records before the restore but declares no "
+            "recovery_probes; recovery could not be observed on the final state")
+    if recovery is None:
+        return
+    if not isinstance(recovery, list):
+        raise TaskSetError(f"{directory}: B4D task {tid} recovery_probes must be a list")
+    seen: set[str] = set()
+    present_records: set[str] = set()
+    for probe in recovery:
+        pid = probe.get("probe_id")
+        if not pid or pid in seen:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe id missing or duplicated")
+        seen.add(pid)
+        rid = probe.get("record_id")
+        if rid not in set(held):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} names {rid!r}, which the "
+                "backup does not hold")
+        if probe.get("expect") not in {"absent", "present"}:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expect must be 'absent' or "
+                "'present'")
+        if probe["expect"] == "present" and rid in filtered:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expects a deleted record to be "
+                "restored")
+        if probe["expect"] == "absent" and rid not in filtered:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expects a surviving record to "
+                "be absent after recovery")
+        if not str(probe.get("text", "")).strip():
+            raise TaskSetError(f"{directory}: B4D task {tid} recovery probe {pid} has no text")
+        matched = [entry for name, entries in backup["contents"]["surfaces"].items()
+                   for entry in entries
+                   if entry.get("record_id") == rid
+                   and entry_matches_probe(entry, probe["text"])]
+        if not matched:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} matches no entry of {rid} in "
+                "the backup; it could not resolve even after a complete restore")
+        stray = [entry["entry_id"] for name, entries in backup["contents"]["surfaces"].items()
+                 for entry in entries
+                 if entry.get("record_id") != rid
+                 and entry_matches_probe(entry, probe["text"])]
+        if stray:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} is ambiguous with {stray}")
+        if probe["expect"] == "present":
+            present_records.add(rid)
+    missing_probe = set(lost) - present_records
+    if missing_probe:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} loses {sorted(missing_probe)} before the restore without "
+            "a recovery probe that must resolve afterwards")
+
+
+
+def _validate_b4d_damaged_attempts(directory: Path, task: dict[str, Any]) -> None:
+    """A refused backup runs no attempt; a repairable one runs exactly one restore."""
+    tid = task["id"]
+    backup = task["backup"]
+    expected = task["expected"]
+    if backup.get("attempts"):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares restore attempts for a damaged backup; the "
+            "attempt sequence is decided by the handling, not declared alongside it")
+    attempts = expected.get("restore_attempts")
+    if expected.get("restore_outcome") == "rejected":
+        if attempts not in (None, 0):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expects {attempts} restore attempt(s) after refusing "
+                "the backup; a refused restore applies nothing")
+        if expected.get("restore_interrupted_missing"):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} lists interrupted-missing records for a refused "
+                "backup; nothing was interrupted")
+        return
+    if attempts not in (None, 1):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} expects {attempts} restore attempt(s) for a repairable "
+            "backup; a repaired backup is restored in one pass")
+
+
+def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
+                         restored: list[str]) -> None:
+    """The evaluator picks the interruption point, so the fixture may only bound it.
+
+    The fixture declares a candidate set, how many stops happen and how many retries
+    follow. It may not declare the point itself, may not also declare stop points,
+    and may not state an outcome that depends on which candidate is chosen.
+    """
+    tid = task["id"]
+    spec = task["restore_faults"]
+    expected = task["expected"]
+    if not isinstance(spec, dict):
+        raise TaskSetError(f"{directory}: B4D task {tid} restore_faults must be an object")
+    if task["backup"].get("attempts"):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares both an evaluator fault schedule and fixture "
+            "stop points; an interruption must have one source")
+    if task["backup"].get("corruption") is not None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} combines a damaged backup with injected interruptions; "
+            "the two failures must stay separable")
+    if spec.get("kind", "interrupt_after_records") != "interrupt_after_records":
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} fault kind {spec.get('kind')!r} is not supported")
+    salt = spec.get("salt")
+    if not isinstance(salt, str) or not salt.strip():
+        raise TaskSetError(f"{directory}: B4D task {tid} restore_faults needs a non-empty salt")
+    candidates = spec.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_faults needs a non-empty candidate list")
+    if len(set(candidates)) != len(candidates):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} repeats a fault candidate; a candidate set is a set")
+    if candidates != sorted(candidates):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} fault candidates {candidates} are not sorted; the "
+            "chosen point depends on their order, so the order must be fixed")
+    for stop in candidates:
+        if isinstance(stop, bool) or not isinstance(stop, int):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} fault candidate {stop!r} is not an integer")
+        if stop < 1 or stop >= len(held):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} fault candidate {stop} stops after {stop} of "
+                f"{len(held)} records; every candidate must leave work undone")
+    stops = spec.get("stops")
+    if isinstance(stops, bool) or not isinstance(stops, int) or not 1 <= stops <= 2:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares stops={stops!r}; one or two injected stops are "
+            "supported")
+    retries = spec.get("retries")
+    if isinstance(retries, bool) or not isinstance(retries, int) or retries < 1:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares retries={retries!r}; a retry path is required")
+    if stops + retries > RESTORE_ATTEMPT_LIMIT:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} needs {stops + retries} attempts, above the "
+            f"{RESTORE_ATTEMPT_LIMIT}-attempt limit the solver and the loader share")
+    if expected.get("restore_attempts") != stops + retries:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} expects {expected.get('restore_attempts')!r} attempt(s) "
+            f"but its fault schedule produces {stops + retries}")
+    if expected.get("restore_interrupted_missing"):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares which records an interruption leaves missing, "
+            "but the evaluator chooses where the stop lands; that gold cannot be fixed")
+    if expected.get("restore_outcome", "recovered") != "recovered":
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} expects {expected.get('restore_outcome')!r} while "
+            "injecting a recoverable interruption")
+    if not restored:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} has a retry path with nothing to recover")
+
+
 def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[str],
                          delete: list[str],
                          entries_by_record: dict[str, list[dict[str, Any]]]) -> None:
@@ -855,7 +1172,17 @@ def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[
         if field not in task["expected"]:
             raise TaskSetError(
                 f"{directory}: B4D task {tid} expected missing {field!r} for a restore scenario")
-    if sorted(task["expected"]["restore_restored_records"]) != restored:
+    outcome = task["expected"].get("restore_outcome", "recovered")
+    if outcome not in {"recovered", "rejected"}:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_outcome {outcome!r} is neither 'recovered' "
+            "nor 'rejected'")
+    if outcome == "rejected":
+        if task["expected"]["restore_restored_records"]:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} rejects its backup but lists records it would "
+                "restore; a refused backup applies nothing")
+    elif sorted(task["expected"]["restore_restored_records"]) != restored:
         raise TaskSetError(
             f"{directory}: B4D task {tid} restore_restored_records disagree with the backup minus "
             "the deletion")
@@ -902,6 +1229,8 @@ def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[
                 f"{directory}: B4D task {tid} backup holds no derived copy of the deleted {rid}; "
                 "restore-time residue could not be observed")
 
+    _validate_b4d_integrity(directory, task, held, filtered)
+    _validate_b4d_recovery(directory, task, held, filtered, restored, copies)
     _validate_b4d_attempts(directory, task, held, filtered, restored, copies)
 
 
@@ -918,6 +1247,12 @@ def _validate_b4d_attempts(directory: Path, task: dict[str, Any], held: list[str
     tid = task["id"]
     backup = task["backup"]
     expected = task["expected"]
+    # An injected schedule is checked first, because its own separability guards
+    # have to see a damaged backup to refuse the combination.
+    if task.get("restore_faults") is not None:
+        return _validate_b4d_faults(directory, task, held, restored)
+    if backup.get("corruption") is not None or expected.get("restore_outcome") == "rejected":
+        return _validate_b4d_damaged_attempts(directory, task)
     attempts = backup.get("attempts")
     declared = ([{"attempt": 1, "stop_after_records": None, "expect_complete": True}]
                 if attempts is None else attempts)
@@ -999,82 +1334,6 @@ def _validate_b4d_attempts(directory: Path, task: dict[str, Any], held: list[str
         raise TaskSetError(
             f"{directory}: B4D task {tid} expected restore_attempts={expected['restore_attempts']} "
             f"but the backup declares {len(declared)} attempts")
-
-    lost = task.get("pre_restore_missing", [])
-    if not isinstance(lost, list):
-        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing must be a list")
-    if len(set(lost)) != len(lost):
-        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing repeats a record")
-    unknown = set(lost) - set(restored)
-    if unknown:
-        raise TaskSetError(
-            f"{directory}: B4D task {tid} pre_restore_missing names {sorted(unknown)}, which the "
-            "backup does not hold as surviving records; the restore could not recover them")
-    for rid in lost:
-        if not copies.get(rid):
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} pre_restore_missing names {rid} but the backup holds "
-                "no derived copy of it")
-
-    recovery = task.get("recovery_probes")
-    if lost and not recovery:
-        raise TaskSetError(
-            f"{directory}: B4D task {tid} loses records before the restore but declares no "
-            "recovery_probes; recovery could not be observed on the final state")
-    if recovery is None:
-        return
-    if not isinstance(recovery, list):
-        raise TaskSetError(f"{directory}: B4D task {tid} recovery_probes must be a list")
-    seen: set[str] = set()
-    present_records: set[str] = set()
-    for probe in recovery:
-        pid = probe.get("probe_id")
-        if not pid or pid in seen:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe id missing or duplicated")
-        seen.add(pid)
-        rid = probe.get("record_id")
-        if rid not in set(held):
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} names {rid!r}, which the "
-                "backup does not hold")
-        if probe.get("expect") not in {"absent", "present"}:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} expect must be 'absent' or "
-                "'present'")
-        if probe["expect"] == "present" and rid in filtered:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} expects a deleted record to be "
-                "restored")
-        if probe["expect"] == "absent" and rid not in filtered:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} expects a surviving record to "
-                "be absent after recovery")
-        if not str(probe.get("text", "")).strip():
-            raise TaskSetError(f"{directory}: B4D task {tid} recovery probe {pid} has no text")
-        matched = [entry for name, entries in backup["contents"]["surfaces"].items()
-                   for entry in entries
-                   if entry.get("record_id") == rid
-                   and entry_matches_probe(entry, probe["text"])]
-        if not matched:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} matches no entry of {rid} in "
-                "the backup; it could not resolve even after a complete restore")
-        stray = [entry["entry_id"] for name, entries in backup["contents"]["surfaces"].items()
-                 for entry in entries
-                 if entry.get("record_id") != rid
-                 and entry_matches_probe(entry, probe["text"])]
-        if stray:
-            raise TaskSetError(
-                f"{directory}: B4D task {tid} recovery probe {pid} is ambiguous with {stray}")
-        if probe["expect"] == "present":
-            present_records.add(rid)
-    missing_probe = set(lost) - present_records
-    if missing_probe:
-        raise TaskSetError(
-            f"{directory}: B4D task {tid} loses {sorted(missing_probe)} before the restore without "
-            "a recovery probe that must resolve afterwards")
-
 
 def load_tasksets(root: Path | str = "eval/tasks") -> dict[str, TaskSet]:
     root = Path(root)

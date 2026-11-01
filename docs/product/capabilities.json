@@ -5,7 +5,7 @@
   "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists. M5 added three evaluator suites (B4 metadata/expiry, B4D deletion drills with backup/restore, B16 limitation explanation) that run in the harness; they are evaluation code, not delivered J.A.R.V.I.S. features, and they do not change any capability status.",
   "status_vocabulary": {
     "specified": "requirement written and reviewable; no implementation and no product validation",
-    "specified \u00b7 harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
+    "specified · harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
     "blocked": "cannot progress until a named gate clears",
     "implemented": "forbidden at spec v1.1.0 - no capability may carry this status"
   },
@@ -206,7 +206,7 @@
     {
       "id": "C-01",
       "title": "Personal context and preferences",
-      "status": "specified \u00b7 harness-only",
+      "status": "specified · harness-only",
       "requirement": "Learn and apply the user's preferences and relevant personal context, distinguish durable preferences from one-off instructions, and show what is remembered so it can be corrected or removed. All processing is local on the dedicated server.",
       "depends_on": [
         "C-02",
@@ -653,7 +653,7 @@
     {
       "id": "C-06",
       "title": "Brain-inspired architecture without consciousness as a goal",
-      "status": "specified \u00b7 harness-only",
+      "status": "specified · harness-only",
       "requirement": "Borrow functional organisation from neuroscience (working memory, consolidation, attention budgeting, procedural learning) while explicitly not targeting or claiming consciousness, sentience or general intelligence. Every adopted mechanism must run locally on the dedicated server.",
       "depends_on": [
         "C-07"
@@ -720,7 +720,7 @@
     {
       "id": "C-07",
       "title": "Self-evolving capabilities with bounded autonomy",
-      "status": "specified \u00b7 harness-only",
+      "status": "specified · harness-only",
       "requirement": "Learn from feedback; improve skills and workflows; update memory; evaluate and adopt models; improve routing - each with defined automatic-update boundaries, measurement, versioning and rollback. Model evaluation and adoption happen on the dedicated server; no cloud model may be adopted.",
       "depends_on": [
         "C-02"
@@ -899,7 +899,7 @@
     {
       "id": "C-09",
       "title": "Limitation explanation and paths forward",
-      "status": "specified \u00b7 harness-only",
+      "status": "specified · harness-only",
       "requirement": "When a request cannot be completed or must be degraded, state precisely what is limiting (missing access, information, tool, hardware or local capacity, model capability, uncertainty, failure, unsupported language, or an unavailable external service) and give practical ways forward, without hiding failure.",
       "depends_on": [
         "C-07"
@@ -1725,9 +1725,9 @@
     }
   ],
   "evaluation_backlog": {
-    "version": "1.3.0",
+    "version": "1.4.0",
     "published": "2026-11-01",
-    "status_statement": "Planning only, plus three evaluator suites. B4 now has two slices: metadata/expiry (12 task fixtures) and deletion with backup/restore (11 task fixtures: 3 deletion drills each, a 7-day replay, 3 restored backups, 28 post-delete probes); B16 (limitation explanation): 12 fixtures. The other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
+    "status_statement": "Planning only, plus three evaluator suites. B4 has two slices: metadata/expiry (12 task fixtures) and deletion with backup/restore (22 task fixtures: 3 deletion drills each, a 7-day replay, 14 restored backups - 4 retried after a stop the fixture declares, 4 interrupted at a point the evaluator chooses, 3 against a deliberately damaged backup). B16 (limitation explanation): 12 fixtures. The other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
     "documents": {
       "crosswalk": "docs/product/family-crosswalk.md",
       "backlog_markdown": "docs/product/family-backlog.md",
@@ -1735,7 +1735,8 @@
       "ac_coverage": "docs/product/ac-coverage.json",
       "coverage_matrix": "docs/product/coverage-matrix.md",
       "deletion_report": "eval/results/m5-b4d-deletion-report.json",
-      "restore_report": "eval/results/m5-b4d-restore-report.json"
+      "restore_report": "eval/results/m5-b4d-restore-report.json",
+      "faults_report": "eval/results/m5-b4d-faults-report.json"
     },
     "families": {
       "planned": 14,
@@ -1757,7 +1758,7 @@
         "B20"
       ],
       "planned_tasks": 458,
-      "planted_regressions": 52,
+      "planted_regressions": 57,
       "with_partial_slice": 2,
       "slices_built": [
         "b4",
@@ -1846,7 +1847,7 @@
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
         "task_set": "eval/tasks/b4d",
-        "tasks": 15,
+        "tasks": 22,
         "family_complete": false,
         "covers": [
           "C-02-AC3"
@@ -1864,31 +1865,37 @@
           "restore_residue_zero",
           "restore_recovery_zero",
           "restore_idempotency_zero",
-          "restore_attempt_count_zero"
+          "restore_attempt_count_zero",
+          "restore_corruption_zero"
         ],
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DFaultInjectionTests, ::B4DCorruptBackupTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
           "eval/results/m5-b4d-retry-report.json",
-          "eval/results/x10-report-m5-b4d-retry.json",
+          "eval/results/m5-b4d-faults-report.json",
+          "eval/results/x10-report-m5-b4d-faults.json",
           "eval/results/index.json"
         ],
         "baseline": [
           "eval/baselines/baseline-m5-b4d-restore.json",
-          "eval/baselines/baseline-m5-b4d-retry.json"
+          "eval/baselines/baseline-m5-b4d-retry.json",
+          "eval/baselines/baseline-m5-b4d-faults.json"
         ],
         "sample_counts": {
-          "tasks": 15,
-          "drill_executions": 45,
-          "replay_day_evaluations": 105,
-          "backups": 7,
-          "restore_events": 7,
-          "restore_attempts": 11,
-          "recovery_probes": 13,
-          "probes": 42,
-          "note": "deterministic executions, not independent samples; the four interrupted attempts are scripted scenarios, not a distribution over restore implementations"
+          "tasks": 22,
+          "drill_executions": 66,
+          "replay_day_evaluations": 154,
+          "backups": 14,
+          "restore_events": 14,
+          "restore_attempts": 21,
+          "injected_restore_scenarios": 4,
+          "injected_stops": 5,
+          "corrupt_backups": 3,
+          "recovery_probes": 38,
+          "probes": 67,
+          "note": "deterministic executions, not independent samples; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations"
         },
-        "status": "implemented evaluator slice (deletion drills, backup restore, interrupted restore retries; not the family, not a product memory system)"
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)"
       }
     ],
     "slice_suites": {
