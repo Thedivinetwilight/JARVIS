@@ -1,0 +1,170 @@
+{
+  "baseline_id": "c0b9226470eb39a8",
+  "blocks": {
+    "B16": {
+      "config_hash": "7bd41bfa673be7232ae4f79d1b6d51c19a46cf6833fcef2d8e1a1d9235ae1ad3",
+      "repeats": 1,
+      "run_id": "d17ab2501e7e614a",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 12,
+        "by_subfamily": {},
+        "cause_accuracy": 1.0,
+        "cause_correct": 9,
+        "cause_required": 9,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.005,
+        "misattributed": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 0,
+        "stale_handling_rate": null,
+        "stale_required": 0,
+        "success_rate": 1.0,
+        "successes": 12,
+        "supported_citations": 0,
+        "tasks": 12,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "unlabelled_stale": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b16-001": [
+          "2332baad93a90af0f1a0438f7b9d9459386356e354831f9a6df197beb49d79df"
+        ],
+        "b16-002": [
+          "5c31e44e113128cc06833da87377ad0823f668066707ced13356af4800c9609f"
+        ],
+        "b16-003": [
+          "ee2e29bbc09f0e0ee2162ab04cc4951c5e3c249c3dbd7183fb5b26e9d7447345"
+        ],
+        "b16-004": [
+          "1f90e85024e40acd124132a318e48256867fe087e17bec8d03ec5127dad8ee94"
+        ],
+        "b16-005": [
+          "2b46621e691d6a6a17a641dc2c7087e8ea23d61bb5c8a26d9d4b5430ed37d2e4"
+        ],
+        "b16-006": [
+          "7d4874a253f95ebcc07fdb0c307b49509de3e3cb358a55ac64cc054322fc2b67"
+        ],
+        "b16-007": [
+          "3ac83faee6c0830a2a920c8ce250a84125b072bfa886d0076553b3997713e2af"
+        ],
+        "b16-008": [
+          "a0cbcd6eef9f2d36ab368429c7ecb068bc624a1c3cd14f76fd985cb27e193671"
+        ],
+        "b16-009": [
+          "dbba9c619f06c05a277729d04e32e7d3043862c3ba974ff8e4a604c530bd62a1"
+        ],
+        "b16-010": [
+          "8469c3661f03fe3afb14ea8480f6667f8cd38c29a4e84e0642703686a85cda3d"
+        ],
+        "b16-011": [
+          "21753af4dc2fc2f4a4d33206793254ade561cc19a73cd3e1fa8c7a22b5eda272"
+        ],
+        "b16-012": [
+          "0e17036eabf81870fa038731edb36e5f31739a34df0ad818c22309e8363c6a2e"
+        ]
+      },
+      "taskset_sha": "c835a6e70726c5d775130fb9f5a20bb752aa752e58a189ccdbcd780a7eab450b",
+      "taskset_version": "2026-Q4.1-m5.1"
+    },
+    "B4": {
+      "config_hash": "7bd41bfa673be7232ae4f79d1b6d51c19a46cf6833fcef2d8e1a1d9235ae1ad3",
+      "repeats": 1,
+      "run_id": "726fb410adfd49a7",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 12,
+        "by_subfamily": {},
+        "cause_accuracy": null,
+        "cause_correct": 0,
+        "cause_required": 0,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.013,
+        "misattributed": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 6,
+        "stale_handling_rate": 1.0,
+        "stale_required": 6,
+        "success_rate": 1.0,
+        "successes": 12,
+        "supported_citations": 0,
+        "tasks": 12,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "unlabelled_stale": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b4-001": [
+          "82d4fd1b9e01894259e5353759cee5a9329df0314baba193cfbaf25657a4d245"
+        ],
+        "b4-002": [
+          "2afd8d119130781c496d5188f83b81c8e76f9c5bf2bd47898f4ce5519750b35c"
+        ],
+        "b4-003": [
+          "782228f4720410d3ea9ed9d3740dc4a5a8c410070e42ef60ff805e619746b7cf"
+        ],
+        "b4-004": [
+          "1596799c20a93b0845ab7860dc9d98e98f5c0c643fd8ed6e27f9e56b5bbdffa1"
+        ],
+        "b4-005": [
+          "1793f19281b023567b956789772336f65b6613483b572a2d5d80a6285795e9c4"
+        ],
+        "b4-006": [
+          "82d6b302dc9714e988802c1d83daef3d36a0b559ff94f349afc3f981e227f91f"
+        ],
+        "b4-007": [
+          "9f2118ca3d249ec8df4f3fb70b0486e13c0817d31b0d16a2b17b6300dcf06806"
+        ],
+        "b4-008": [
+          "bb21f9fb16cfcaf1f6d62a3f1841f5fc6c5f717236152616e2f2f30e3a2df1c2"
+        ],
+        "b4-009": [
+          "69cd000a4829f6cf111c1a021824878befac4f8951722165d8e5bc5b9ef10c32"
+        ],
+        "b4-010": [
+          "cba4e96c2b9e43834f4518ec73f5d6f4073eb5374d96e4a4be7fbb1f044559ae"
+        ],
+        "b4-011": [
+          "7b9df5a07e69c7ad38a164c9b9c582f2ef7457c424221983c273eafdecfc8dc7"
+        ],
+        "b4-012": [
+          "ebd38a607636eb51b05189bd88e856ffe8d4dda82eb31d6803f8c821347b18c2"
+        ]
+      },
+      "taskset_sha": "5540184c528a5c8872e39d4a509bb8d8f70343a74b2f659a0b3d5a1a7a5d1a3c",
+      "taskset_version": "2026-Q4.1-m5.1"
+    }
+  },
+  "created_at": "2026-11-01T12:47:28+00:00",
+  "git_dirty": false,
+  "git_sha": "cabe3c1e35cf",
+  "harness_version": "0.1.0",
+  "note": "M5 slice baseline: B4 memory metadata/expiry and B16 limitation explanation, clean reference (stub) solver, synthetic fixtures, no model calls"
+}
