@@ -136,6 +136,27 @@ MUTATIONS |= {
         expected_gate="resurrection_zero",
         phase_requirement="Product spec C-02-AC3: zero resurrections across 3 deletion drills and a 7-day replay"
     ),
+    "restore_without_filter": Mutation(
+        name="restore_without_filter",
+        block="B4D",
+        description="restores the pre-deletion backup wholesale, reintroducing records deleted after it was taken",
+        expected_gate="restore_resurrection_zero",
+        phase_requirement="Product spec C-02-AC3: restoring a backup may not reintroduce a deleted record",
+    ),
+    "restore_drops_unrelated": Mutation(
+        name="restore_drops_unrelated",
+        block="B4D",
+        description="restores the backup but deletes a surviving record it did not expect, destroying unrelated data",
+        expected_gate="restore_survivor_zero",
+        phase_requirement="Product spec C-02-AC3: a restore removes the deleted record, not its neighbours",
+    ),
+    "restore_skips_tombstones": Mutation(
+        name="restore_skips_tombstones",
+        block="B4D",
+        description="filters the primary record out of the restore but rebuilds derived surfaces from the backup unfiltered",
+        expected_gate="restore_residue_zero",
+        phase_requirement="Product spec C-02-AC3: restore-time deletion metadata governs derived copies too",
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

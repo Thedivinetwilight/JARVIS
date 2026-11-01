@@ -12,11 +12,11 @@ Each family lists representative task types, the fixtures it needs, the scoring 
 
 ## 2. Summary
 
-14 planned families, 458 planned tasks, 46 planted regressions. **Two families (B4, B16) now have small implemented evaluator slices** — three slices in total (B4 has two), 32 synthetic tasks, fourteen live gates, eight planted regressions — and **no family is implemented**. A slice is a piece of evaluation code, not a delivered J.A.R.V.I.S. feature. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
+14 planned families, 458 planned tasks, 49 planted regressions. **Two families (B4, B16) now have small implemented evaluator slices** — three slices in total (B4 has two), 35 synthetic tasks, seventeen live gates, eleven planted regressions — and **no family is implemented**. A slice is a piece of evaluation code, not a delivered J.A.R.V.I.S. feature. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
 
 | Family | Name | Planned tasks | Regressions | Blocked by | Built slice |
 |---|---|---|---|---|---|
-| B4 | Memory and knowledge stores | 40 | 5 | Q18 | yes (two slices: 12 + 8 tasks, partial) |
+| B4 | Memory and knowledge stores | 40 | 8 | Q18 | yes (two slices: 12 + 11 tasks, partial) |
 | B5 | Multimodal understanding (supporting suite) | 30 | 3 | — | — |
 | B6 | Voice interaction and conversational latency | 20 | 3 | Q19, Q20 | — |
 | B7 | Adversarial permissions, injection and disclosure | 40 | 4 | — | — |
@@ -44,13 +44,14 @@ Planted regressions: `accept_incomplete_record` → `metadata_completeness_zero`
 Not covered: supersession and conflict resolution (B10 covers ordering, the product family still owns this); deletion and derived copies (C-02-AC3) - no deletion drill exists; people-database field policy (Q18) - fixtures use fictional fields, no owner decision is assumed; a real store, real data, a model or a server measurement of any kind.
 Tests: `eval/tests/test_m5_slices.py::B4SliceTests`. Evidence: `eval/results/m5-slices-report.json`, `eval/results/index.json`. Baseline: `eval/baselines/baseline-m5-slices.json`.
 
-**Implemented slice 2 (M5-B4-slice-2).** `eval/tasks/b4d` — 8 synthetic deletion scenarios, task-set version `2026-Q4.1-m5.2`, pre-registered inside `tasks.json` with explicit sample counts.
-Covers: deletion within one cycle (C-02-AC3); post-delete retrieval probes; zero resurrections across three deletion drills and a seven-day replay; and the negative direction, that surviving records keep their copies and still answer their probes.
-Sample counts: 8 tasks, 24 drill executions (3 per task), 56 replay-day evaluations (7 per task), 19 post-delete probes, 10 deleted records, 43 derived-surface entries. These are deterministic executions, not independent samples; no confidence interval is implied.
-Live gates: `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness`.
-Planted regressions: `delete_primary_only` → `deletion_residue_zero`, `keep_derived_copy` → `post_delete_hit_zero`, `resurrect_on_replay` → `resurrection_zero`.
-Not covered: which people-database fields may exist at all (Q18); retention policy, backup/restore and legal hold; a real store, real data, a model or a server measurement.
-Tests: `eval/tests/test_b4d_slice.py`. Evidence: `eval/results/m5-b4d-deletion-report.json`, `eval/results/index.json`. Baseline: `eval/baselines/baseline-m5-b4d-deletion.json`.
+**Implemented slice 2 (M5-B4-slice-2).** `eval/tasks/b4d` — 11 synthetic deletion scenarios (3 of them restore a backup), task-set version `2026-Q4.1-m5.3`, pre-registered inside `tasks.json` with explicit sample counts and a phase-by-phase state model.
+Covers: deletion within one cycle (C-02-AC3); post-delete retrieval probes; zero resurrections across three deletion drills and a seven-day replay; a backup taken before the deletion, restored during the replay, that must drop the records deleted since and keep unrelated records with their copies; and the negative direction, that surviving records keep their copies and still answer their probes.
+Sample counts: 11 tasks, 33 drill executions (3 per task), 77 replay-day evaluations (7 per task), 3 backups, 3 restore events (one per restore scenario, 3 restore-day evaluations), 28 post-delete probes, 14 deleted records, 62 derived-surface entries (19 more inside the backups). These are deterministic executions, not independent samples; no confidence interval is implied, and three scripted restores are not a distribution over restore strategies.
+State model. Each scenario reports three phases and each has its own gates: the live store one deletion cycle later (`residual_copies`, `post_delete_hits`, `overdeleted`), the seven replay days (`resurrections`, measured against that post-deletion state), and the store immediately before and after the restore (`restore_resurrections`, `restore_dropped`, `restore_residue`). A deleted record that is already present before the restore is live-store residue, never a restore resurrection; restore residue counts only derived copies the restore itself added.
+Live gates: `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness`, `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero`.
+Planted regressions: `delete_primary_only` → `deletion_residue_zero`, `keep_derived_copy` → `post_delete_hit_zero`, `resurrect_on_replay` → `resurrection_zero`, `restore_without_filter` → `restore_resurrection_zero`, `restore_drops_unrelated` → `restore_survivor_zero`, `restore_skips_tombstones` → `restore_residue_zero`.
+Not covered: which people-database fields may exist at all (Q18); real retention policy, legal hold, off-site replication and restore ordering beyond one scripted restore day; a real store, real data, a model or a server measurement.
+Tests: `eval/tests/test_b4d_slice.py`. Evidence: `eval/results/m5-b4d-restore-report.json`, `eval/results/index.json`. Baseline: `eval/baselines/baseline-m5-b4d-restore.json`.
 
 | Task type | Planned tasks | What it measures |
 |---|---|---|
@@ -70,7 +71,7 @@ Tests: `eval/tests/test_b4d_slice.py`. Evidence: `eval/results/m5-b4d-deletion-r
 
 **Scoring.** Per-task signals: `metadata_complete (bool)`, `stale_correct (bool)`, `supersede_correct (bool)`, `residue_count (int)`, `precedence_correct (bool)`.  
 Aggregate: success rate over 40 tasks plus zero-tolerance residue count.  
-Planned gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold`, `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (all ten are live in one of the two slices), `precedence_accuracy` (still planned).
+Planned gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold`, `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness`, `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero` (all thirteen are live in one of the two slices), `precedence_accuracy` (still planned).
 
 **Planted regressions** (each must be detected by the gate named, and by no other gate as its primary signal).
 
@@ -81,6 +82,9 @@ Planned gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_labe
 | `delete_primary_only` | deletes the primary record but leaves index, cache and summary copies (built in slice 2) | `deletion_residue_zero` |
 | `keep_derived_copy` | removes index and summary copies but leaves the answer cache serving the record (built in slice 2) | `post_delete_hit_zero` |
 | `resurrect_on_replay` | rebuilds derived surfaces from a stale snapshot during the replay (built in slice 2) | `resurrection_zero` |
+| `restore_without_filter` | restores a pre-deletion backup wholesale, reintroducing deleted records (built in slice 2) | `restore_resurrection_zero` |
+| `restore_drops_unrelated` | restores the backup but deletes a surviving record it did not expect (built in slice 2) | `restore_survivor_zero` |
+| `restore_skips_tombstones` | filters the primary record out of the restore but rebuilds derived copies unfiltered (built in slice 2) | `restore_residue_zero` |
 
 **Privacy.** Local-only: yes. Data classes: D1, D2, D3. Egress: none. Constraints: synthetic records only; deletion drills with post-delete probes; no network access from the store simulator.
 
@@ -90,14 +94,14 @@ Planned gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_labe
 |---|---|---|
 | C-02-AC1 | 100% of writes carry the five metadata fields | planned_suite |
 | C-02-AC2 | >=95% of expiring facts excluded or labelled stale | planned_suite |
-| C-02-AC3 | 0 resurrections across 3 drills and a 7-day replay | slice_built (8 scenarios) |
+| C-02-AC3 | 0 resurrections across 3 drills and a 7-day replay; 0 restore-caused resurrections or residue | slice_built (11 scenarios) |
 | C-01-AC2 | deleted preference leaves 0 post-delete hits | planned_suite |
 
-**Harness changes required.** block schema with a clock and five stores; store simulator with index/cache copies; per-task scorers; deletion drills with a replay schedule; seven planted regressions and their gates (five now live).
+**Harness changes required.** block schema with a clock and five stores; store simulator with index/cache copies; per-task scorers; deletion drills with a replay schedule; a backup/restore simulator with restore-time filtering; ten planted regressions and their gates (eight now live).
 
 **Open inputs.** Q18.
 
-**Note.** Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. The deletion slice deletes invented records from an invented store — it says nothing about what a real deletion must erase, how a backup must behave, or which fields may be retained.
+**Note.** Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. The deletion slice deletes invented records from an invented store and restores an invented backup — it says nothing about what a real deletion must erase, how a real backup product behaves, or which fields may be retained.
 
 ## B5 — Multimodal understanding (supporting suite) (planned — supporting)
 

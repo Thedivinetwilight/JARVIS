@@ -14,7 +14,7 @@ breadth becomes an inventory instead of a claim.
 
 ## What is here
 
-`capabilities.json` — one entry per capability the evaluation fixtures exercise (18 at registry v1.2.0):
+`capabilities.json` — one entry per capability the evaluation fixtures exercise (19 at registry v1.3.0):
 tools (`calendar.create_event`, `mail.send`, `files.write/append/delete`, `memory.write_record`,
 `memory.retrieve_current`), skills (`corpus.retrieve`, `document.extract_fields`, `source.reconcile`,
 `schedule.assign`, `skill.apply`, `memory.consolidate`, `explain.limitation`), the verifier and the approval

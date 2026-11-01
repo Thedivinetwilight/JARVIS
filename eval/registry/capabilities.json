@@ -1,10 +1,10 @@
 {
-  "registry_version": "1.2.0",
+  "registry_version": "1.3.0",
   "stage": "Stage 1 (revision R1)",
   "synthetic": true,
   "data_class": "synthetic",
   "evaluator_owned": true,
-  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1 / M5 slices). M5 slice 2 adds the deletion and derived-surface rebuild simulators used by B4D.",
+  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1 / M5 slices). M5 slice 2 adds the deletion and derived-surface rebuild simulators used by B4D, and its extension adds the backup-restore simulator.",
   "capabilities": [
     {
       "capability_id": "calendar.create_event",
@@ -696,6 +696,47 @@
       "tests": [
         "eval/tests/test_b4d_slice.py::B4DScoringTests::test_resurrect_on_replay_is_caught",
         "eval/tests/test_b4d_slice.py::B4DGatesTests::test_replay_completeness_gate_requires_all_days"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B4D"
+      ]
+    },
+    {
+      "capability_id": "memory.restore_backup",
+      "kind": "skill",
+      "purpose": "Restore a backup taken before a deletion, dropping records deleted since it was taken and keeping unrelated records intact.",
+      "contract": {
+        "preconditions": [
+          "a backup exists with a timestamp earlier than the deletion",
+          "the store holds deletion records for what was deleted since"
+        ],
+        "postconditions": [
+          "no record deleted after the backup exists in the restored store",
+          "records not deleted survive the restore with their derived copies",
+          "derived surfaces are rebuilt from the filtered set only"
+        ],
+        "args_schema": {
+          "backup_id": "str",
+          "day": "int"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.2,
+        "p95_ms": 2.0,
+        "synthetic": true
+      },
+      "idempotency": "natural",
+      "failure_modes": [
+        "unfiltered_restore",
+        "restore_drops_unrelated",
+        "derived_residue_after_restore"
+      ],
+      "tests": [
+        "eval/tests/test_b4d_slice.py::B4DBackupRestoreTests::test_unfiltered_restore_is_caught",
+        "eval/tests/test_b4d_slice.py::B4DBackupRestoreTests::test_restore_residue_is_caught"
       ],
       "evidence": "docs/product/capability-specification.md",
       "owner": "project-owner (unassigned at M5)",

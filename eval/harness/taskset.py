@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -316,6 +317,29 @@ DELETION_DRILLS = 3
 REPLAY_DAYS = 7
 
 PROBE_NORM = re.compile(r"[^a-z0-9]+")
+
+#: Zero-tolerance counters a B4D scenario must never invite. The restore counters
+#: are only exercised by scenarios that declare a backup.
+B4D_ZERO_COUNTERS = ("residual_copies", "post_delete_hits", "resurrections", "overdeleted",
+                     "restore_resurrections", "restore_dropped", "restore_residue")
+
+
+def parse_timestamp(value: Any) -> datetime | None:
+    """Parse an ISO date or date-time, or return None. Used for backup ordering."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = value.strip().replace("Z", "+00:00")
+    for parser in (datetime.fromisoformat,):
+        try:
+            parsed = parser(text)
+        except ValueError:
+            continue
+        if isinstance(parsed, datetime):
+            return parsed
+    try:
+        return datetime.combine(date.fromisoformat(text), datetime.min.time())
+    except ValueError:
+        return None
 
 
 def normalize_text(text: str) -> str:
@@ -723,19 +747,158 @@ def _validate_b4d(directory: Path, task: dict[str, Any]) -> None:
                 f"{directory}: B4D task {tid} probe {pid} also matches entries of another record "
                 f"{stray}; the probe is ambiguous")
 
+    if "backup" in task:
+        _validate_b4d_backup(directory, task, record_ids, delete, entries_by_record)
+    else:
+        for key in ("restore_resurrections", "restore_dropped", "restore_residue"):
+            if task.get("expected", {}).get(key, 0) != 0:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} declares {key} without a backup; nothing is "
+                    "restored, so the counter cannot be measured")
+        for key in ("restore_restored_records", "restore_filtered_records"):
+            if task.get("expected", {}).get(key):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} lists {key} but declares no backup")
+
     expected = task["expected"]
-    for key in ("surviving_records", "residual_copies", "post_delete_hits",
-                "resurrections", "overdeleted"):
+    for key in ("surviving_records",) + B4D_ZERO_COUNTERS:
         if key not in expected:
+            if key.startswith("restore_") and "backup" not in task:
+                continue
             raise TaskSetError(f"{directory}: B4D task {tid} expected missing {key!r}")
     if sorted(expected["surviving_records"]) != sorted(record_ids - set(delete)):
         raise TaskSetError(
             f"{directory}: B4D task {tid} surviving_records disagree with records minus delete")
-    for key in ("residual_copies", "post_delete_hits", "resurrections", "overdeleted"):
+    for key in B4D_ZERO_COUNTERS:
+        if key not in expected:
+            continue
         if expected[key] != 0:
             raise TaskSetError(
                 f"{directory}: B4D task {tid} expects {key}={expected[key]}; C-02-AC3 is "
                 "zero-tolerance, so a fixture may not encode a tolerated residue")
+
+
+def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[str],
+                         delete: list[str],
+                         entries_by_record: dict[str, list[dict[str, Any]]]) -> None:
+    """A restore scenario must name a real backup, taken before the deletion, restored in replay.
+
+    A backup that cannot be ordered against the deletion, or that holds nothing deleted and
+    nothing surviving, cannot demonstrate either half of C-02-AC3's restore requirement.
+    """
+    tid = task["id"]
+    backup = task["backup"]
+    if not isinstance(backup, dict):
+        raise TaskSetError(f"{directory}: B4D task {tid} 'backup' must be an object")
+    for key in ("backup_id", "taken_at", "restore_day", "contents"):
+        if key not in backup:
+            raise TaskSetError(f"{directory}: B4D task {tid} backup missing {key!r}")
+    if not str(backup["backup_id"]).strip():
+        raise TaskSetError(f"{directory}: B4D task {tid} backup has no backup_id")
+    taken_at = parse_timestamp(backup["taken_at"])
+    if taken_at is None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup taken_at {backup['taken_at']!r} is not an ISO "
+            "timestamp; a restore cannot be ordered against the deletion without one")
+    deleted_at_raw = task.get("deleted_at")
+    if deleted_at_raw is None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares a backup but no deleted_at; the backup cannot "
+            "be shown to predate the deletion")
+    deleted_at = parse_timestamp(deleted_at_raw)
+    if deleted_at is None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} deleted_at {deleted_at_raw!r} is not an ISO timestamp")
+    if taken_at >= deleted_at:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} takes its backup at {backup['taken_at']} on or after the "
+            f"deletion at {deleted_at_raw}; the scenario would restore a post-deletion state")
+
+    restore_day = backup["restore_day"]
+    if isinstance(restore_day, bool) or not isinstance(restore_day, int):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_day {restore_day!r} is not an integer")
+    if restore_day < 1 or restore_day > task["replay_days"]:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restores on day {restore_day}, outside the "
+            f"1..{task['replay_days']} replay window; that is not a replay restore")
+
+    contents = backup["contents"]
+    if not isinstance(contents, dict):
+        raise TaskSetError(f"{directory}: B4D task {tid} backup contents must be an object")
+    if "records" not in contents or "surfaces" not in contents:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup contents need 'records' and 'surfaces'")
+    held = contents["records"]
+    if not isinstance(held, list) or not held:
+        raise TaskSetError(f"{directory}: B4D task {tid} backup holds no records")
+    if len(set(held)) != len(held):
+        raise TaskSetError(f"{directory}: B4D task {tid} backup lists a record twice")
+    unknown = set(held) - record_ids
+    if unknown:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup holds unknown records {sorted(unknown)}")
+    filtered = sorted(set(held) & set(delete))
+    restored = sorted(set(held) - set(delete))
+    if not filtered:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup holds no deleted record; an unfiltered restore "
+            "could not reintroduce anything, so the scenario cannot fail closed")
+    if not restored:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup holds no surviving record; the restore would "
+            "not have to preserve anything")
+
+    for field in ("restore_restored_records", "restore_filtered_records"):
+        if field not in task["expected"]:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expected missing {field!r} for a restore scenario")
+    if sorted(task["expected"]["restore_restored_records"]) != restored:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_restored_records disagree with the backup minus "
+            "the deletion")
+    if sorted(task["expected"]["restore_filtered_records"]) != filtered:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_filtered_records disagree with the backup "
+            "intersected with the deletion")
+
+    held_surfaces = contents["surfaces"]
+    if not isinstance(held_surfaces, dict):
+        raise TaskSetError(f"{directory}: B4D task {tid} backup surfaces must be an object")
+    missing = set(DERIVED_SURFACES) - set(held_surfaces)
+    if missing:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup is missing surface(s) {sorted(missing)}")
+    extra = set(held_surfaces) - set(DERIVED_SURFACES)
+    if extra:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} backup has unknown surface(s) {sorted(extra)}")
+    backup_entry_ids: set[str] = set()
+    copies: dict[str, list[str]] = {}
+    for surface, entries in held_surfaces.items():
+        if not isinstance(entries, list):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} backup surface {surface} must be a list")
+        for entry in entries:
+            eid = entry.get("entry_id")
+            if not eid or not isinstance(eid, str):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} backup entry on {surface} has no entry_id")
+            if eid in backup_entry_ids:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} backup entry_id {eid} duplicated")
+            backup_entry_ids.add(eid)
+            rid = entry.get("record_id")
+            if rid not in held:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} backup entry {eid} names {rid!r}, which the "
+                    "backup does not hold")
+            copies.setdefault(str(rid), []).append(eid)
+    for rid in filtered:
+        if not copies.get(rid):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} backup holds no derived copy of the deleted {rid}; "
+                "restore-time residue could not be observed")
 
 
 def load_tasksets(root: Path | str = "eval/tasks") -> dict[str, TaskSet]:

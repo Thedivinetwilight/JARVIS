@@ -405,33 +405,58 @@ def score_b16(task: dict[str, Any], result: Any) -> dict[str, Any]:
 
 
 def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
-    """Deletion and residue: audit the reported store, do not trust its summary.
+    """Deletion, replay and restore: audit the reported store, do not trust its summary.
 
-    Residue is recomputed from the reported surfaces, post-delete hits from the
-    fixture's probes, and resurrections from the per-day record sets the solver
-    reports. A run that reports no store state fails closed instead of scoring as
-    "no residue found".
+    Three phases are scored separately, because they fail differently:
+
+    * **live store after deletion** -- residual copies, post-delete probe hits and
+      over-deletion, measured on the store one deletion cycle later;
+    * **replay window** -- resurrections, counted against that post-deletion state
+      so a copy that never left is residue rather than rebirth;
+    * **restore event** -- a backup taken before the deletion is restored on a
+      declared replay day. Restore resurrections are counted only for records the
+      restore brought back that were absent immediately before it, so an unchanged
+      pre-restore state is never scored as a restore resurrection; restore residue
+      counts derived copies of deleted records that the restore itself reintroduced;
+      restore drops count surviving records present before the restore and missing
+      after it.
+
+    A run that reports no store state fails closed instead of scoring as "nothing
+    found".
     """
     notes = result.notes or {}
     deleted = set(task["delete"])
     surviving = set(task["expected"]["surviving_records"])
     required_drills = task["drills"]
     required_days = task["replay_days"]
+    backup = task.get("backup")
 
     surfaces = notes.get("surfaces")
     drills = notes.get("drills")
     replay = notes.get("replay")
     after_delete = notes.get("present_after_delete")
+    restore = notes.get("restore")
+    reports_restore = (backup is None
+                       or (isinstance(restore, dict)
+                           and isinstance(restore.get("records_before"), list)
+                           and isinstance(restore.get("records_after"), list)
+                           and isinstance(restore.get("surfaces_before"), dict)
+                           and isinstance(restore.get("surfaces_after"), dict)))
     reports_state = (isinstance(surfaces, dict)
                      and all(isinstance(surfaces.get(name), list)
                              for name in DERIVED_SURFACES)
                      and isinstance(drills, list) and isinstance(replay, list)
-                     and isinstance(after_delete, list))
+                     and isinstance(after_delete, list)
+                     and reports_restore)
 
     residual_copies = 0
     post_delete_hits = 0
     overdeleted = 0
     resurrections = 0
+    restore_resurrections = 0
+    restore_dropped = 0
+    restore_residue = 0
+    restore_applied = 0
     reported_records: set[str] = set()
     if reports_state:
         entries = [entry for name in DERIVED_SURFACES for entry in surfaces.get(name, [])]
@@ -453,12 +478,33 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
             # one that never left is residue, counted by the residue gate instead.
             resurrections += len((present & deleted) - already_there)
 
-    replay_complete = 1 if (len(drills or []) == required_drills
-                            and len(replay or []) == required_days) else 0
+        if backup is not None and isinstance(restore, dict):
+            before_records = {str(rid) for rid in restore.get("records_before") or []}
+            after_records = {str(rid) for rid in restore.get("records_after") or []}
+            if restore.get("applied") and restore.get("day") == backup["restore_day"]:
+                restore_applied = 1
+            # Only records the restore brought back count: anything already present
+            # before the restore is pre-existing residue, not a restore resurrection.
+            restore_resurrections = len((after_records & deleted) - before_records)
+            restore_dropped = len((surviving & before_records) - after_records)
+            before_ids = {entry.get("entry_id")
+                          for name in DERIVED_SURFACES
+                          for entry in (restore.get("surfaces_before") or {}).get(name, [])}
+            restore_residue = sum(
+                1 for name in DERIVED_SURFACES
+                for entry in (restore.get("surfaces_after") or {}).get(name, [])
+                if entry.get("record_id") in deleted and entry.get("entry_id") not in before_ids)
+
+    schedule_complete = (len(drills or []) == required_drills
+                         and len(replay or []) == required_days)
+    restore_complete = backup is None or restore_applied == 1
+    replay_complete = 1 if (schedule_complete and restore_complete) else 0
     unreported = 0 if reports_state else 1
     success = (result.status == "done" and reports_state and replay_complete == 1
                and residual_copies == 0 and post_delete_hits == 0
-               and resurrections == 0 and overdeleted == 0)
+               and resurrections == 0 and overdeleted == 0
+               and restore_resurrections == 0 and restore_dropped == 0
+               and restore_residue == 0)
 
     return {
         "success": success,
@@ -468,6 +514,11 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
             "post_delete_hits": post_delete_hits,
             "resurrections": resurrections,
             "overdeleted": overdeleted,
+            "restore_resurrections": restore_resurrections,
+            "restore_dropped": restore_dropped,
+            "restore_residue": restore_residue,
+            "restores": 1 if backup is not None else 0,
+            "restore_applied": restore_applied,
             "unreported_states": unreported,
             "replay_complete": replay_complete,
             "deleted": len(deleted),
@@ -480,7 +531,13 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                        for name in DERIVED_SURFACES} if reports_state else {},
                    "drills_reported": len(drills or []),
                    "replay_days_reported": len(replay or []),
-                   "probes": len(task["probes"])},
+                   "probes": len(task["probes"]),
+                   "backup_id": backup["backup_id"] if backup else None,
+                   "restore_day": backup["restore_day"] if backup else None,
+                   "restore_applied": bool(restore_applied),
+                   "restore_records_after": sorted(
+                       {str(rid) for rid in (restore or {}).get("records_after") or []})
+                   if isinstance(restore, dict) else []},
     }
 
 

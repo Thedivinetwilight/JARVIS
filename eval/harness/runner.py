@@ -172,6 +172,11 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "resurrections": int(total_of("resurrections")),
         "overdeleted": int(total_of("overdeleted")),
         "unreported_states": int(total_of("unreported_states")),
+        # M5 slice 2 extension: restore of a pre-deletion backup (B4D).
+        "restore_resurrections": int(total_of("restore_resurrections")),
+        "restore_dropped": int(total_of("restore_dropped")),
+        "restore_residue": int(total_of("restore_residue")),
+        "restore_events": int(total_of("restores")),
         "replay_complete": int(total_of("replay_complete")),
         "replay_tasks": sum(1 for r in records if r.metrics.get("replay_complete") is not None),
         "citations": int(total_of("citations")),

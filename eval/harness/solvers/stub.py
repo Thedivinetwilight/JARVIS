@@ -463,20 +463,27 @@ class StubSolver:
         return SolveResult(status="done" if stored else "partial", message=message,
                            notes=notes, steps=1)
 
-    # -- B4D: deletion drills and residue ---------------------------------
+    # -- B4D: deletion drills, residue and restore -------------------------
     def _solve_b4d(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:
-        """Delete a record and every derived copy, then survive a 7-day replay.
+        """Delete a record and every derived copy, survive a 7-day replay, and restore a backup.
 
         The store keeps one primary record set plus three derived surfaces. The
         reference program removes the record and every surface entry that names
-        it, and rebuilds from live records only. The naive profile deletes the
-        primary record and nothing else, which is the classic cache-invalidation
-        bug; the mutations isolate each failure separately.
+        it, refuses to re-add a deleted record when the backup is restored, and
+        reinstates the surviving records the backup holds. The naive profile
+        deletes the primary record and nothing else; the mutations isolate each
+        failure separately, including the three restore failures.
+
+        State the scorer is entitled to audit is reported per phase: the store
+        after the deletion cycle, the per-day record sets, and the store
+        immediately before and after the restore.
         """
         deleted = set(task["delete"])
-        records = {record["record_id"]: record for record in task["records"]}
+        definitions = {record["record_id"]: dict(record) for record in task["records"]}
+        records = dict(definitions)
         surfaces = {name: [dict(entry) for entry in entries]
                     for name, entries in task["surfaces"].items()}
+        backup = task.get("backup")
 
         naive = self.profile == "naive"
         primary_only = naive or ctx.mutated("delete_primary_only")
@@ -491,6 +498,7 @@ class StubSolver:
             records.pop(rid, None)
 
         def present_ids() -> list[str]:
+            """Records reachable from the store, whether as a record or a derived copy."""
             ids = set(records)
             for entries in surfaces.values():
                 for entry in entries:
@@ -502,33 +510,88 @@ class StubSolver:
             return sum(1 for entries in surfaces.values() for entry in entries
                        if entry["record_id"] in deleted)
 
+        def copy_store(store: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+            return {name: [dict(entry) for entry in entries]
+                    for name, entries in store.items()}
+
         drills = [{"drill": index, "residue": residue()}
                   for index in range(1, task["drills"] + 1)]
 
         # The store as it stands one deletion cycle later: this is what the residue
         # and post-delete-retrieval gates audit. Resurrections are a *replay* metric,
         # so a copy that was never removed is residue, not a resurrection.
-        surfaces_after_delete = {name: [dict(entry) for entry in entries]
-                                 for name, entries in surfaces.items()}
+        surfaces_after_delete = copy_store(surfaces)
         present_after_delete = present_ids()
+
+        restore_log: dict[str, Any] | None = None
+        if backup:
+            held = list(backup["contents"]["records"])
+            held_surfaces = backup["contents"]["surfaces"]
+            restore_day = backup["restore_day"]
+            unfiltered = ctx.mutated("restore_without_filter")
+            skips_tombstones = ctx.mutated("restore_skips_tombstones")
+            drops_unrelated = ctx.mutated("restore_drops_unrelated")
 
         replay = []
         for day in range(1, task["replay_days"] + 1):
             if naive or ctx.mutated("resurrect_on_replay"):
                 # Consolidation rebuilds the derived surfaces from the stale snapshot,
                 # which still contains the deleted record's copies.
-                surfaces = {name: [dict(entry) for entry in entries]
-                            for name, entries in task["snapshot"].items()}
+                surfaces = copy_store(task["snapshot"])
+            if backup and day == restore_day:
+                records_before = sorted(records)
+                surfaces_before = copy_store(surfaces)
+                admitted = set(held) if unfiltered else set(held) - deleted
+                for rid in sorted(admitted):
+                    records.setdefault(rid, dict(definitions[rid]))
+                dropped: list[str] = []
+                if drops_unrelated:
+                    # The restore "cleans up" the surviving records it did not expect.
+                    survivors_held = sorted(set(held) - deleted)
+                    if survivors_held:
+                        victim = survivors_held[-1]
+                        dropped.append(victim)
+                        records.pop(victim, None)
+                surface_admitted = set(held) if (unfiltered or skips_tombstones) else admitted
+                for name in DERIVED_SURFACES:
+                    keep = [entry for entry in surfaces[name] if entry["record_id"] not in dropped]
+                    by_entry = {entry["entry_id"]: index for index, entry in enumerate(keep)}
+                    for entry in held_surfaces[name]:
+                        if entry["record_id"] not in surface_admitted:
+                            continue
+                        if entry["record_id"] in dropped:
+                            continue
+                        if entry["entry_id"] in by_entry:
+                            keep[by_entry[entry["entry_id"]]] = dict(entry)
+                        else:
+                            by_entry[entry["entry_id"]] = len(keep)
+                            keep.append(dict(entry))
+                    surfaces[name] = keep
+                restore_log = {
+                    "backup_id": backup["backup_id"],
+                    "day": day,
+                    "applied": True,
+                    "records_before": records_before,
+                    "records_after": sorted(records),
+                    "surfaces_before": surfaces_before,
+                    "surfaces_after": copy_store(surfaces),
+                    "restored": sorted(admitted - set(records_before)),
+                    "filtered": sorted(set(held) & deleted),
+                    "dropped": dropped,
+                }
             replay.append({"day": day, "present": present_ids()})
 
         return SolveResult(
             status="done",
             message=("deleted " + ", ".join(sorted(deleted))
-                     + " from the store and " + ", ".join(DERIVED_SURFACES)),
+                     + " from the store and " + ", ".join(DERIVED_SURFACES)
+                     + (f"; restored {backup['backup_id']} on day {backup['restore_day']}"
+                        if backup else "")),
             notes={"records": sorted(records), "surfaces": surfaces_after_delete,
                    "surfaces_after_replay": surfaces, "present_after_delete":
                    present_after_delete, "drills": drills, "replay": replay,
-                   "deleted": sorted(deleted), "residue": residue()},
+                   "deleted": sorted(deleted), "residue": residue(),
+                   "restore": restore_log},
             steps=1)
 
     # -- B16: limitation explanation --------------------------------------

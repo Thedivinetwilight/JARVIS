@@ -29,6 +29,9 @@ BLOCK_METRIC_GATES: dict[str, tuple[tuple[str, str], ...]] = {
             ("post_delete_hits", "post_delete_hit_zero"),
             ("resurrections", "resurrection_zero"),
             ("overdeleted", "overdeletion_zero"),
+            ("restore_resurrections", "restore_resurrection_zero"),
+            ("restore_dropped", "restore_survivor_zero"),
+            ("restore_residue", "restore_residue_zero"),
             ("unreported_states", "deletion_report_zero")),
 }
 

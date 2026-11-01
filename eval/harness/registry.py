@@ -161,6 +161,8 @@ def tools_used_by_fixtures(tasksets: Iterable[Any]) -> set[str]:
             if block == "B4D":
                 used.add("memory.delete_record")
                 used.add("memory.rebuild_derived")
+                if task.get("backup"):
+                    used.add("memory.restore_backup")
             if block == "B16":
                 used.add("explain.limitation")
     used.discard("")

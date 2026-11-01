@@ -1,19 +1,23 @@
 """M5 slice 2: deletion and derived-surface residue (C-02-AC3).
 
-C-02-AC3 asks for three things at once, and the slice is built so that each one
+C-02-AC3 asks for several things at once, and the slice is built so that each one
 can fail on its own:
 
 * deletion completes within one cycle -- measured on the store *after* the three
   deletion drills (residual copies, post-delete retrieval hits);
 * nothing comes back during replay -- measured on the seven daily record sets,
   against the post-deletion state, so residue is not silently counted twice;
+* a backup taken before the deletion, restored during replay, drops what was
+  deleted since and keeps what was not -- measured on the store immediately
+  before and after the restore, so an unchanged pre-restore state is never
+  scored as a restore resurrection;
 * nothing unrelated is destroyed -- measured by the surviving probes and by the
   surviving record set the solver reports.
 
-The fixture is eight synthetic scenarios. Twenty-four drill executions and
-fifty-six day evaluations are deterministic re-executions of those eight, not
-independent samples; these tests never turn them into a rate with a confidence
-interval.
+The fixture is eleven synthetic scenarios. Thirty-three drill executions,
+seventy-seven day evaluations and three restore events are deterministic
+re-executions, not independent samples; these tests never turn them into a rate
+with a confidence interval.
 """
 import copy
 import json
@@ -29,9 +33,9 @@ from eval.harness.runner import run_block
 from eval.harness.scorers import score_b4d
 from eval.harness.solvers.base import SolveResult
 from eval.harness.solvers.mutations import MUTATIONS
-from eval.harness.taskset import (DELETION_DRILLS, DERIVED_SURFACES, REPLAY_DAYS,
-                                  TaskSetError, entry_matches_probe, load_taskset,
-                                  load_tasksets)
+from eval.harness.taskset import (B4D_ZERO_COUNTERS, DELETION_DRILLS, DERIVED_SURFACES,
+                                  REPLAY_DAYS, TaskSetError, entry_matches_probe,
+                                  load_taskset, load_tasksets, parse_timestamp)
 
 REPO = Path(__file__).resolve().parents[2]
 
@@ -102,6 +106,33 @@ class B4DFixtureTests(unittest.TestCase):
                          sum(len(entries) for task in tasks
                              for entries in task["surfaces"].values()))
 
+    def test_backup_scenarios_declare_a_backup_before_the_deletion(self):
+        backed = [task for task in self.taskset.tasks if task.get("backup")]
+        self.assertEqual(len(backed), 3, "expected three restore scenarios")
+        for task in backed:
+            backup = task["backup"]
+            taken = parse_timestamp(backup["taken_at"])
+            deleted = parse_timestamp(task["deleted_at"])
+            self.assertIsNotNone(taken, task["id"])
+            self.assertIsNotNone(deleted, task["id"])
+            self.assertLess(taken, deleted, f"{task['id']} backup does not predate the deletion")
+            self.assertGreaterEqual(backup["restore_day"], 1)
+            self.assertLessEqual(backup["restore_day"], task["replay_days"])
+            held = set(backup["contents"]["records"])
+            self.assertTrue(held & set(task["delete"]),
+                            f"{task['id']} backup holds nothing deleted")
+            self.assertTrue(held - set(task["delete"]),
+                            f"{task['id']} backup holds nothing surviving")
+
+    def test_backup_scenarios_cover_filtering_preservation_and_multi_record(self):
+        backed = [task for task in self.taskset.tasks if task.get("backup")]
+        self.assertTrue(any(len(task["backup"]["contents"]["records"])
+                            - len(task["delete"]) >= 2 for task in backed),
+                        "no restore scenario has to preserve two unrelated records")
+        self.assertTrue(any(len(set(task["backup"]["contents"]["records"]) & set(task["delete"])) >= 2
+                            for task in backed),
+                        "no restore scenario has to filter two deleted records")
+
     def test_every_scenario_deletes_something_and_keeps_something(self):
         for task in self.taskset.tasks:
             self.assertTrue(task["delete"], task["id"])
@@ -116,9 +147,11 @@ class B4DFixtureTests(unittest.TestCase):
         self.assertEqual(summary["successes"], summary["attempts"])
         self.assertEqual(summary["false_successes"], 0)
         for key in ("residual_copies", "post_delete_hits", "resurrections",
-                    "overdeleted", "unreported_states"):
+                    "overdeleted", "unreported_states", "restore_resurrections",
+                    "restore_dropped", "restore_residue"):
             self.assertEqual(summary[key], 0, key)
         self.assertEqual(summary["replay_completeness"], 1.0)
+        self.assertEqual(summary["restore_events"], 3)
         for gate, result in _gate_map(summary, "B4D").items():
             self.assertNotEqual(result.status, "fail", f"{gate} failed on the clean run")
 
@@ -141,6 +174,21 @@ class B4DFixtureTests(unittest.TestCase):
                                      if any(p["expect"] == "present" for p in task["probes"])]
         self.assertTrue(tasks_with_survivor_probe,
                         "no scenario checks that a surviving record still answers")
+
+    def test_restore_is_reported_before_and_after_on_its_declared_day(self):
+        for task in self.taskset.tasks:
+            if not task.get("backup"):
+                continue
+            record = self.by_id[task["id"]]
+            self.assertEqual(record.detail["backup_id"], task["backup"]["backup_id"])
+            self.assertEqual(record.detail["restore_day"], task["backup"]["restore_day"])
+            self.assertTrue(record.detail["restore_applied"])
+            self.assertEqual(record.metrics["restore_resurrections"], 0)
+            self.assertEqual(record.metrics["restore_dropped"], 0)
+            self.assertEqual(record.metrics["restore_residue"], 0)
+            # Every surviving record the backup holds is back in the store afterwards.
+            self.assertTrue(set(task["expected"]["restore_restored_records"])
+                            <= set(record.detail["restore_records_after"]))
 
     def test_replay_reports_every_required_day(self):
         for task in self.taskset.tasks:
@@ -262,7 +310,8 @@ class B4DGatesTests(unittest.TestCase):
     def test_every_deletion_metric_has_a_zero_tolerance_gate(self):
         metrics = {metric for metric, _ in gates_mod.BLOCK_METRIC_GATES["B4D"]}
         self.assertEqual(metrics, {"residual_copies", "post_delete_hits",
-                                   "resurrections", "overdeleted", "unreported_states"})
+                                   "resurrections", "overdeleted", "restore_resurrections",
+                                   "restore_dropped", "restore_residue", "unreported_states"})
         for _, gate in gates_mod.BLOCK_METRIC_GATES["B4D"]:
             self.assertTrue(gate.endswith("_zero"), gate)
             self.assertEqual(self._gates()[gate].status, "pass")
@@ -297,11 +346,319 @@ class B4DGatesTests(unittest.TestCase):
             self.assertEqual(gates["success_drop"].status, "fail", name)
 
 
+def _restore_notes(**overrides) -> dict:
+    """Reference-shaped notes for a backup task (b4d-009: r1 deleted, r2 survives)."""
+    restore = {"backup_id": "bkp-009", "day": 4, "applied": True,
+               "records_before": ["r2"], "records_after": ["r2"],
+               "surfaces_before": {name: [] for name in DERIVED_SURFACES},
+               "surfaces_after": {name: [] for name in DERIVED_SURFACES},
+               "restored": ["r2"], "filtered": ["r1"], "dropped": []}
+    notes = {"records": ["r2"],
+             "surfaces": {name: [] for name in DERIVED_SURFACES},
+             "present_after_delete": ["r2"],
+             "drills": [{"drill": i, "residue": 0} for i in range(1, DELETION_DRILLS + 1)],
+             "replay": [{"day": day, "present": ["r2"]} for day in range(1, REPLAY_DAYS + 1)],
+             "deleted": ["r1"], "restore": restore}
+    notes.update(overrides)
+    return notes
+
+
+class B4DBackupRestoreTests(unittest.TestCase):
+    """Restore scenarios: validation, scoring and the three restore regressions."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.taskset = load_tasksets(REPO / "eval" / "tasks")["B4D"]
+        cls.clean = run_block(cls.taskset, solver_name="stub")
+        cls.task = next(t for t in cls.taskset.tasks if t["id"] == "b4d-009")
+        cls.by_id = {record.task_id: record for record in cls.clean.records}
+
+    # -- fail-closed validation ---------------------------------------------
+    def _variant(self, mutate) -> dict:
+        payload = copy.deepcopy(_payload("B4D"))
+        target = next(t for t in payload["tasks"] if t["id"] == "b4d-009")
+        mutate(payload, target)
+        return payload
+
+    def _assert_refused(self, payload: dict, needle: str | None = None):
+        with self.assertRaises(TaskSetError) as caught:
+            _load_variant(payload)
+        if needle:
+            self.assertIn(needle, str(caught.exception))
+
+    def test_backup_without_a_timestamp_is_refused(self):
+        def mutate(payload, task):
+            del task["backup"]["taken_at"]
+
+        self._assert_refused(self._variant(mutate), "taken_at")
+
+    def test_unparseable_backup_timestamp_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["taken_at"] = "last tuesday"
+
+        self._assert_refused(self._variant(mutate), "ISO timestamp")
+
+    def test_backup_taken_after_the_deletion_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["taken_at"] = "2026-09-30"
+
+        self._assert_refused(self._variant(mutate), "on or after the deletion")
+
+    def test_backup_without_a_deletion_time_is_refused(self):
+        def mutate(payload, task):
+            del task["deleted_at"]
+
+        self._assert_refused(self._variant(mutate), "deleted_at")
+
+    def test_restore_day_outside_the_replay_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["restore_day"] = 9
+
+        self._assert_refused(self._variant(mutate), "outside the")
+
+    def test_restore_day_zero_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["restore_day"] = 0
+
+        self._assert_refused(self._variant(mutate), "outside the")
+
+    def test_backup_holding_nothing_deleted_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["contents"]["records"] = ["r2"]
+            task["backup"]["contents"]["surfaces"]["index"] = [
+                {"entry_id": "i-r2", "record_id": "r2", "tokens": ["sample", "glass"]}]
+            task["backup"]["contents"]["surfaces"]["summary"] = [
+                {"entry_id": "s-r2", "record_id": "r2", "text": "weekly summary: sample glass"}]
+            task["expected"]["restore_filtered_records"] = []
+
+        self._assert_refused(self._variant(mutate), "no deleted record")
+
+    def test_backup_holding_nothing_surviving_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["contents"]["records"] = ["r1"]
+            task["backup"]["contents"]["surfaces"]["index"] = [
+                {"entry_id": "i-r1", "record_id": "r1", "tokens": ["sample", "metals"]}]
+            task["backup"]["contents"]["surfaces"]["cache"] = []
+            task["backup"]["contents"]["surfaces"]["summary"] = [
+                {"entry_id": "s-r1", "record_id": "r1", "text": "weekly summary: sample metals"}]
+            task["expected"]["restore_restored_records"] = []
+
+        self._assert_refused(self._variant(mutate), "no surviving record")
+
+    def test_backup_missing_a_surface_is_refused(self):
+        def mutate(payload, task):
+            del task["backup"]["contents"]["surfaces"]["cache"]
+
+        self._assert_refused(self._variant(mutate), "missing surface")
+
+    def test_backup_entry_naming_an_unheld_record_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["contents"]["surfaces"]["cache"].append(
+                {"entry_id": "c-ghost", "record_id": "r9", "text": "cached answer: ghost"})
+
+        self._assert_refused(self._variant(mutate), "which the backup does not hold")
+
+    def test_backup_without_a_derived_copy_of_a_deleted_record_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["contents"]["surfaces"]["index"] = [
+                entry for entry in task["backup"]["contents"]["surfaces"]["index"]
+                if entry["record_id"] == "r2"]
+            task["backup"]["contents"]["surfaces"]["summary"] = [
+                entry for entry in task["backup"]["contents"]["surfaces"]["summary"]
+                if entry["record_id"] == "r2"]
+
+        self._assert_refused(self._variant(mutate), "no derived copy of the deleted")
+
+    def test_gold_restore_lists_must_match_the_backup(self):
+        def mutate(payload, task):
+            task["expected"]["restore_restored_records"] = ["r1"]
+
+        self._assert_refused(self._variant(mutate), "restore_restored_records disagree")
+
+    def test_tolerated_restore_residue_is_refused(self):
+        def mutate(payload, task):
+            task["expected"]["restore_residue"] = 1
+
+        self._assert_refused(self._variant(mutate), "zero-tolerance")
+
+    def test_scenario_without_a_backup_may_not_score_restore_counters(self):
+        payload = copy.deepcopy(_payload("B4D"))
+
+        def mutate(payload, task):
+            plain = next(t for t in payload["tasks"] if t["id"] == "b4d-002")
+            plain["expected"]["restore_resurrections"] = 1
+
+        mutate(payload, None)
+        self._assert_refused(payload, "without a backup")
+
+    def test_backup_holding_an_unknown_record_is_refused(self):
+        def mutate(payload, task):
+            task["backup"]["contents"]["records"].append("r9")
+
+        self._assert_refused(self._variant(mutate), "unknown records")
+
+    def test_non_synthetic_b4d_fixture_is_refused(self):
+        payload = copy.deepcopy(_payload("B4D"))
+        payload["synthetic"] = False
+        payload["data_class"] = "real"
+        self._assert_refused(payload, "synthetic")
+
+    # -- scoring ------------------------------------------------------------
+    def test_unfiltered_restore_counts_a_restore_resurrection(self):
+        notes = _restore_notes(records=["r1", "r2"])
+        notes["restore"]["records_after"] = ["r1", "r2"]
+        notes["replay"][3]["present"] = ["r1", "r2"]
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_resurrections"], 1)
+        self.assertEqual(scored["metrics"]["resurrections"], 1)
+        self.assertFalse(scored["success"])
+
+    def test_unchanged_pre_restore_state_is_not_a_restore_resurrection(self):
+        # r1 is already in the store before the restore (live residue). The restore
+        # changed nothing, so it did not resurrect anything.
+        notes = _restore_notes(records=["r1", "r2"])
+        notes["surfaces"]["index"] = [{"entry_id": "i-r1", "record_id": "r1",
+                                       "tokens": ["sample", "metals"]}]
+        notes["restore"]["records_before"] = ["r1", "r2"]
+        notes["restore"]["records_after"] = ["r1", "r2"]
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_resurrections"], 0)
+        self.assertEqual(scored["metrics"]["residual_copies"], 1)  # residue, not resurrection
+        self.assertFalse(scored["success"])
+
+    def test_restore_that_drops_an_unrelated_record_is_counted(self):
+        notes = _restore_notes(records=[])
+        notes["restore"]["records_after"] = []
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_dropped"], 1)
+        self.assertFalse(scored["success"])
+
+    def test_restore_residue_counts_only_copies_the_restore_added(self):
+        pre_existing = {"entry_id": "i-r1", "record_id": "r1", "tokens": ["sample", "metals"]}
+        notes = _restore_notes()
+        notes["restore"]["surfaces_before"] = {"index": [pre_existing], "cache": [], "summary": []}
+        notes["restore"]["surfaces_after"] = {
+            "index": [pre_existing], "cache": [], "summary": [],
+        }
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_residue"], 0)
+        notes["restore"]["surfaces_after"]["summary"] = [
+            {"entry_id": "s-r1", "record_id": "r1", "text": "weekly summary: sample metals"}]
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_residue"], 1)
+        self.assertFalse(scored["success"])
+
+    def test_missing_restore_report_fails_closed(self):
+        notes = _restore_notes(restore=None)
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["unreported_states"], 1)
+        self.assertEqual(scored["metrics"]["restore_applied"], 0)
+        self.assertFalse(scored["success"])
+
+    def test_a_restore_reported_on_the_wrong_day_leaves_the_run_incomplete(self):
+        notes = _restore_notes()
+        notes["restore"]["day"] = 6
+        scored = score_b4d(self.task, SolveResult(status="done", message="", notes=notes))
+        self.assertEqual(scored["metrics"]["restore_applied"], 0)
+        self.assertEqual(scored["metrics"]["replay_complete"], 0)
+        self.assertFalse(scored["success"])
+
+    # -- planted regressions ------------------------------------------------
+    def _gates(self, name: str) -> dict:
+        mutant = run_block(self.taskset, solver_name="stub", mutations=(name,))
+        return _gate_map(mutant.summary, "B4D", self.clean.summary), mutant
+
+    def test_unfiltered_restore_is_caught(self):
+        gates, mutant = self._gates("restore_without_filter")
+        self.assertEqual(MUTATIONS["restore_without_filter"].expected_gate,
+                         "restore_resurrection_zero")
+        self.assertEqual(gates["restore_resurrection_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_resurrections"], 0)
+
+    def test_restore_that_deletes_unrelated_records_is_caught(self):
+        gates, mutant = self._gates("restore_drops_unrelated")
+        self.assertEqual(MUTATIONS["restore_drops_unrelated"].expected_gate,
+                         "restore_survivor_zero")
+        self.assertEqual(gates["restore_survivor_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_dropped"], 0)
+        # Correlated, and honestly so: dropping an unrelated record is also over-deletion.
+        self.assertEqual(gates["overdeletion_zero"].status, "fail")
+
+    def test_restore_that_bypasses_tombstones_for_derived_copies_is_caught(self):
+        gates, mutant = self._gates("restore_skips_tombstones")
+        self.assertEqual(MUTATIONS["restore_skips_tombstones"].expected_gate,
+                         "restore_residue_zero")
+        self.assertEqual(gates["restore_residue_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_residue"], 0)
+        # The primary record was filtered correctly, so the restore-resurrection gate
+        # stays clean: that is what makes the two failures distinguishable.
+        self.assertEqual(mutant.summary["restore_resurrections"], 0)
+        self.assertEqual(gates["restore_resurrection_zero"].status, "pass")
+
+    def test_restore_mutations_leave_non_restore_scenarios_alone(self):
+        mutant = run_block(self.taskset, solver_name="stub",
+                           mutations=("restore_without_filter",))
+        plain = [record for record in mutant.records if record.task_id not in
+                 {"b4d-009", "b4d-010", "b4d-011"}]
+        self.assertTrue(plain)
+        for record in plain:
+            self.assertEqual(record.metrics["restores"], 0)
+            self.assertEqual(record.metrics["restore_resurrections"], 0)
+            self.assertEqual(record.metrics["restore_residue"], 0)
+
+    def test_replay_resurrection_mutation_is_still_caught_with_backups_present(self):
+        gates, mutant = self._gates("resurrect_on_replay")
+        self.assertEqual(gates["resurrection_zero"].status, "fail")
+        self.assertEqual(mutant.summary["restore_resurrections"], 0)
+
+
+class B4DRestoreGateTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.taskset = load_tasksets(REPO / "eval" / "tasks")["B4D"]
+        cls.clean = run_block(cls.taskset, solver_name="stub")
+
+    def test_restore_metrics_have_zero_tolerance_gates(self):
+        pairs = dict(gates_mod.BLOCK_METRIC_GATES["B4D"])
+        self.assertEqual(pairs["restore_resurrections"], "restore_resurrection_zero")
+        self.assertEqual(pairs["restore_dropped"], "restore_survivor_zero")
+        self.assertEqual(pairs["restore_residue"], "restore_residue_zero")
+        for gate in ("restore_resurrection_zero", "restore_survivor_zero",
+                     "restore_residue_zero"):
+            self.assertEqual(_gate_map(self.clean.summary, "B4D")[gate].status, "pass")
+
+    def test_no_restore_counters_are_invited_by_the_fixture(self):
+        fixture = _payload("B4D")
+        for task in fixture["tasks"]:
+            for key in ("restore_resurrections", "restore_dropped", "restore_residue"):
+                self.assertEqual(task["expected"].get(key, 0), 0, f"{task['id']} {key}")
+        self.assertIn("restore_residue", B4D_ZERO_COUNTERS)
+
+    def test_restore_gates_do_not_fire_on_other_families(self):
+        restore_only = {"restore_resurrection_zero", "restore_survivor_zero",
+                        "restore_residue_zero"}
+        b4_clean = run_block(load_tasksets(REPO / "eval" / "tasks")["B4"],
+                             solver_name="stub").summary
+        fired = {result.gate for result in
+                 gates_mod.evaluate_block("B4", b4_clean, b4_clean, Thresholds())}
+        self.assertEqual(fired & restore_only, set())
+
+
 class B4DMutationRegistryTests(unittest.TestCase):
     def test_the_three_required_regressions_are_registered(self):
         expected = {"delete_primary_only": "deletion_residue_zero",
                     "keep_derived_copy": "post_delete_hit_zero",
                     "resurrect_on_replay": "resurrection_zero"}
+        for name, gate in expected.items():
+            self.assertIn(name, MUTATIONS)
+            self.assertEqual(MUTATIONS[name].block, "B4D")
+            self.assertEqual(MUTATIONS[name].expected_gate, gate)
+            self.assertIn(gate, {name for _, name in gates_mod.BLOCK_METRIC_GATES["B4D"]})
+
+    def test_the_restore_regressions_are_registered(self):
+        expected = {"restore_without_filter": "restore_resurrection_zero",
+                    "restore_drops_unrelated": "restore_survivor_zero",
+                    "restore_skips_tombstones": "restore_residue_zero"}
         for name, gate in expected.items():
             self.assertIn(name, MUTATIONS)
             self.assertEqual(MUTATIONS[name].block, "B4D")
@@ -339,7 +696,8 @@ class B4DCliTests(unittest.TestCase):
             self.assertEqual(payload["scope"], ["B4D"])
             names = {row["mutation"] for row in payload["rows"]}
             self.assertEqual(names, {"delete_primary_only", "keep_derived_copy",
-                                     "resurrect_on_replay"})
+                                     "resurrect_on_replay", "restore_without_filter",
+                                     "restore_drops_unrelated", "restore_skips_tombstones"})
             for row in payload["rows"]:
                 self.assertTrue(row["detected"], row)
                 self.assertIn(row["expected_gate"], row["gates_failed"])
@@ -358,10 +716,13 @@ class B4DCliTests(unittest.TestCase):
             self.assertEqual(len(records), len(load_tasksets(
                 REPO / "eval" / "tasks")["B4D"]))
             self.assertTrue(all(row["success"] for row in records))
+            fixture = _payload("B4D")["preregistration"]["sample_counts"]
             drills = sum(row["detail"]["drills_reported"] for row in records)
             days = sum(row["detail"]["replay_days_reported"] for row in records)
-            self.assertEqual(drills, 24)
-            self.assertEqual(days, 56)
+            self.assertEqual(drills, fixture["drill_executions"])
+            self.assertEqual(days, fixture["replay_day_evaluations"])
+            restores = sum(row["metrics"]["restores"] for row in records)
+            self.assertEqual(restores, fixture["restore_events"])
 
 
 class B4DDocBookkeepingTests(unittest.TestCase):
@@ -392,10 +753,15 @@ class B4DDocBookkeepingTests(unittest.TestCase):
 
     def test_backlog_records_the_sample_counts_without_implying_confidence(self):
         samples = self.family["implemented_slice_2"]["sample_counts"]
-        self.assertEqual(samples["tasks"], 8)
-        self.assertEqual(samples["drill_executions"], 24)
-        self.assertEqual(samples["replay_day_evaluations"], 56)
-        self.assertEqual(samples["probes"], 19)
+        fixture = _payload("B4D")["preregistration"]["sample_counts"]
+        for key in ("tasks", "drill_executions", "replay_day_evaluations", "probes",
+                    "deleted_records", "surface_entries", "backups", "restore_events"):
+            self.assertEqual(samples[key], fixture[key], key)
+        self.assertEqual(samples["tasks"], 11)
+        self.assertEqual(samples["drill_executions"], 33)
+        self.assertEqual(samples["replay_day_evaluations"], 77)
+        self.assertEqual(samples["backups"], 3)
+        self.assertEqual(samples["restore_events"], 3)
         self.assertIn("Deterministic executions", samples["note"])
         self.assertIn("not independent samples", samples["note"])
         self.assertIn("o confidence interval", samples["note"])

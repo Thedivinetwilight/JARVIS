@@ -1,5 +1,5 @@
 {
-  "coverage_version": "1.2.0",
+  "coverage_version": "1.3.0",
   "published": "2026-11-01",
   "basis": {
     "spec": "1.1.0",
@@ -7,7 +7,7 @@
     "backlog": "family-backlog.json",
     "crosswalk": "family-crosswalk.md"
   },
-  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing here is evidence of product capability and no criterion is marked validated. Five criteria now have a built evaluator slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3); a built slice is small, synthetic and deterministic.",
+  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing here is evidence of product capability and no criterion is marked validated. Five criteria have a built evaluator slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3); the C-02-AC3 slice now also restores a pre-deletion backup, and all built slices remain small, synthetic and deterministic.",
   "status_vocabulary": {
     "planned_suite": "an evaluation family or task type is named; no task set exists yet",
     "named_audit": "measurement is an audit, inventory review or egress probe rather than a task outcome",
@@ -112,19 +112,21 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 deletion drills. M5 built the deletion slice (M5-B4-slice-2); see docs/product/coverage-matrix.md section 9.",
+      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2) and extended it with backup/restore scenarios; see docs/product/coverage-matrix.md section 9.",
       "slice": {
         "suite": "eval/tasks/b4d",
         "tasks": 8,
-        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections",
+        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections; a backup taken before the deletion is restored during the replay, dropping deleted records and keeping unrelated ones",
         "sample_counts": {
-          "tasks": 8,
-          "drill_executions": 24,
-          "replay_day_evaluations": 56,
-          "probes": 19,
+          "tasks": 11,
+          "drill_executions": 33,
+          "replay_day_evaluations": 77,
+          "backups": 3,
+          "restore_events": 3,
+          "probes": 28,
           "note": "deterministic executions, not independent samples"
         },
-        "not_covered": "people-database field policy (Q18), retention/backup policy, a real store or real data"
+        "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, a real store or real data"
       }
     },
     {
