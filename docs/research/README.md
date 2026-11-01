@@ -96,7 +96,7 @@ Phase 4's control loop, Phase 5's memory design, Stage 0 itself — is **retaine
 
 ## Current state and next action
 
-Two things are complete, and they are different in kind:
+Three things are complete, and they are different in kind:
 
 1. **Research revision R1** (documents 11–15) re-frames the programme for a brain-inspired, broadly
    capable, evolving system, with every superseded decision named.
@@ -105,17 +105,30 @@ Two things are complete, and they are different in kind:
    `baseline-a-stub.json`, and passes the planted-regression test X-10 (6/6 mutations caught by their
    expected gates). Evidence: [M1](stage-0-m1-harness-core.md), [M2](stage-0-m2-frozen-baseline.md),
    [M3](stage-0-m3-planted-regression.md).
+3. **Stage 1 of the roadmap** is complete and recorded: the harness now runs **six capability families**
+   (B1–B3 plus B8 breadth, B9 skill reuse, B10 memory evolution — 52 synthetic tasks), a 13-entry
+   **evaluator-owned capability registry** is machine-checked against the fixtures, a model-free
+   **solver ladder** (X-13) separates weaker from stronger hand-written behaviour by ≥10 pp on five of
+   six families, and a new `family_regression` gate fails when one family collapses behind an aggregate
+   gain. Nine planted mutations across five families are each caught by their expected gate. Evidence:
+   [M4](stage-1-m4-breadth-and-ladder.md), `eval/baselines/baseline-b-stage1.json`,
+   `eval/results/x13-ladder.md`, `eval/results/scorecard-stage1.md`.
 
-What that does **not** mean: no model has been run, so no capability result exists. The baseline is a
-deterministic keyword stub and its 100% scores are a ceiling by construction — which is precisely why the
-recommended next step is not "pick a model" but "make the suite discriminate across task families"
-([Phase 15 §5](15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry)).
+What that does **not** mean: no model has been run, so no capability result exists. Every solver in the
+ladder is a deterministic hand-written program; the baseline-b scores are a ceiling by construction. The
+ladder's own findings are the honest part — the gold-reading ceiling probe ties the reference program on
+all six families, so the suite demonstrates that it can *rank programs*, not that it has headroom above
+the reference implementation, and B2 shows no ladder spread at all. What the harness can and cannot
+measure is in
+[Phase 15 §7](15-revised-roadmap-supersession-and-next-step.md#7-what-the-current-harness-cannot-measure)
+plus [M4 §4](stage-1-m4-breadth-and-ladder.md).
 
-**Immediate next action (Stage 1):** add three capability families to the harness (B8 breadth, B9 skill
-reuse, B10 memory evolution), publish a machine-checked capability registry, and add a model-free **solver
-ladder** that proves the suite separates weak from strong behaviour (experiment X-13). Exit criteria and a
-pre-registered kill criterion are in Phase 15 §5; what the current harness can and cannot measure is in
-Phase 15 §7. Model choice (O1) reopens **after** the suite discriminates.
+**Immediate next action (Stage 2):** run 2–3 sampled model configurations through all six families with
+variance, cost and latency recorded, using the ladder and the mutations as controls, and work the
+difficulty backlog M4 identified (a ladder-relevant B2 rung, a B9 *acquisition* task, and at least one
+item per family the reference program cannot solve for free). Model choice (O1) is now a measured
+decision rather than a preference, but it is still a decision — nothing in this repository recommends a
+model, provider or hardware.
 
 **Review requests for the project owner:**
 
@@ -130,8 +143,12 @@ Phase 15 §7. Model choice (O1) reopens **after** the suite discriminates.
 4. Answer Q1–Q12 in [Phase 1 §9](01-jarvis-workload-and-requirements.md#9-unresolved-requirements-questions-not-assumptions)
    and confirm the latency/cost envelopes in [Phase 1 §6](01-jarvis-workload-and-requirements.md#6-latency-and-cost-envelopes);
    Q10 still blocks any use of real data.
+5. Choose the Stage 2 emphasis: a sampled-model baseline behind the unchanged harness, or the skill
+   library ([Phase 12 §3](12-capability-integration-architecture.md)) with B9 widened from reuse to
+   acquisition. M4 recommends the model baseline first, because the difficulty backlog can only be sized
+   against real failure modes.
 
-## Execution notes (Stage 0 — harness and baseline)
+## Execution notes (Stage 0–1 — harness, baseline, breadth)
 
 Research documents stay frozen; implementation milestones are recorded as dated notes below.
 
@@ -141,6 +158,7 @@ Research documents stay frozen; implementation milestones are recorded as dated 
 | [Stage 0 M1](stage-0-m1-harness-core.md) | M1 — harness core (schema, runner, scorers, ledger, gates) | published | 2026-11-01 |
 | [Stage 0 M2](stage-0-m2-frozen-baseline.md) | M2 — frozen baseline and reproducibility | published | 2026-11-01 |
 | [Stage 0 M3](stage-0-m3-planted-regression.md) | M3 — X-10 planted regression and Stage 0 summary | published | 2026-11-01 |
+| [Stage 1 M4](stage-1-m4-breadth-and-ladder.md) | M4 — B8–B10 capability families, registry, solver ladder (X-13), family gate | published | 2026-11-01 |
 
 Harness code lives in `eval/` and is not imported by any application code. Start with
 [`eval/README.md`](../../eval/README.md) for what the harness measures and, more importantly, what it
@@ -153,6 +171,14 @@ must never be read to measure.
 | Recorded evidence, frozen baseline | **pass** — `eval/results/` (9 runs, 149 attempts), `eval/baselines/baseline-a-stub.json` |
 | No model, credentials or external actions | **pass** — zero model calls, synthetic fixtures enforced in code |
 
+| Stage 1 exit criterion (Phase 15 §5) | Result |
+|---|---|
+| ≥3 families with frozen baselines and a caught mutation | **pass** — six families in `baseline-b-stage1.json`; 9/9 mutations caught by their expected gate across B1, B2, B3, B8, B9, B10 |
+| Ladder spread ≥10 pp on ≥1 family | **pass** — B1, B9, B10 +100.0 pp; B8 +77.8 pp; B3 +14.3 pp; **B2 +0.0 pp** (recorded blind spot) |
+| No family regression | **pass** — `family_regression` pass, worst family +0.0 pp, aggregate +0.0 pp |
+| Reproducible | **pass** — identical run ids and outcome hashes across processes; selftest 16/16; 76 unit tests |
+| Evaluator separate from the system under test | **pass** — evaluator digest unchanged by full and mutated runs; registry sha is part of run identity; capability ids claiming evaluator authority are rejected |
+
 **What was learned, what remains uncertain, and the next research step (for Stage 0):** a harness
 earns trust through its negative checks — planted mutations, gate negative controls, rejected
 unverified writes, a no-network self-check — not through green success rates; and aggregate accuracy
@@ -161,6 +187,18 @@ and was still correctly rejected. What remains uncertain is whether 21 synthetic
 assistant failure modes, and what thresholds survive contact with a sampled model. The next research
 step is to freeze a **model** baseline with the harness unchanged, once O1 is decided, and re-run X-10
 against a stochastic solver.
+
+**What was learned, what remains uncertain, and the next research step (for Stage 1):** a suite can pass
+its discrimination test for an unintended reason — the ladder separates weak from strong behaviour, but
+the gold-reading ceiling probe ties the reference program on all six families, so X-13 certifies that the
+suite ranks hand-written programs, not that it has room for a better one; and looking at where rungs
+*tie* found the blind spots (B2 discriminates nothing outside its mutations; B9/B10 check the resulting
+state but not the solver's self-verification). What remains uncertain is whether any of these families
+correlate with real assistant work, where thresholds sit once scores are stochastic, and how much of the
+fixture difficulty is an artefact of the reference implementation. The next research step is a measured
+model baseline — 2–3 sampled configurations, unchanged harness, variance and cost recorded — with the
+blind spots treated as the difficulty backlog. No capability gain is claimed from synthetic results, and
+no model, provider or hardware is recommended by this stage.
 
 ## Document status detail
 
@@ -173,11 +211,11 @@ against a stochastic solver.
 | 05 Memory | v0.2 | Memory suite M1–M8 not yet implemented |
 | 06 Voice | v0.2 | Latency evidence conflicts ~10×; measure locally |
 | 07 Inference | v0.2 | All cost examples are arithmetic on list prices, not invoices |
-| 08 Evaluation | v0.2 (implemented in part) | Stage 0 covers blocks B1–B3 only; B4–B7 not built |
+| 08 Evaluation | v0.2 (implemented in part) | Stage 0 covers B1–B3, Stage 1 adds B8–B10; B4–B7 not built; thresholds uncalibrated for stochastic solvers |
 | 09 Security | v0.2 | CaMeL-style design not yet prototyped |
 | 10 Architecture | v0.2 (**partly superseded, R1**) | §2 amended, §9 superseded; X-1–X-10 not yet run |
 | 11 Brain-inspired | v1.0 (R1) | Admitted analogies unmeasured; consolidation and scheduler unproven |
-| 12 Capability integration | v1.0 (R1) | Registry not built; specialist/coordination value unmeasured |
+| 12 Capability integration | v1.0 (R1) | Registry built (13 entries, v1.0.0); specialist/coordination value unmeasured; owners unassigned |
 | 13 Evolving intelligence | v1.0 (R1) | Pipeline specified, not implemented; A2 automation unproven |
 | 14 Evidence review | v1.0 (R1) | Sandbox results only; no production evidence exists |
-| 15 Revised roadmap | v1.0 (R1) | Awaits owner approval of S-1…S-15 and Q13–Q16 |
+| 15 Revised roadmap | v1.0 (R1) | Stage 1 complete; awaits owner approval of S-1…S-15, Q13–Q16 and the Stage 2 choice |

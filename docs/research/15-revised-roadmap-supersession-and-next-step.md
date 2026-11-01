@@ -105,6 +105,16 @@ exist, and Phase 9's policy engine is still a precondition for any write.
 
 ## 5. The recommended next step: Stage 1 — discriminative multi-family evaluation + capability registry
 
+> **Execution status (2026-11-01):** Stage 1 was executed as specified in this section. Results and
+> limitations are in [M4 — Stage 1: capability families, registry and the solver ladder](stage-1-m4-breadth-and-ladder.md);
+> the six-family baseline is `eval/baselines/baseline-b-stage1.json`, the ladder artifact is
+> `eval/results/x13-ladder.md`, and the nine-mutation re-run of X-10 is `eval/results/x10-report-stage1.json`.
+> The exit criteria below were met; two findings are recorded rather than hidden — B2 shows **no** ladder
+> spread (its discrimination rests entirely on the mutations), and the gold-reading ceiling probe ties the
+> reference program on all six families, so the suite is not yet shown to have headroom above it. This
+> section is retained unchanged as the pre-registered plan; the milestone note records what it produced.
+> No model was run, so no capability result exists.
+
 **Recommendation.** Build **three additional capability families** into the existing harness (B8 breadth,
 B9 skill reuse, B10 memory evolution), add a **capability registry** describing every capability the
 system can use, and add a **solver ladder** that proves the suite separates weak from strong behaviour —
