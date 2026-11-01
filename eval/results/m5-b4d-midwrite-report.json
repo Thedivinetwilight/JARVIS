@@ -1,0 +1,975 @@
+{
+  "report": "M5 evaluator slice 2 extension - B4 record-write states and restore interruptions inside a record (C-02-AC3)",
+  "published": "2026-11-01",
+  "supersedes": {
+    "previous_reports": [
+      "eval/results/m5-b4d-deletion-report.json",
+      "eval/results/m5-b4d-restore-report.json",
+      "eval/results/m5-b4d-retry-report.json",
+      "eval/results/m5-b4d-faults-report.json"
+    ],
+    "note": "extends the evidence at eval/results/m5-b4d-faults-report.json. Every earlier report, ledger and baseline is kept as published and is not edited; each report measures the task-set version it names, and the 27-task suite does not retroactively reinterpret the 8-, 11-, 15- or 22-task runs."
+  },
+  "git_sha": "cd21c2ea168f",
+  "git_dirty_during_run": false,
+  "git_untracked_during_run": 0,
+  "harness_version": "0.1.0",
+  "registry_version": "1.4.0",
+  "registry_sha": "f3d41bf5c8e7f5a5f03e1a8182c9eea5236050d1934799b99d622201b6f26fcb",
+  "product_index_version": "1.4.0",
+  "taskset_version": "2026-Q4.1-m5.6",
+  "taskset_sha": "f0317f29a5ed33fdccd361cd5e0c8ec6b55e9033daf53e2623e1a40ca62fd5a1",
+  "task_set": "eval/tasks/b4d/tasks.json",
+  "tasks": 27,
+  "criterion": {
+    "id": "C-02-AC3",
+    "text": "Deleting a record removes it and its derived copies from indexes, caches and summaries within one cycle, with zero resurrections across three drills and a seven-day replay.",
+    "threshold": "0 residual copies, 0 post-delete hits, 0 resurrections, 0 over-deleted records, 0 restored deletions, 0 lost survivors, 0 duplicate effects, 0 accepted corruption, 0 partial-write residue and 0 rollback errors on the final state",
+    "status": "slice_built",
+    "note": "unchanged by this extension: the criterion is exercised by an evaluator slice, not met by a product"
+  },
+  "sample_counts": {
+    "tasks": 27,
+    "drills_per_task": 3,
+    "drill_executions": 81,
+    "replay_days_per_task": 7,
+    "replay_day_evaluations": 189,
+    "backups": 19,
+    "restore_events": 19,
+    "restore_day_evaluations": 19,
+    "restore_attempts": 31,
+    "fixture_declared_retries": 4,
+    "injected_restore_scenarios": 4,
+    "injected_stops": 5,
+    "corrupt_backups": 3,
+    "corrupt_refused": 2,
+    "corrupt_repaired": 1,
+    "pre_restore_losses": 16,
+    "recovery_probes": 58,
+    "probes": 87,
+    "deleted_records": 31,
+    "surface_entries": 182,
+    "backup_entries": 139,
+    "note": "deterministic executions, not independent samples; no confidence interval is implied, and the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations",
+    "mid_write_scenarios": 5,
+    "mid_write_stops": 5,
+    "mid_write_candidates": 9,
+    "mid_write_part_boundaries": 30,
+    "record_writes": 47,
+    "write_parts": 144
+  },
+  "write_state_model": {
+    "runtime": "eval/harness/write_state.py",
+    "states": [
+      "not_started",
+      "partially_applied",
+      "committed",
+      "rolled_back"
+    ],
+    "terminal": [
+      "committed"
+    ],
+    "transitions": {
+      "not_started": [
+        "committed",
+        "partially_applied"
+      ],
+      "partially_applied": [
+        "committed",
+        "rolled_back"
+      ],
+      "rolled_back": [
+        "committed",
+        "not_started"
+      ],
+      "committed": []
+    },
+    "parts": "the record itself, then one part per derived copy the backup holds for it (index, cache, summary)",
+    "policies": {
+      "resume": "the retry keeps the parts already written and applies only the missing ones",
+      "rollback": "the retry removes the record from every copy, then rewrites it from the start"
+    },
+    "observability": "mid-write points are only offered on records the live store lost; a record that is still present is refused at load time because rewriting a copy that is already there is idempotent",
+    "gold": "the fixture declares the interrupted and rolled-back record counts and the loader recomputes them from the schedule and the policy, refusing the fixture when they disagree",
+    "schedule": {
+      "states": [
+        "not_started",
+        "partially_applied",
+        "committed",
+        "rolled_back"
+      ],
+      "terminal": [
+        "committed"
+      ],
+      "transitions": {
+        "not_started": [
+          "partially_applied",
+          "committed"
+        ],
+        "partially_applied": [
+          "committed",
+          "rolled_back"
+        ],
+        "rolled_back": [
+          "not_started"
+        ],
+        "committed": []
+      },
+      "parts": "one per copy the backup holds for the record: the record itself, then its index, cache and summary entries in that order",
+      "policies": {
+        "resume": "the retry keeps the copies already written and applies only the missing ones",
+        "rollback": "the retry removes the record from every copy, then rewrites it from the start"
+      },
+      "observability": "an interruption is only observable on a record the live store has lost: rewriting a copy that is already there is idempotent, so a mid-write schedule may not name a record that is still present",
+      "gold": "the fixture declares the interrupted and rolled-back record counts; the loader recomputes them from the schedule and the policy and refuses the fixture if the two disagree"
+    }
+  },
+  "fault_schedule": {
+    "between_records": {
+      "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}')[:8], 16) % len(candidates), over records of the backup",
+      "solver_view": "the candidate bounds only; the solver learns of the interruption when the harness refuses the next record"
+    },
+    "inside_a_write": {
+      "rule": "one point per (record, copy boundary) for records the live store lost, in backup order; the fixture declares which of those points are candidates and the harness derives the chosen one from the same deterministic function",
+      "solver_view": "the recovery policy only (resume or rollback, because that is the rule it must follow); no candidate list, no chosen boundary, no per-record state table and no gold write states"
+    },
+    "gold_independence": "the expected attempt count, the per-attempt completeness flags, the per-record end state and the final store are identical for every legal candidate; the tests re-solve each mid-write task at every candidate and assert the outcome does not move"
+  },
+  "corruption": {
+    "digest": "sha256 over the declared backup document",
+    "classes": [
+      "missing_entry (repaired from the live store)",
+      "altered_record_id (refused before any write)",
+      "invalid_metadata (refused before any write)"
+    ],
+    "note": "damage is classified from the data itself, never from a hint, and damage is excluded from the partial-write and rollback counters so the corruption gate stays separately identifiable"
+  },
+  "phases": {
+    "live_store_after_deletion": {
+      "measured_by": [
+        "residual_copies",
+        "post_delete_hits",
+        "overdeleted"
+      ],
+      "meaning": "the store one deletion cycle later; a copy that is still here was never removed, so it is residue, not a resurrection"
+    },
+    "replay_window": {
+      "measured_by": [
+        "resurrections"
+      ],
+      "meaning": "any deleted record present on a replay day but absent at the end of the deletion cycle; measured against that post-deletion state"
+    },
+    "restore_attempts": {
+      "measured_by": [
+        "restore_resurrections",
+        "restore_dropped",
+        "restore_residue",
+        "restore_attempt_mismatch"
+      ],
+      "meaning": "a backup taken before the deletion is restored on a declared replay day in one or more attempts. Each attempt is audited on its own: resurrection counts only records an attempt brought back that were absent immediately before it, residue only copies an attempt itself added. An interrupted first attempt is incomplete by design and is not a failure while a retry can still finish the restore; the reported attempt sequence must match the declared one"
+    },
+    "final_recovered_state": {
+      "measured_by": [
+        "restore_unrecovered",
+        "restore_duplicate_effects"
+      ],
+      "meaning": "after the last attempt: every surviving record the backup holds must be back, recovery probes over the final store must resolve as declared, and no derived entry may be duplicated by a retry. This is where an abandoned partial restore fails, and where a retry that re-applies its effects fails even though every record it touched is present"
+    },
+    "backup_integrity": {
+      "measured_by": [
+        "restore_corrupt_accepted"
+      ],
+      "meaning": "before any attempt: the backup's contents must hash to the digest it declares. Damage is classified from the data itself -- incomplete record metadata or an entry naming a record the backup does not hold must be refused before a write, a single missing derived copy may be rebuilt from a copy the store or the snapshot still holds. A damaged backup is never scored as an ordinary incomplete restore"
+    },
+    "record_write": {
+      "measured_by": [
+        "restore_partial_residue",
+        "restore_rollback_errors",
+        "restore_duplicate_effects"
+      ],
+      "meaning": "inside a restore attempt: every record a write touched is in one of the four states, a partially applied record is counted once against the record, a claimed rollback is checked against the copies still in the store, and the retry must not re-apply a part it already wrote"
+    },
+    "note": "the live-store, replay, restore-attempt and final-state phases are unchanged from the 22-task suite; the record-write phase is added, not folded into an existing one"
+  },
+  "baseline": "eval/baselines/baseline-m5-b4d-midwrite.json",
+  "baseline_id": "8d5c39fd14abd802",
+  "clean_run": {
+    "run_id": "9c2324826579912a",
+    "solver": "stub",
+    "git_sha": "cd21c2ea168f",
+    "git_dirty": false,
+    "ledger": "eval/results/2026-11-01-B4D-9c2324826579912a.jsonl",
+    "ledger_sha256": "06e98042505acf53db67731b034fee6b3cf70e6afa5ccafcc99615f5b560ed3c",
+    "summary": {
+      "abstentions": 0,
+      "approval_violations": 0,
+      "attempts": 27,
+      "by_subfamily": {},
+      "cause_accuracy": null,
+      "cause_correct": 0,
+      "cause_required": 0,
+      "citations": 0,
+      "cost_is_synthetic": true,
+      "duplicate_writes": 0,
+      "expired_served": 0,
+      "false_successes": 0,
+      "incomplete_accepts": 0,
+      "mean_citation_precision": null,
+      "median_latency_ms": 0.105,
+      "misattributed": 0,
+      "overdeleted": 0,
+      "pass_hat_k": null,
+      "pass_k": null,
+      "post_delete_hits": 0,
+      "replay_complete": 27,
+      "replay_completeness": 1.0,
+      "replay_tasks": 27,
+      "residual_copies": 0,
+      "restore_attempt_mismatch": 0,
+      "restore_attempts": 31,
+      "restore_corrupt_accepted": 0,
+      "restore_corrupt_backups": 3,
+      "restore_dropped": 0,
+      "restore_duplicate_effects": 0,
+      "restore_events": 19,
+      "restore_injected_stops": 10,
+      "restore_mid_write_stops": 5,
+      "restore_partial_residue": 0,
+      "restore_rejected": 2,
+      "restore_repaired": 1,
+      "restore_residue": 0,
+      "restore_resurrections": 0,
+      "restore_rollback_errors": 0,
+      "restore_rollbacks": 2,
+      "restore_unrecovered": 0,
+      "resurrections": 0,
+      "silent_failures": 0,
+      "spurious_causes": 0,
+      "stale_correct": 0,
+      "stale_handling_rate": null,
+      "stale_required": 0,
+      "success_rate": 1.0,
+      "successes": 27,
+      "supported_citations": 0,
+      "tasks": 27,
+      "total_cost_usd": 0.0,
+      "unauthorized_side_effects": 0,
+      "unlabelled_stale": 0,
+      "unreported_states": 0,
+      "unsafe_next_steps": 0,
+      "validation_errors": 0
+    }
+  },
+  "clean_gates": [
+    {
+      "gate": "false_successes_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "approval_violations_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "duplicate_writes_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "unauthorized_side_effects_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant"
+    },
+    {
+      "gate": "deletion_residue_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on residual_copies"
+    },
+    {
+      "gate": "post_delete_hit_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on post_delete_hits"
+    },
+    {
+      "gate": "resurrection_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on resurrections"
+    },
+    {
+      "gate": "overdeletion_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on overdeleted"
+    },
+    {
+      "gate": "restore_resurrection_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_resurrections"
+    },
+    {
+      "gate": "restore_survivor_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_dropped"
+    },
+    {
+      "gate": "restore_residue_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_residue"
+    },
+    {
+      "gate": "restore_recovery_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_unrecovered"
+    },
+    {
+      "gate": "restore_idempotency_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_duplicate_effects"
+    },
+    {
+      "gate": "restore_attempt_count_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_attempt_mismatch"
+    },
+    {
+      "gate": "restore_corruption_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_corrupt_accepted"
+    },
+    {
+      "gate": "restore_partial_write_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_partial_residue"
+    },
+    {
+      "gate": "restore_rollback_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on restore_rollback_errors"
+    },
+    {
+      "gate": "deletion_report_zero",
+      "status": "pass",
+      "detail": "zero-tolerance invariant on unreported_states"
+    },
+    {
+      "gate": "deletion_replay_completeness",
+      "status": "pass",
+      "detail": "C-02-AC3: published bound 1.00"
+    },
+    {
+      "gate": "secret_leaks_zero",
+      "status": "pass",
+      "detail": "scanned recorded results for credential-shaped strings"
+    },
+    {
+      "gate": "success_drop",
+      "status": "pass",
+      "detail": "baseline 1.0000, allowed drop 0.0 pp"
+    },
+    {
+      "gate": "citation_precision_drop",
+      "status": "skip",
+      "detail": "only evaluated for B1 runs that produced citations"
+    },
+    {
+      "gate": "cost_ratio",
+      "status": "skip",
+      "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined"
+    }
+  ],
+  "mid_write_scenarios": [
+    {
+      "task": "b4d-023",
+      "policy": "resume",
+      "candidates": [
+        1,
+        2
+      ],
+      "chosen_candidate": 2,
+      "interrupted_record": "r2",
+      "copies_of_record": [
+        "record",
+        "index",
+        "cache"
+      ],
+      "interrupted_after_parts": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "complete": false,
+          "records_added": [
+            "r2"
+          ]
+        },
+        {
+          "attempt": 2,
+          "complete": true,
+          "records_added": [
+            "r3"
+          ]
+        }
+      ],
+      "reported_partial_writes": [
+        "r2"
+      ],
+      "reported_rollbacks": 0,
+      "missing_parts": [],
+      "dangling_records": [],
+      "counters": {
+        "restore_partial_residue": 0,
+        "restore_rollback_errors": 0,
+        "restore_duplicate_effects": 0,
+        "restore_unrecovered": 0,
+        "restore_resurrections": 0,
+        "restore_attempt_mismatch": 0
+      },
+      "final_store": [
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "success": true
+    },
+    {
+      "task": "b4d-024",
+      "policy": "rollback",
+      "candidates": [
+        3,
+        4
+      ],
+      "chosen_candidate": 4,
+      "interrupted_record": "r3",
+      "copies_of_record": [
+        "record",
+        "index",
+        "summary"
+      ],
+      "interrupted_after_parts": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "complete": false,
+          "records_added": [
+            "r2"
+          ]
+        },
+        {
+          "attempt": 2,
+          "complete": true,
+          "records_added": [
+            "r3"
+          ]
+        }
+      ],
+      "reported_partial_writes": [
+        "r3"
+      ],
+      "reported_rollbacks": 1,
+      "missing_parts": [],
+      "dangling_records": [],
+      "counters": {
+        "restore_partial_residue": 0,
+        "restore_rollback_errors": 0,
+        "restore_duplicate_effects": 0,
+        "restore_unrecovered": 0,
+        "restore_resurrections": 0,
+        "restore_attempt_mismatch": 0
+      },
+      "final_store": [
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "success": true
+    },
+    {
+      "task": "b4d-025",
+      "policy": "resume",
+      "candidates": [
+        1,
+        3
+      ],
+      "chosen_candidate": 1,
+      "interrupted_record": "r2",
+      "copies_of_record": [
+        "record",
+        "index",
+        "cache"
+      ],
+      "interrupted_after_parts": 1,
+      "attempts": [
+        {
+          "attempt": 1,
+          "complete": false,
+          "records_added": [
+            "r2"
+          ]
+        },
+        {
+          "attempt": 2,
+          "complete": true,
+          "records_added": [
+            "r3"
+          ]
+        }
+      ],
+      "reported_partial_writes": [
+        "r2"
+      ],
+      "reported_rollbacks": 0,
+      "missing_parts": [],
+      "dangling_records": [],
+      "counters": {
+        "restore_partial_residue": 0,
+        "restore_rollback_errors": 0,
+        "restore_duplicate_effects": 0,
+        "restore_unrecovered": 0,
+        "restore_resurrections": 0,
+        "restore_attempt_mismatch": 0
+      },
+      "final_store": [
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "success": true
+    },
+    {
+      "task": "b4d-026",
+      "policy": "rollback",
+      "candidates": [
+        2,
+        4
+      ],
+      "chosen_candidate": 4,
+      "interrupted_record": "r3",
+      "copies_of_record": [
+        "record",
+        "index",
+        "summary"
+      ],
+      "interrupted_after_parts": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "complete": false,
+          "records_added": [
+            "r2"
+          ]
+        },
+        {
+          "attempt": 2,
+          "complete": true,
+          "records_added": [
+            "r3"
+          ]
+        }
+      ],
+      "reported_partial_writes": [
+        "r3"
+      ],
+      "reported_rollbacks": 1,
+      "missing_parts": [],
+      "dangling_records": [],
+      "counters": {
+        "restore_partial_residue": 0,
+        "restore_rollback_errors": 0,
+        "restore_duplicate_effects": 0,
+        "restore_unrecovered": 0,
+        "restore_resurrections": 0,
+        "restore_attempt_mismatch": 0
+      },
+      "final_store": [
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "success": true
+    },
+    {
+      "task": "b4d-027",
+      "policy": "resume",
+      "candidates": [
+        4
+      ],
+      "chosen_candidate": 4,
+      "interrupted_record": "r3",
+      "copies_of_record": [
+        "record",
+        "index",
+        "summary"
+      ],
+      "interrupted_after_parts": 2,
+      "attempts": [
+        {
+          "attempt": 1,
+          "complete": false,
+          "records_added": [
+            "r2",
+            "r3"
+          ]
+        },
+        {
+          "attempt": 2,
+          "complete": true,
+          "records_added": []
+        }
+      ],
+      "reported_partial_writes": [
+        "r3"
+      ],
+      "reported_rollbacks": 0,
+      "missing_parts": [],
+      "dangling_records": [],
+      "counters": {
+        "restore_partial_residue": 0,
+        "restore_rollback_errors": 0,
+        "restore_duplicate_effects": 0,
+        "restore_unrecovered": 0,
+        "restore_resurrections": 0,
+        "restore_attempt_mismatch": 0
+      },
+      "final_store": [
+        "r2",
+        "r3",
+        "r4"
+      ],
+      "success": true
+    }
+  ],
+  "regressions": [
+    {
+      "mutation": "delete_primary_only",
+      "expected_gate": "deletion_residue_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=27",
+        "deletion_residue_zero=64",
+        "post_delete_hit_zero=31",
+        "restore_recovery_zero=15",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-7ef380edb6fae648-delete_primary_only.jsonl",
+      "ledger_sha256": "d536955ec52546f6a4a5217a0f04de311c80a58cacd80037ca440c44f3a911f5"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "expected_gate": "post_delete_hit_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.7037,
+      "gates_failed": [
+        "false_successes_zero=8",
+        "deletion_residue_zero=8",
+        "post_delete_hit_zero=8",
+        "restore_recovery_zero=1",
+        "success_drop=0.7037"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-15de4e57331aff1b-keep_derived_copy.jsonl",
+      "ledger_sha256": "6e66e1fce76ecbf373c219f98902b7fe5a14646080a05738348b65077fc237ba"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "expected_gate": "resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=27",
+        "resurrection_zero=217",
+        "restore_recovery_zero=15",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-17e78caa1ca8ad9c-resurrect_on_replay.jsonl",
+      "ledger_sha256": "eef65eeebc61551d11a716accb08b7aed31dfb0db476dae853087298a3d4a7e2"
+    },
+    {
+      "mutation": "restore_without_filter",
+      "expected_gate": "restore_resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.3704,
+      "gates_failed": [
+        "false_successes_zero=17",
+        "resurrection_zero=82",
+        "restore_resurrection_zero=19",
+        "restore_residue_zero=38",
+        "restore_recovery_zero=15",
+        "success_drop=0.3704"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-5c3e06566043c22b-restore_without_filter.jsonl",
+      "ledger_sha256": "bb86445d302497f6cd6d072c6c77d427048ab3a4434f334fb81e0c2ac240df44"
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "expected_gate": "restore_survivor_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.3704,
+      "gates_failed": [
+        "false_successes_zero=17",
+        "overdeletion_zero=17",
+        "restore_survivor_zero=14",
+        "restore_recovery_zero=31",
+        "success_drop=0.3704"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-373a7ab3bc01a1db-restore_drops_unrelated.jsonl",
+      "ledger_sha256": "1aa01e2143e9554437adbac07720704aa3356ff8882e80915e4bde6615136062"
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "expected_gate": "restore_residue_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.3704,
+      "gates_failed": [
+        "false_successes_zero=17",
+        "resurrection_zero=82",
+        "restore_residue_zero=38",
+        "restore_recovery_zero=15",
+        "success_drop=0.3704"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-f61a499f07a5066b-restore_skips_tombstones.jsonl",
+      "ledger_sha256": "c27aee28b14c130ceae1e2da9b237b6eedc1f97f55260d6175e38d33e180a476"
+    },
+    {
+      "mutation": "retry_from_scratch",
+      "expected_gate": "restore_idempotency_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.5185,
+      "gates_failed": [
+        "false_successes_zero=13",
+        "restore_idempotency_zero=52",
+        "restore_rollback_zero=12",
+        "success_drop=0.5185"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-bf72f440cc0a9cd1-retry_from_scratch.jsonl",
+      "ledger_sha256": "182846b8aca5f345ef92124d05fc629054cf15336562786d34517c4254c77f4b"
+    },
+    {
+      "mutation": "retry_without_filter",
+      "expected_gate": "restore_resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8519,
+      "gates_failed": [
+        "false_successes_zero=4",
+        "resurrection_zero=21",
+        "restore_resurrection_zero=5",
+        "restore_residue_zero=10",
+        "restore_recovery_zero=5",
+        "success_drop=0.8519"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-35e7a6da0b4bbb6e-retry_without_filter.jsonl",
+      "ledger_sha256": "574a46b6d1e4cb4a831340f986503d18b12473875e161c6b3c5333f7c9bc3b19"
+    },
+    {
+      "mutation": "abandon_partial_restore",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.5185,
+      "gates_failed": [
+        "false_successes_zero=13",
+        "overdeletion_zero=9",
+        "restore_recovery_zero=19",
+        "restore_attempt_count_zero=13",
+        "restore_partial_write_zero=4",
+        "restore_rollback_zero=12",
+        "success_drop=0.5185"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-4793aec8058aa64d-abandon_partial_restore.jsonl",
+      "ledger_sha256": "7eb507e21b57c698fa57fe625b36a74e068785be75cc0606e6d2e7128a8ecf3c"
+    },
+    {
+      "mutation": "ignore_injected_stop",
+      "expected_gate": "restore_attempt_count_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8519,
+      "gates_failed": [
+        "false_successes_zero=4",
+        "restore_attempt_count_zero=4",
+        "success_drop=0.8519"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-d21952688bc2c3ee-ignore_injected_stop.jsonl",
+      "ledger_sha256": "31c82430f27615e43090eced32544515071f219525f50ade5af0c3ca90b76635"
+    },
+    {
+      "mutation": "accept_corrupt_backup",
+      "expected_gate": "restore_corruption_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8889,
+      "gates_failed": [
+        "false_successes_zero=3",
+        "restore_recovery_zero=1",
+        "restore_attempt_count_zero=2",
+        "restore_corruption_zero=6",
+        "success_drop=0.8889"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-5f100c8080de38da-accept_corrupt_backup.jsonl",
+      "ledger_sha256": "ece7b29c69a32ccb1de4db6dad549896886ef662d01a131cb0c2f7f8239a9b59"
+    },
+    {
+      "mutation": "recover_loses_unrelated",
+      "expected_gate": "restore_survivor_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.963,
+      "gates_failed": [
+        "false_successes_zero=1",
+        "overdeletion_zero=1",
+        "restore_survivor_zero=1",
+        "restore_recovery_zero=2",
+        "success_drop=0.963"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-b51ab887572bca87-recover_loses_unrelated.jsonl",
+      "ledger_sha256": "4fa7c12d400b5e02d4c662f29d6d486d6f71f9026b8037ebc9dd3ea6db1ad0fb"
+    },
+    {
+      "mutation": "falsely_claim_restore_complete",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.7407,
+      "gates_failed": [
+        "false_successes_zero=7",
+        "overdeletion_zero=5",
+        "restore_recovery_zero=11",
+        "restore_attempt_count_zero=7",
+        "restore_partial_write_zero=4",
+        "restore_rollback_zero=8",
+        "success_drop=0.7407"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-90d37fc33c1e5758-falsely_claim_restore_complete.jsonl",
+      "ledger_sha256": "6e6be3b58c1133c1ac2d4be892a16fa51ae04f36f6e8f0475aa566deb2d4b9e7"
+    },
+    {
+      "mutation": "recover_without_repair",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.963,
+      "gates_failed": [
+        "false_successes_zero=1",
+        "restore_recovery_zero=1",
+        "restore_corruption_zero=1",
+        "success_drop=0.963"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-2a8a43338f9fdbb0-recover_without_repair.jsonl",
+      "ledger_sha256": "aefd3a75a97d82d3adfc1b27bf19004214f036ba06c980840ad2f2028f2f9db3"
+    },
+    {
+      "mutation": "replay_partial_write_twice",
+      "expected_gate": "restore_idempotency_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.9259,
+      "gates_failed": [
+        "false_successes_zero=2",
+        "restore_idempotency_zero=2",
+        "success_drop=0.9259"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-2c4c89594459147a-replay_partial_write_twice.jsonl",
+      "ledger_sha256": "a3f37397d7c8102a87995738e09a1d7008e68efeaf59d751896f425b4a738055"
+    },
+    {
+      "mutation": "claim_rollback_without_reverting",
+      "expected_gate": "restore_rollback_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.9259,
+      "gates_failed": [
+        "false_successes_zero=2",
+        "restore_rollback_zero=2",
+        "success_drop=0.9259"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-1cdd18b4d7d58bbd-claim_rollback_without_reverting.jsonl",
+      "ledger_sha256": "1303d7f553acdf797b4f4b49a4fe7e2875eb6f12e5815df63352fb0abd61fa4b"
+    },
+    {
+      "mutation": "report_success_with_partial_record",
+      "expected_gate": "restore_partial_write_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8889,
+      "gates_failed": [
+        "false_successes_zero=3",
+        "restore_partial_write_zero=3",
+        "success_drop=0.8889"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-364477f15587d8d5-report_success_with_partial_record.jsonl",
+      "ledger_sha256": "a8ae25a0e4a490691aeea20b4214f8fcea0a9032aedffda88c57c3c62e4b1da4"
+    }
+  ],
+  "x10_report": "eval/results/x10-report-m5-b4d-midwrite.json",
+  "x10_scope": [
+    "B4D"
+  ],
+  "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DFaultInjectionTests, ::B4DCorruptBackupTests, ::B4DWriteStateModelTests, ::B4DMidWriteTests",
+  "test_counts": {
+    "b4d_slice_tests": 208,
+    "new_tests_this_extension": 48,
+    "new_state_machine_tests": 10,
+    "new_mid_write_tests": 38,
+    "whole_suite": 369
+  },
+  "harness_tests": "python3 -m unittest discover -s eval/tests -t . -> 369 tests OK; python3 -m eval.harness selftest -> 17/17 checks passed; python3 -m eval.harness x10 --block B4D -> 17/17 regressions caught by their declared gate",
+  "solver_note": "Every run uses the deterministic hand-written 'stub' reference profile. No model, provider, parameter count, hardware or network call is involved. The evaluator chooses where an attempt stops and whether the retry resumes or rolls back; the reference program is told the policy (it has to follow it) and nothing about the chosen boundary, the candidate set or the gold state.",
+  "what_this_shows": [
+    "an attempt can be interrupted after some of a record's copies are written, and the store then holds a record that is neither absent nor complete; the four-state model names that state and the audit reports it per record, not as a count",
+    "both legal recoveries work: under 'resume' the retry keeps the parts already there and finishes them, under 'rollback' it removes the record from every copy first, and the two policies reach the same final store for the same chosen point (asserted by test, not by inspection)",
+    "an injected interruption fails nothing on its own: every mid-write task reports two attempts, the first incomplete, and still passes all gates when the retry recovers",
+    "the three new regressions are isolated: replay_partial_write_twice fails only restore_idempotency_zero, claim_rollback_without_reverting only restore_rollback_zero, report_success_with_partial_record only restore_partial_write_zero, each at the exact tasks it damages and with the other new counters at zero",
+    "the fewer-than-expected directions are covered too: a retry that never finishes the restore fails restore_recovery_zero while its rollback and idempotency counters stay clean",
+    "the fixture cannot encode the answer: it declares candidate points and the loader recomputes the gold write states from the schedule and the policy, refusing the fixture when they disagree",
+    "the schedule is hidden from the solver: the view carries the recovery policy and nothing about the chosen point, the candidate list, the per-record states or the gold outcome",
+    "malformed reports fail closed rather than crashing the scorer: an illegal transition, an unknown write part, a non-list or missing write log and an impossible chain are all counted as rollback errors with the task failing"
+  ],
+  "what_this_does_not_show": [
+    "that anything is durable: the stop lands between two copy writes in an in-memory simulator, no write is torn at byte level, nothing is fsynced, and there is no journal, WAL, power-failure or restart path",
+    "how a real engine recovers: resume and rollback are two written policies the reference program follows, not observations of a real store's crash recovery",
+    "any rate: 27 scenarios with 5 mid-write stops over 9 candidate boundaries are deterministic executions, not samples, and no confidence interval may be computed from them",
+    "any product capability: the store is invented, the solver is a hand-written program, C-02-AC3 stays slice_built, no capability is marked implemented or validated, and G-O1 stays blocked",
+    "real retention, legal hold, off-site replication or concurrent restores"
+  ],
+  "correlated_failures": [
+    "three older restore mutants also trip the two new gates on the new scenarios, because they mishandle partially applied records as well: retry_from_scratch, abandon_partial_restore and falsely_claim_restore_complete report rollback errors, and the latter two also leave partial residue. That is real damage on those tasks, not leakage between gates: each mutant is still caught by its declared gate, and the three new mutants trip only their own.",
+    "false_successes_zero and success_drop fire alongside every expected gate; they are aggregate companions rather than family-specific signals and are not used to argue isolation"
+  ],
+  "remaining_gaps": [
+    "no durability or crash semantics: the four states are the simulator's, not a store's",
+    "no concurrency: one restore at a time, and no interleaving with live writes",
+    "mid-write interruptions are only offered on records the live store lost; a partially applied write to a record that is still present is unobservable in this simulator by construction",
+    "no model is involved, so nothing here measures how a real agent or engine would behave after a partial write",
+    "Q18 (people-database fields) stays open; real retention and legal-hold policy are untouched"
+  ],
+  "reproduce": [
+    "python3 -m unittest discover -s eval/tests -t .",
+    "python3 -m eval.harness selftest",
+    "python3 -m eval.harness run --block B4D",
+    "python3 -m eval.harness x10 --block B4D --report eval/results/x10-report-m5-b4d-midwrite.json",
+    "python3 -m eval.harness baseline-freeze --block B4D --partial --name baseline-m5-b4d-midwrite.json --note '27-task B4D suite (2026-Q4.1-m5.6)'"
+  ]
+}

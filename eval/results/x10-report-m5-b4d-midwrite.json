@@ -1,0 +1,177 @@
+{
+  "scope": [
+    "B4D"
+  ],
+  "rows": [
+    {
+      "mutation": "delete_primary_only",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "deletion_residue_zero",
+      "gates_failed": "false_successes_zero=27, deletion_residue_zero=64, post_delete_hit_zero=31, restore_recovery_zero=15, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-7ef380edb6fae648-delete_primary_only.jsonl"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.7037,
+      "expected_gate": "post_delete_hit_zero",
+      "gates_failed": "false_successes_zero=8, deletion_residue_zero=8, post_delete_hit_zero=8, restore_recovery_zero=1, success_drop=0.7037",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-15de4e57331aff1b-keep_derived_copy.jsonl"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "resurrection_zero",
+      "gates_failed": "false_successes_zero=27, resurrection_zero=217, restore_recovery_zero=15, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-17e78caa1ca8ad9c-resurrect_on_replay.jsonl"
+    },
+    {
+      "mutation": "restore_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.3704,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=17, resurrection_zero=82, restore_resurrection_zero=19, restore_residue_zero=38, restore_recovery_zero=15, success_drop=0.3704",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-5c3e06566043c22b-restore_without_filter.jsonl"
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.3704,
+      "expected_gate": "restore_survivor_zero",
+      "gates_failed": "false_successes_zero=17, overdeletion_zero=17, restore_survivor_zero=14, restore_recovery_zero=31, success_drop=0.3704",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-373a7ab3bc01a1db-restore_drops_unrelated.jsonl"
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.3704,
+      "expected_gate": "restore_residue_zero",
+      "gates_failed": "false_successes_zero=17, resurrection_zero=82, restore_residue_zero=38, restore_recovery_zero=15, success_drop=0.3704",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-f61a499f07a5066b-restore_skips_tombstones.jsonl"
+    },
+    {
+      "mutation": "retry_from_scratch",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.5185,
+      "expected_gate": "restore_idempotency_zero",
+      "gates_failed": "false_successes_zero=13, restore_idempotency_zero=52, restore_rollback_zero=12, success_drop=0.5185",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-bf72f440cc0a9cd1-retry_from_scratch.jsonl"
+    },
+    {
+      "mutation": "retry_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8519,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=4, resurrection_zero=21, restore_resurrection_zero=5, restore_residue_zero=10, restore_recovery_zero=5, success_drop=0.8519",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-35e7a6da0b4bbb6e-retry_without_filter.jsonl"
+    },
+    {
+      "mutation": "abandon_partial_restore",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.5185,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=13, overdeletion_zero=9, restore_recovery_zero=19, restore_attempt_count_zero=13, restore_partial_write_zero=4, restore_rollback_zero=12, success_drop=0.5185",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-4793aec8058aa64d-abandon_partial_restore.jsonl"
+    },
+    {
+      "mutation": "ignore_injected_stop",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8519,
+      "expected_gate": "restore_attempt_count_zero",
+      "gates_failed": "false_successes_zero=4, restore_attempt_count_zero=4, success_drop=0.8519",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-d21952688bc2c3ee-ignore_injected_stop.jsonl"
+    },
+    {
+      "mutation": "accept_corrupt_backup",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8889,
+      "expected_gate": "restore_corruption_zero",
+      "gates_failed": "false_successes_zero=3, restore_recovery_zero=1, restore_attempt_count_zero=2, restore_corruption_zero=6, success_drop=0.8889",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-5f100c8080de38da-accept_corrupt_backup.jsonl"
+    },
+    {
+      "mutation": "recover_loses_unrelated",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.963,
+      "expected_gate": "restore_survivor_zero",
+      "gates_failed": "false_successes_zero=1, overdeletion_zero=1, restore_survivor_zero=1, restore_recovery_zero=2, success_drop=0.963",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-b51ab887572bca87-recover_loses_unrelated.jsonl"
+    },
+    {
+      "mutation": "falsely_claim_restore_complete",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.7407,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=7, overdeletion_zero=5, restore_recovery_zero=11, restore_attempt_count_zero=7, restore_partial_write_zero=4, restore_rollback_zero=8, success_drop=0.7407",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-90d37fc33c1e5758-falsely_claim_restore_complete.jsonl"
+    },
+    {
+      "mutation": "recover_without_repair",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.963,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=1, restore_recovery_zero=1, restore_corruption_zero=1, success_drop=0.963",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-2a8a43338f9fdbb0-recover_without_repair.jsonl"
+    },
+    {
+      "mutation": "replay_partial_write_twice",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.9259,
+      "expected_gate": "restore_idempotency_zero",
+      "gates_failed": "false_successes_zero=2, restore_idempotency_zero=2, success_drop=0.9259",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-2c4c89594459147a-replay_partial_write_twice.jsonl"
+    },
+    {
+      "mutation": "claim_rollback_without_reverting",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.9259,
+      "expected_gate": "restore_rollback_zero",
+      "gates_failed": "false_successes_zero=2, restore_rollback_zero=2, success_drop=0.9259",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-1cdd18b4d7d58bbd-claim_rollback_without_reverting.jsonl"
+    },
+    {
+      "mutation": "report_success_with_partial_record",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8889,
+      "expected_gate": "restore_partial_write_zero",
+      "gates_failed": "false_successes_zero=3, restore_partial_write_zero=3, success_drop=0.8889",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-364477f15587d8d5-report_success_with_partial_record.jsonl"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "baseline_id": "8d5c39fd14abd802",
+  "blocks": {
+    "B4D": {
+      "config_hash": "6bfcf72e7f46e9f2cbdcc1ca42553bf6ca5756ca68d7d840006050b5427cc3cf",
+      "repeats": 1,
+      "run_id": "9c2324826579912a",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 27,
+        "by_subfamily": {},
+        "cause_accuracy": null,
+        "cause_correct": 0,
+        "cause_required": 0,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.105,
+        "misattributed": 0,
+        "overdeleted": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "post_delete_hits": 0,
+        "replay_complete": 27,
+        "replay_completeness": 1.0,
+        "replay_tasks": 27,
+        "residual_copies": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_attempts": 31,
+        "restore_corrupt_accepted": 0,
+        "restore_corrupt_backups": 3,
+        "restore_dropped": 0,
+        "restore_duplicate_effects": 0,
+        "restore_events": 19,
+        "restore_injected_stops": 10,
+        "restore_mid_write_stops": 5,
+        "restore_partial_residue": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_rollback_errors": 0,
+        "restore_rollbacks": 2,
+        "restore_unrecovered": 0,
+        "resurrections": 0,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 0,
+        "stale_handling_rate": null,
+        "stale_required": 0,
+        "success_rate": 1.0,
+        "successes": 27,
+        "supported_citations": 0,
+        "tasks": 27,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "unlabelled_stale": 0,
+        "unreported_states": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b4d-001": [
+          "1394108ace64892eb895d913eedbe747d5692acf68e5792c4098e20d450e1c10"
+        ],
+        "b4d-002": [
+          "785946f4addbb1f1df8e484d91dbfe962143e6d43ee768157015befd239d7a72"
+        ],
+        "b4d-003": [
+          "79e2e77a1ed242b8e7d6e04d02cf2f8b2ff0b08b2a94e054565b1816d13c2f3b"
+        ],
+        "b4d-004": [
+          "a0f63eb8d2dfa27162f0df0327713dd6dc155b8519810301890623ebd9f1bf98"
+        ],
+        "b4d-005": [
+          "d680637f4362d13cdfa94d5bbcd5833151050e92e9e985e325a1df0fa214ad07"
+        ],
+        "b4d-006": [
+          "5b82f94b21981f882d97492e71c8efa399fad523a0e45c9ef0eace3828adb9cb"
+        ],
+        "b4d-007": [
+          "c1d04bbd96c787a39e0cd88d2ceb23e698fdbcf49a3536525fa0270168ab30f2"
+        ],
+        "b4d-008": [
+          "6c0c4cd1bae277333d0de3450df5738edc1280016b07846a48c9fead545c39a6"
+        ],
+        "b4d-009": [
+          "444be332b85e706d9eac1f71b7caf71df910defd015cc77ab55cec45d4f70010"
+        ],
+        "b4d-010": [
+          "b598b9f1a6bb299e259d671935e1f518dc14b50866e27d83495406a41120278a"
+        ],
+        "b4d-011": [
+          "5b6c2e2ce4c8dadbfe21b85cd55690bd50fa57c070be9eb0c662a3d411fcc879"
+        ],
+        "b4d-012": [
+          "334395af7e98785bc31354d2a17a43b78c6761f2bc110bf67a951142a3c19f55"
+        ],
+        "b4d-013": [
+          "56a10ed699ca596357d7e951b75093ac144c744199e56627293559d89c9657b6"
+        ],
+        "b4d-014": [
+          "09f7fa305ddd1d6a7a0a995e495f864abf8c8c0afb9183ab97aa5a0c3e777fb3"
+        ],
+        "b4d-015": [
+          "86c29d3f109428e743d6d1e101ed66a45215d379d07ce967dbc79cd09bf49331"
+        ],
+        "b4d-016": [
+          "211f2a0230902a694a04d7815063eb7fba301619edef07c4b98654f17ce82e08"
+        ],
+        "b4d-017": [
+          "d24f7aa9e4221e8184ba893cfca121fa9a2c3bd770f574fdfc13e817c12ae480"
+        ],
+        "b4d-018": [
+          "e51f67b04062c613477040404719634a03ce6723da91274e8eba9f21d527c67b"
+        ],
+        "b4d-019": [
+          "2ff224dace7a297fbe6e9714d43df6de5d3e309f67a68f964547f0ea3a39c9e9"
+        ],
+        "b4d-020": [
+          "8167abb2690bb060fcea751d7c1273511078738f970c3118207d4312367bfb1d"
+        ],
+        "b4d-021": [
+          "6826f49de9284c9eea0843c624168cca4b67fd374d57d342ae63fc983bc61b8b"
+        ],
+        "b4d-022": [
+          "6be6b105ecde306f05e14ef4e65319882541e14a5ed7c119c47cc26049b52a9f"
+        ],
+        "b4d-023": [
+          "c59d5edf00bf63b3bb3aacdd9f842435f677edfea6b39c6297cc2ba4b2c1abe6"
+        ],
+        "b4d-024": [
+          "c73362df8570b2f93d3259bd66bd5ac1321f811d3cf8730beeba7422a257c569"
+        ],
+        "b4d-025": [
+          "412af61d026734a882c2d3a167ebacac8e264e75092549a10721cf5a1feab637"
+        ],
+        "b4d-026": [
+          "8c4c3c424b304d2f3173759c2cc991b0515b003bcb2e0b38f322e065c1f2c5c1"
+        ],
+        "b4d-027": [
+          "43b14cd335c2404fa7efc632c459e1f213a537e2c85b0cd6cb8dfa2958d347a7"
+        ]
+      },
+      "taskset_sha": "f0317f29a5ed33fdccd361cd5e0c8ec6b55e9033daf53e2623e1a40ca62fd5a1",
+      "taskset_version": "2026-Q4.1-m5.6"
+    }
+  },
+  "created_at": "2026-11-01T14:00:24+00:00",
+  "git_dirty": false,
+  "git_sha": "cd21c2ea168f",
+  "harness_version": "0.1.0",
+  "note": "27-task B4D suite (2026-Q4.1-m5.6): record-write state model, interruptions inside a record write under resume and rollback policies; frozen at code commit cd21c2e"
+}
