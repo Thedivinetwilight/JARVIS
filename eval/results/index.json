@@ -176,6 +176,123 @@
       "records": 6,
       "run_id": "17feeabb4e6265e2",
       "solver": "stub"
+    },
+    {
+      "block": "B2",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B2-87f08aca3934048f-drop_timezone.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "32402a651e4602632a5e5edf5301eb3191c406c0aac60ca64e7eeb2862a0759a",
+      "mutations": [
+        "drop_timezone"
+      ],
+      "records": 28,
+      "run_id": "87f08aca3934048f",
+      "solver": "stub"
+    },
+    {
+      "block": "B2",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B2-82cb6d6f77ece15d-retry_without_idempotency.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "f65a821e824bbff106d1e3024d21cad3a35e7d45802635b26e69008ad85286bf",
+      "mutations": [
+        "retry_without_idempotency"
+      ],
+      "records": 28,
+      "run_id": "82cb6d6f77ece15d",
+      "solver": "stub"
+    },
+    {
+      "block": "B2",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B2-d13341b024fdb5ac-attempt_blocked_action.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "12059f2c0807dbf82c7c595736a9507c008eba0fee5d08daba2ee492cd66c646",
+      "mutations": [
+        "attempt_blocked_action"
+      ],
+      "records": 28,
+      "run_id": "d13341b024fdb5ac",
+      "solver": "stub"
+    },
+    {
+      "block": "B1",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B1-d1044b8400dcae37-cite_top1_only.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "82a0a23cfc8ec4f743fd9be1dd327e63a529bc87c7fb0cd5cacdd853bc24759e",
+      "mutations": [
+        "cite_top1_only"
+      ],
+      "records": 8,
+      "run_id": "d1044b8400dcae37",
+      "solver": "stub"
+    },
+    {
+      "block": "B3",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B3-319ffc0534c9e388-drop_last_step.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "e5798b68b5e28d990127a3e50e5bd38e036f468cf62ed141accadc90f983385b",
+      "mutations": [
+        "drop_last_step"
+      ],
+      "records": 7,
+      "run_id": "319ffc0534c9e388",
+      "solver": "stub"
+    },
+    {
+      "block": "B3",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B3-962bf8496b0d27c2-skip_verification.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "6fa8a18299fc8f11e8cbd895249ddf4779e57259be99899505dda0bda58d5463",
+      "mutations": [
+        "skip_verification"
+      ],
+      "records": 7,
+      "run_id": "962bf8496b0d27c2",
+      "solver": "stub"
+    },
+    {
+      "block": "B8",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B8-f51694fca91faf27-skip_conflict_detection.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "72a16f302d9e6e27a5cd689702e15f10da8131716bb8baa5b2d15ff9976a9414",
+      "mutations": [
+        "skip_conflict_detection"
+      ],
+      "records": 18,
+      "run_id": "f51694fca91faf27",
+      "solver": "stub"
+    },
+    {
+      "block": "B9",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B9-18ae29e835ed5651-disable_skill_reuse.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "7ee43f215e009b6e5e4428e2e554efda57b0e941a1ce5e59bdcfda472a781f4b",
+      "mutations": [
+        "disable_skill_reuse"
+      ],
+      "records": 6,
+      "run_id": "18ae29e835ed5651",
+      "solver": "stub"
+    },
+    {
+      "block": "B10",
+      "created_at": "2026-11-01T12:12:10+00:00",
+      "file": "eval/results/2026-11-01-B10-f26829162e59c6d9-accept_poisoned_memory.jsonl",
+      "git_sha": "8620e7059794",
+      "ledger_digest": "e472db9d62507eb55f1b4ac67c9c079add6a87d9a36748ee564dba65f003538a",
+      "mutations": [
+        "accept_poisoned_memory"
+      ],
+      "records": 6,
+      "run_id": "f26829162e59c6d9",
+      "solver": "stub"
     }
   ]
 }
