@@ -6,6 +6,7 @@ specification, capability registers and research notes live elsewhere and are no
 | Document | What it answers |
 | --- | --- |
 | [`threat-boundaries.md`](threat-boundaries.md) | What the local server protects, from whom, and what it explicitly does not protect |
+| [`reminder-delivery.md`](reminder-delivery.md) | Why reminder delivery is a local poll-and-acknowledge queue rather than a push channel, and what it deliberately cannot do |
 | [`../adr/0001-local-first-server-architecture.md`](../adr/0001-local-first-server-architecture.md) | Why `app/` is a Python-stdlib, single-process, local-only service, and what that costs |
 | [`../../app/README.md`](../../app/README.md) | How to configure, run and test the server; the endpoint and limitation surface |
 | [`../benchmarks/voice-workload-benchmark.md`](../benchmarks/voice-workload-benchmark.md) | The pre-registered methodology of the local measurement tool: what it measures, what it refuses, and why a result is not a decision |

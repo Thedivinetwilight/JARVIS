@@ -60,7 +60,8 @@ class CLITests(unittest.TestCase):
         self.assertEqual(code, 0, err)
         first = json.loads(out)
         self.assertEqual(first["applied"],
-                         ["0001_core.sql", "0002_tasks_reminders.sql"])
+                         ["0001_core.sql", "0002_tasks_reminders.sql",
+                          "0003_reminder_delivery.sql"])
         code, out, _ = self.run_cli("migrate")
         self.assertEqual(json.loads(out)["applied"], [])
 
@@ -105,7 +106,7 @@ class CLITests(unittest.TestCase):
         code, out, err = self.run_cli("status")
         self.assertEqual(code, 0, err)
         payload = json.loads(out)
-        self.assertEqual(payload["storage"]["applied_count"], 2)
+        self.assertEqual(payload["storage"]["applied_count"], 3)
         statuses = {item["id"]: item["status"] for item in payload["manifests"]}
         self.assertEqual(statuses["speech.asr"], "unavailable")
 

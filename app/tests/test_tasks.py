@@ -139,8 +139,14 @@ class ReminderTests(ApiTestCase):
         reminder = payload["reminders"][0]
         self.assertEqual(reminder["id"], reminder_id)
         self.assertEqual(reminder["title"], "call the plumber")
-        self.assertFalse(reminder["delivery"]["available"])
-        self.assertIn("no delivery channel", reminder["delivery"]["note"])
+        # No target was set on this task, so nothing was queued: the server must say so rather
+        # than deliver to whoever happens to be paired.
+        self.assertFalse(reminder["delivery"]["routed"])
+        self.assertIsNone(reminder["delivery"]["queued_for"])
+        self.assertFalse(reminder["delivery"]["pushed"])
+        self.assertFalse(reminder["delivery"]["spoken"])
+        self.assertFalse(reminder["delivery"]["displayed"])
+        self.assertIn("no delivery target", reminder["delivery"]["note"])
 
     def test_acknowledging_a_reminder_removes_it_from_the_due_list(self):
         _, payload = self.call("POST", "/v1/tasks", token=self.token,

@@ -18,12 +18,13 @@ It is not a model, not a speech system, not a client application, and not the ho
 | Explicit TOML configuration with startup refusal of unsafe settings | Any model, provider or accelerator (gate **G-O1** is blocked) |
 | Operator token, single-use pairing codes, HMAC-digested tokens, revocation | Speech recognition or synthesis (`speech_asr_unavailable`, `speech_tts_unavailable`) |
 | Per-manifest least-privilege scopes with expiry, auditable grants | Any natural-language or text-chat entry point (`text_conversation_not_supported`) |
-| SQLite persistence with checksum-verified migrations | Reminder delivery — due reminders are reported, never spoken or displayed |
+| SQLite persistence with checksum-verified migrations | Push, spoken or on-screen reminders (`reminder_delivery_unavailable`) |
 | Default-deny outbound network policy, loopback only | Web retrieval, telephony, device-vendor clouds, update downloads (all disabled) |
 | Append-only audit trail with secret redaction | Any device client application (PC, tablet, phone, VR, glasses) |
 | Health, readiness, status, limitation, manifest, surface and egress reporting | Holographic rendering, optics or display technology (C-13 is boundary-only) |
 | Audio sessions: `audio/*` chunks stored locally, bounded, expiring, purged on revocation | Spoken audio **output** — the endpoint refuses rather than substituting text |
 | Local tasks and reminders (structured input, model-free) | Understanding of spoken or typed sentences |
+| A local reminder queue: one explicitly named client retrieves and acknowledges its events | Any notification the server initiates — nothing is pushed, spoken, rendered or sent |
 
 The capability register in `app/jarvis/capabilities.py` mirrors `docs/product/capabilities.json` and
 reports **every** product capability C-01…C-14 as `not implemented`. A test fails if that mirror
@@ -87,7 +88,7 @@ curl -s -X POST localhost:7420/v1/audio/sessions/$SID/end  -H "Authorization: Be
 curl -s localhost:7420/v1/audio/output -H "Authorization: Bearer $DEVICE"
 ```
 
-## 5. HTTP surface (24 routes)
+## 5. HTTP surface (26 routes)
 
 Every route except `/healthz`, `/readyz` and `POST /v1/pairing` requires
 `Authorization: Bearer jvs_…`. There is no route that accepts free text for interpretation and no
@@ -110,14 +111,16 @@ route that forwards data off the machine.
 | `POST /v1/audio/sessions/{id}/audio` | `audio.capture` | `audio.session` | append one `audio/*` chunk |
 | `POST /v1/audio/sessions/{id}/end` | `audio.capture` | `audio.session` | close the session, report bytes |
 | `GET /v1/tasks` | `tasks.read` | `tasks` | list (`status=open\|completed\|all`, `limit`) |
-| `POST /v1/tasks` | `tasks.write` | `tasks` | create (`title`, `notes`, `due_at`, `source`) |
+| `POST /v1/tasks` | `tasks.write` | `tasks` | create (`title`, `notes`, `due_at`, `source`, `deliver_to`) |
 | `POST /v1/tasks/{id}/complete` | `tasks.write` | `tasks` | complete (idempotent) |
 | `DELETE /v1/tasks/{id}` | `tasks.write` | `tasks` | soft-delete and drop the reminder |
-| `GET /v1/reminders/due` | `reminders.read` | `reminders` | due reminders (`now`, `limit`); delivery is unavailable |
-| `POST /v1/reminders/{id}/ack` | `reminders.write` | `reminders` | acknowledge (idempotent) |
+| `GET /v1/reminders/due` | `reminders.read` | `reminders` | due reminders (`now`, `limit`); says whether each is routed |
+| `POST /v1/reminders/{id}/ack` | `reminders.write` | `reminders` | acknowledge a reminder (idempotent) |
+| `GET /v1/reminders/inbox` | `reminders.receive` | `reminders` | this client's queued events (poll; nothing is pushed) |
+| `POST /v1/reminders/inbox/{id}/ack` | `reminders.receive` | `reminders` | acknowledge one delivery (idempotent) |
 | `GET /v1/clients` | `clients.read` | — | paired clients, digests never returned |
 | `GET /v1/clients/me` | `status.read` | — | the calling client |
-| `POST /v1/clients/{id}/revoke` | self, or `clients.revoke` | — | revoke; stops the token, deletes audio |
+| `POST /v1/clients/{id}/revoke` | self, or `clients.revoke` | — | revoke; stops the token, deletes audio, closes queued events |
 | `GET /v1/audit` | `audit.read` | — | audit trail (`limit`, `after_id`) |
 
 Every response carries `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`. There are
@@ -127,6 +130,31 @@ else is `405` from the adapter.
 Error shape is always `{"error": {"code", "message", "detail"?}, "request_id": "…"}`, with stable
 codes such as `token_missing`, `token_expired`, `token_revoked`, `scope_denied`,
 `manifest_unavailable`, `text_input_not_supported`, `session_expired`, `body_too_large`.
+
+### Reminder delivery: a local queue, never a push
+
+Only a reminder whose target was named explicitly at creation is queued, and only for that client.
+`deliver_to` must name an existing, unrevoked client holding `reminders.receive`; a reminder without
+a target stays **pending and unrouted**, with the reason reported in the task, the due list and
+`/v1/status`. Nothing is ever inferred — no default recipient, no device preference, no recurrence.
+
+The queue is a table with `UNIQUE (reminder_id, client_id)`, so retries, restarts and repeated polls
+cannot duplicate an event. Reading an event counts as one attempt; further reads inside
+`retry_interval_minutes` are the same attempt, and exceeding `max_delivery_attempts` closes the
+event as `failed`. An unacknowledged event older than `delivery_window_minutes` is closed as
+`expired`. Both are reported in `held_back` with a reason, never silently dropped. Revoking the
+target cancels its open events immediately.
+
+Timestamps are stored in UTC. `reminders.display_timezone` renders a wall clock with the offset in
+force at that instant, so the two 01:30s of a daylight-saving fall-back are two distinct instants
+(each delivered once), and a time that does not exist on a spring-forward day is never invented.
+A naive `due_at` is recorded as `due_time_basis: "assumed_utc"` rather than presented as local time.
+
+The audit trail records `reminder_delivery.enqueued`, `.attempt`, `.acknowledged`, `.expired`,
+`.failed`, `.cancelled` and `.reconciled` with ids, counts and reasons only — never a reminder title
+or note. No response describes a queued event as spoken, displayed, pushed or notified, and the
+limitation `reminder_delivery_unavailable` keeps saying so. Full rationale:
+`docs/architecture/reminder-delivery.md`.
 
 ## 6. Configuration
 
@@ -206,7 +234,7 @@ decision record.
 ## 10. Tests
 
 ```bash
-# this application area, including the benchmark (241 tests)
+# this application area, including the benchmark (290 tests)
 PYTHONPATH=/home/user/JARVIS python3 -m unittest discover -s app/tests -t .
 
 # the existing evaluator harness (456 tests) — must stay green, and is never modified by this work
@@ -223,6 +251,7 @@ Coverage of the required areas, by module:
 | scope enforcement, body bounds, audit | `test_api_security.py` |
 | default-deny egress and adapters | `test_egress.py` |
 | tasks and reminders | `test_tasks.py` |
+| reminder delivery: schema, access, restart, DST, retries, revocation, redaction, egress | `test_reminder_delivery.py` |
 | audio protocol and spoken-output refusal | `test_audio.py` |
 | health/readiness/limitations, capability parity, surfaces | `test_reporting.py` |
 | the HTTP adapter over real sockets | `test_http.py` |

@@ -41,7 +41,9 @@ INFRASTRUCTURE: tuple[tuple[str, str, str], ...] = (
     ("health", "implemented", "health, readiness and limitation reporting"),
     ("audio.input", "implemented", "authenticated audio session boundary; no transcription"),
     ("tasks", "implemented", "model-free task records"),
-    ("reminders", "implemented", "local due-reminder reporting; no delivery channel"),
+    ("reminders", "implemented",
+     "local due-reminder reporting and a local per-client delivery queue (poll + acknowledge); "
+     "no push, no speech, no display"),
     ("surface.holographic", "boundary-only", "client/API boundary; no optics, no display"),
     ("adapters.speech_asr", "unavailable", "no local speech adapter; G-O1 blocked"),
     ("adapters.speech_tts", "unavailable", "no local speech adapter; G-O1 blocked"),

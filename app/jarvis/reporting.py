@@ -89,9 +89,11 @@ def limitation_catalogue() -> list[dict]:
         },
         {
             "code": "reminder_delivery_unavailable",
-            "title": "Reminders are reported, not delivered",
-            "detail": "the server can list due reminders; it has no speech or display channel, so "
-                      "it never claims to have reminded anyone.",
+            "title": "Reminders are queued for a paired client, never pushed, spoken or shown",
+            "detail": "the server can list due reminders and queue one for a client that was "
+                      "named explicitly, which retrieves it by polling and acknowledges it. It "
+                      "has no push channel, no speech and no display, so it never claims to "
+                      "have spoken, shown or otherwise reminded anyone.",
             "affects": ["C-03", "C-13"],
             "spec_reference": "docs/product/capability-specification.md#1-requirement-summary",
         },
@@ -170,6 +172,7 @@ def status_payload(app: "App") -> dict:
             "migrations_pending": storage["pending"],
             "audio_bytes": app.audio.storage_bytes(),
             "tasks": app.tasks.counts(),
+            "reminder_deliveries": app.deliveries.counts(),
             "clients": len(app.auth.list_clients()),
         },
         "egress": app.guard.policy(),

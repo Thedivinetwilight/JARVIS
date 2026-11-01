@@ -34,22 +34,23 @@ class MigrationTests(unittest.TestCase):
     def test_fresh_database_applies_every_migration_once(self):
         store = Store(self.path)
         result = store.migrate()
-        self.assertEqual(result.applied, ("0001_core.sql", "0002_tasks_reminders.sql"))
+        self.assertEqual(result.applied, ("0001_core.sql", "0002_tasks_reminders.sql",
+                                          "0003_reminder_delivery.sql"))
         self.assertEqual(result.already_applied, 0)
         again = store.migrate()
         self.assertEqual(again.applied, ())
-        self.assertEqual(again.already_applied, 2)
+        self.assertEqual(again.already_applied, 3)
 
     def test_pending_and_status_report_the_schema_state(self):
         store = Store(self.path)
-        self.assertEqual(len(store.pending_migrations()), 2)
+        self.assertEqual(len(store.pending_migrations()), 3)
         self.assertFalse(store.status()["up_to_date"])
         store.migrate()
         status = store.status()
         self.assertTrue(status["up_to_date"])
-        self.assertEqual(status["applied_count"], 2)
+        self.assertEqual(status["applied_count"], 3)
         self.assertEqual(status["pending"], [])
-        self.assertEqual(status["applied"][-1], "0002_tasks_reminders.sql")
+        self.assertEqual(status["applied"][-1], "0003_reminder_delivery.sql")
 
     def test_applied_migrations_are_checksummed(self):
         store = Store(self.path)
@@ -58,7 +59,8 @@ class MigrationTests(unittest.TestCase):
             rows = connection.execute(
                 "SELECT version, name, checksum FROM schema_migrations ORDER BY version"
             ).fetchall()
-        self.assertEqual([row["name"] for row in rows], ["core", "tasks_reminders"])
+        self.assertEqual([row["name"] for row in rows],
+                         ["core", "tasks_reminders", "reminder_delivery"])
         for row in rows:
             self.assertEqual(len(row["checksum"]), 64)
 

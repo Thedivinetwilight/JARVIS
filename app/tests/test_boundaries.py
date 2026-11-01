@@ -33,6 +33,7 @@ DOCUMENTS = (
     APP / "bench" / "README.md",
     REPO / "docs" / "architecture" / "threat-boundaries.md",
     REPO / "docs" / "architecture" / "README.md",
+    REPO / "docs" / "architecture" / "reminder-delivery.md",
     REPO / "docs" / "adr" / "0001-local-first-server-architecture.md",
     REPO / "docs" / "benchmarks" / "voice-workload-benchmark.md",
     REPO / "docs" / "benchmarks" / "benchmark-status.md",
@@ -75,7 +76,7 @@ class BoundaryTests(unittest.TestCase):
             "__future__", "argparse", "contextlib", "dataclasses", "datetime", "hashlib", "hmac",
             "http.server", "json", "logging", "os", "pathlib", "re", "secrets", "shutil",
             "signal", "socket", "sqlite3", "ssl", "stat", "sys", "threading", "time", "tomllib",
-            "typing", "urllib.parse", "uuid",
+            "typing", "urllib.parse", "uuid", "zoneinfo",
             # the benchmark adds only standard-library modules; it has no dependencies either
             "glob", "importlib", "importlib.util", "math", "platform", "random", "resource",
             "select", "shlex",
@@ -141,7 +142,7 @@ class BoundaryTests(unittest.TestCase):
         from app.jarvis.app import ROUTES
 
         patterns = [route.pattern.pattern for route in ROUTES]
-        self.assertEqual(len(patterns), 24)
+        self.assertEqual(len(patterns), 26)
         for banned in ("chat", "completion", "message", "conversation", "respond", "ask"):
             # Only a whole path segment counts: "/tasks" is not "/ask".
             matcher = re.compile(rf"/{banned}(?:\$|/|\()")

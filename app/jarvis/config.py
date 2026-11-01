@@ -67,6 +67,12 @@ SCHEMA: dict[str, dict[str, tuple[type, bool]]] = {
         "speech_asr": (str, False),
         "speech_tts": (str, False),
     },
+    "reminders": {
+        "display_timezone": (str, False),
+        "max_delivery_attempts": (int, False),
+        "retry_interval_minutes": (int, False),
+        "delivery_window_minutes": (int, False),
+    },
     "logging": {
         "level": (str, False),
     },
@@ -102,6 +108,16 @@ DEFAULTS: dict[str, dict[str, object]] = {
     "adapters": {
         "speech_asr": "unavailable",
         "speech_tts": "unavailable",
+    },
+    # Reminder delivery is a local queue that a paired client polls. These are the only knobs:
+    # a time zone for rendering (storage is always UTC), a retry limit, the minimum gap between
+    # hand-overs that counts as a new attempt, and how long an unacknowledged reminder stays
+    # deliverable before it is marked expired.
+    "reminders": {
+        "display_timezone": "UTC",
+        "max_delivery_attempts": 3,
+        "retry_interval_minutes": 5,
+        "delivery_window_minutes": 1440,
     },
     "logging": {"level": "info"},
 }
@@ -155,6 +171,16 @@ class AuthConfig:
 
 
 @dataclass(frozen=True)
+class RemindersConfig:
+    """Delivery policy. Every value is explicit; none of them is inferred from a device."""
+
+    display_timezone: str
+    max_delivery_attempts: int
+    retry_interval_minutes: int
+    delivery_window_minutes: int
+
+
+@dataclass(frozen=True)
 class Config:
     path: Path
     server: ServerConfig
@@ -162,6 +188,7 @@ class Config:
     auth: AuthConfig
     external_services: dict[str, bool]
     adapters: dict[str, str]
+    reminders: RemindersConfig
     logging_level: str
     #: Never logged, never serialised, never written to the data directory.
     server_secret: str = field(repr=False, default="")
@@ -189,6 +216,13 @@ class Config:
             },
             "external_services": dict(self.external_services),
             "adapters": dict(self.adapters),
+            "reminders": {
+                "display_timezone": self.reminders.display_timezone,
+                "max_delivery_attempts": self.reminders.max_delivery_attempts,
+                "retry_interval_minutes": self.reminders.retry_interval_minutes,
+                "delivery_window_minutes": self.reminders.delivery_window_minutes,
+                "delivery_model": "local queue, retrieved by a paired client; no push, no speech",
+            },
         }
 
 
@@ -314,6 +348,25 @@ def _prepare_data_dir(configured: str, base: Path) -> Path:
     return resolved
 
 
+def _validate_timezone(name: str) -> None:
+    """A display time zone must be a real IANA zone, resolved locally, with no network call.
+
+    ``UTC`` is accepted because it is what the storage layer already uses; an empty or invented
+    name is refused rather than defaulted, so the owner cannot silently get the wrong wall clock
+    on a daylight-saving boundary.
+    """
+    import zoneinfo
+
+    if not name:
+        raise ConfigError("reminders.display_timezone must not be empty")
+    try:
+        zoneinfo.ZoneInfo(name)
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError) as exc:
+        raise ConfigError(
+            f"reminders.display_timezone is not a known IANA time zone: {name!r}"
+        ) from exc
+
+
 def load_config(path: str | Path, *, environ: dict | None = None) -> Config:
     """Load, shape-check and validate a configuration file.
 
@@ -419,6 +472,20 @@ def load_config(path: str | Path, *, environ: dict | None = None) -> Config:
             f"'unavailable' (got {unusable}). Selecting one is gate G-O1 and is blocked."
         )
 
+    reminders = RemindersConfig(
+        display_timezone=str(merged["reminders"]["display_timezone"]).strip(),
+        max_delivery_attempts=int(merged["reminders"]["max_delivery_attempts"]),
+        retry_interval_minutes=int(merged["reminders"]["retry_interval_minutes"]),
+        delivery_window_minutes=int(merged["reminders"]["delivery_window_minutes"]),
+    )
+    _validate_timezone(reminders.display_timezone)
+    if not 1 <= reminders.max_delivery_attempts <= 10:
+        raise ConfigError("reminders.max_delivery_attempts must be between 1 and 10")
+    if not 1 <= reminders.retry_interval_minutes <= 1440:
+        raise ConfigError("reminders.retry_interval_minutes must be between 1 and 1440")
+    if not 1 <= reminders.delivery_window_minutes <= 43200:
+        raise ConfigError("reminders.delivery_window_minutes must be between 1 and 43200")
+
     level = str(merged["logging"]["level"]).lower()
     if level not in LOG_LEVELS:
         raise ConfigError(f"logging.level must be one of {sorted(LOG_LEVELS)}")
@@ -430,6 +497,7 @@ def load_config(path: str | Path, *, environ: dict | None = None) -> Config:
         auth=auth,
         external_services=enabled,
         adapters=adapters,
+        reminders=reminders,
         logging_level=level,
         server_secret=secret,
     )

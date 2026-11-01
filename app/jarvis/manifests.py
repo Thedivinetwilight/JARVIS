@@ -29,6 +29,11 @@ SCOPE_TASKS_READ = "tasks.read"
 SCOPE_TASKS_WRITE = "tasks.write"
 SCOPE_REMINDERS_READ = "reminders.read"
 SCOPE_REMINDERS_WRITE = "reminders.write"
+#: Required to *be a delivery target* and to poll one's own queue. Separate from
+#: ``reminders.read`` so a device can be narrowed to creating reminders without ever being
+#: allowed to receive someone else's — the server checks the target's scopes when a target is set,
+#: which is why a revoked or narrowed client stops being a valid target immediately.
+SCOPE_REMINDERS_RECEIVE = "reminders.receive"
 SCOPE_AUDIO_CAPTURE = "audio.capture"
 SCOPE_SPEECH_RECOGNIZE = "speech.recognize"
 SCOPE_SPEECH_OUTPUT = "speech.output"
@@ -46,6 +51,7 @@ DEFAULT_DEVICE_SCOPES = frozenset(
         SCOPE_TASKS_WRITE,
         SCOPE_REMINDERS_READ,
         SCOPE_REMINDERS_WRITE,
+        SCOPE_REMINDERS_RECEIVE,
         SCOPE_AUDIO_CAPTURE,
     }
 )
@@ -104,13 +110,17 @@ MANIFESTS: tuple[Manifest, ...] = (
     Manifest(
         id="reminders",
         kind="capability",
-        title="Reminders (local scheduling, no delivery channel yet)",
+        title="Reminders (local scheduling, local delivery queue)",
         status="available",
-        scopes=(SCOPE_REMINDERS_READ, SCOPE_REMINDERS_WRITE),
+        scopes=(SCOPE_REMINDERS_READ, SCOPE_REMINDERS_WRITE,
+                SCOPE_REMINDERS_RECEIVE),
         reason="",
         spec_reference=f"{_SPEC}#1-requirement-summary",
-        notes="Due reminders are computed locally and read by a client. There is no speech "
-              "or display delivery channel yet, so nothing is spoken or shown by the server.",
+        notes="A reminder is queued only for a client named explicitly when the task is "
+              "created, and that client retrieves it by polling and acknowledges it. There is "
+              "no push channel, no speech and no display: the server never speaks, renders or "
+              "contacts a device, and a reminder with no target stays pending and is reported "
+              "as unrouted.",
     ),
     Manifest(
         id="audio.session",

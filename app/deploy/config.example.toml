@@ -54,5 +54,14 @@ update_downloads = false
 speech_asr = "unavailable"
 speech_tts = "unavailable"
 
+# Reminder delivery is a local per-client queue: the server never pushes, speaks or displays
+# anything. display_timezone is only used to render a wall clock for a human; storage is UTC.
+# The zone is resolved locally (IANA database) and never fetched over the network.
+[reminders]
+display_timezone = "UTC"
+max_delivery_attempts = 3
+retry_interval_minutes = 5
+delivery_window_minutes = 1440
+
 [logging]
 level = "info"

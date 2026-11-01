@@ -50,6 +50,12 @@ secret_file = ""
 speech_asr = "{asr}"
 speech_tts = "{tts}"
 
+[reminders]
+display_timezone = "{reminders_tz}"
+max_delivery_attempts = {reminders_max_attempts}
+retry_interval_minutes = {reminders_retry}
+delivery_window_minutes = {reminders_window}
+
 [logging]
 level = "warning"
 """
@@ -78,6 +84,10 @@ def write_config(directory: pathlib.Path, *, name: str = "jarvis.toml", **overri
         "external": DEFAULT_EXTERNAL,
         "asr": "unavailable",
         "tts": "unavailable",
+        "reminders_tz": "UTC",
+        "reminders_max_attempts": 3,
+        "reminders_retry": 5,
+        "reminders_window": 1440,
     }
     values.update(overrides)
     path = directory / name

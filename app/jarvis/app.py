@@ -45,6 +45,7 @@ from .errors import (
     Unavailable,
     UnsupportedMediaType,
 )
+from .reminders import ReminderDeliveryService
 from .tasks import TaskService, summarise as summarise_tasks
 
 LOGGER = logging.getLogger("jarvis.api")
@@ -172,6 +173,13 @@ ROUTES: tuple[Route, ...] = (
            scope=manifests.SCOPE_REMINDERS_READ, manifest="reminders"),
     _route("POST", rf"^/v1/reminders/(?P<reminder_id>{ID_PATTERN})/ack$", "reminders.ack",
            "_h_reminder_ack", scope=manifests.SCOPE_REMINDERS_WRITE, manifest="reminders"),
+    # Delivery is retrieval: a paired client asks for its own queue. There is no push route, no
+    # subscription route and no callback: those would be outbound network services.
+    _route("GET", r"^/v1/reminders/inbox$", "reminders.inbox", "_h_reminders_inbox",
+           scope=manifests.SCOPE_REMINDERS_RECEIVE, manifest="reminders"),
+    _route("POST", rf"^/v1/reminders/inbox/(?P<delivery_id>{ID_PATTERN})/ack$",
+           "reminders.delivery.ack", "_h_delivery_ack",
+           scope=manifests.SCOPE_REMINDERS_RECEIVE, manifest="reminders"),
     # ------------------------------------------------------------------ clients
     _route("GET", r"^/v1/clients$", "clients.list", "_h_clients_list",
            scope=manifests.SCOPE_CLIENTS_READ),
@@ -203,7 +211,10 @@ class App:
         self.store = store or Store(config.storage.database_path)
         self.audit = AuditLog(self.store, self.clock)
         self.auth = AuthService(self.store, config, self.clock, self.audit)
-        self.tasks = TaskService(self.store, self.clock, self.audit)
+        self.deliveries = ReminderDeliveryService(
+            self.store, self.clock, self.audit, config.reminders
+        )
+        self.tasks = TaskService(self.store, self.clock, self.audit, self.deliveries)
         self.audio = AudioSessionService(self.store, config, self.clock, self.audit)
         self.speech = speech.build_registry(config.adapters)
         self.guard = guard or GUARD
@@ -336,7 +347,7 @@ class App:
         return Response.json(status, data, request_id)
 
     def _audit_target(self, context: Context) -> str | None:
-        for key in ("client_id", "task_id", "session_id", "reminder_id"):
+        for key in ("client_id", "task_id", "session_id", "reminder_id", "delivery_id"):
             if key in context.params:
                 return context.params[key]
         return None
@@ -501,6 +512,7 @@ class App:
             notes=context.payload.get("notes"),
             due_at=context.payload.get("due_at"),
             source=str(context.payload.get("source", "structured")),
+            deliver_to=context.payload.get("deliver_to"),
             actor_id=context.client.id,
             request_id=context.request_id,
         )
@@ -524,6 +536,26 @@ class App:
         limit = int(context.query.get("limit", 100))
         items = self.tasks.due_reminders(now=context.query.get("now"), limit=limit)
         return 200, {"reminders": items, "count": len(items)}
+
+    def _h_reminders_inbox(self, context: Context) -> tuple[int, dict]:
+        assert context.client is not None
+        raw_limit = context.query.get("limit", "50")
+        try:
+            limit = int(raw_limit)
+        except ValueError as exc:
+            raise BadRequest("limit must be an integer", code="bad_request") from exc
+        payload = self.deliveries.inbox(client_id=context.client.id, limit=limit)
+        payload["client_id"] = context.client.id
+        return 200, payload
+
+    def _h_delivery_ack(self, context: Context) -> tuple[int, dict]:
+        assert context.client is not None
+        return 200, {
+            "delivery": self.deliveries.acknowledge(
+                context.params["delivery_id"], client_id=context.client.id,
+                request_id=context.request_id,
+            )
+        }
 
     def _h_reminder_ack(self, context: Context) -> tuple[int, dict]:
         assert context.client is not None
@@ -566,10 +598,18 @@ class App:
             request_id=context.request_id,
         )
         deleted = self.audio.purge_client(target)
+        cancelled = self.deliveries.cancel_for_client(
+            target,
+            actor_kind="client" if self_revoke else "operator",
+            actor_id=context.client.id,
+        )
         return 200, {
             "client": revoked.to_dict(),
             "audio_files_deleted": deleted,
-            "effect": "the token stops working immediately; cached audio is removed",
+            # Queued reminder events are closed, not deleted: the audit trail keeps the record.
+            "reminder_deliveries_cancelled": cancelled,
+            "effect": "the token stops working immediately; cached audio is removed and "
+                      "queued reminder events are closed",
         }
 
     # ------------------------------------------------------------------ audit
