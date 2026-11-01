@@ -23,6 +23,18 @@ what is true and what is feasible) and from `eval/` (which asks whether the eval
 | [B4–B7 crosswalk](family-crosswalk.md) | Supersession register resolving the Phase 8 vs Stage-0 family numbering conflict; Phase 8 numbering retained, M2/M3 labels superseded by name only | 1.0.0 |
 | [Evaluation family backlog](family-backlog.md) | Per-family implementation plan for B4–B7 and B11–B22: task types, synthetic fixtures, scoring, planted regressions, privacy constraints, spec thresholds, harness changes — generated from [`family-backlog.json`](family-backlog.json). Two families (B4, B16) now have small **implemented evaluator slices** (B4 has three); no family is implemented | 1.2.0 |
 | [`ac-coverage.json`](ac-coverage.json) | All 61 acceptance criteria mapped exactly once to a planned suite, named audit, human review or owner-input block; no criterion is validated | 1.4.0 |
+| [Reminder-delivery decision record](reminder-delivery-decision.md) | **Partly decided (2026-11-01):** six of the ten contract and first-client choices behind the reminder queue in `app/` now carry an owner decision (one recipient "for now", UTC storage with a **required** local display zone and no default, polling while online, a Windows PC companion first, OS notifications first, a 10-second target that is also the server's configurable late threshold); four stay **pending** (attempts, retry interval, window, attempt semantics) and must not be treated as approved defaults. Not part of the specification and not in the open-item register | Draft |
+
+The [reminder-delivery decision record](reminder-delivery-decision.md) is the only entry above that is a
+**decision record about the local server**, not a product requirement: it lists the ten choices the server
+in `app/` had to make to be testable and records which the owner has settled. Six are decided as of
+2026-11-01 — one recipient "for now", UTC storage with a **required** local display zone that has no
+default, polling while the client is online, a Windows PC companion first, local OS notifications first
+with speech only after local speech is available and measured, and a 10-second surface target that is also
+the server's configurable `late_after_seconds` label. Four remain **pending owner decision** (delivery
+attempts, retry interval, delivery window, what an attempt counts), and the numbers currently in the code
+are explicitly **not** approved defaults. Nothing in it raises the status of any capability, no client
+application exists, and the Windows companion is design intent rather than work in progress.
 
 ## M5 artefacts
 

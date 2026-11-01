@@ -9,7 +9,8 @@ import tempfile
 import tomllib
 import unittest
 
-from app.jarvis.config import SCHEMA, load_config
+from app.jarvis.clock import DISPLAY_ZONE_REQUIRED, DISPLAY_ZONE_UNKNOWN, display_zone
+from app.jarvis.config import DEFAULTS, SCHEMA, load_config
 from app.jarvis.errors import ConfigError, StartupRefused
 from app.tests.support import DEFAULT_EXTERNAL, ENV, SECRET, write_config
 
@@ -196,6 +197,90 @@ class ConfigTests(unittest.TestCase):
 
         walk(parsed)
         self.assertEqual(parsed["auth"]["secret_file"], "")
+
+    # ------------------------------------------------------------------ display time zone
+    def _config_without(self, line_fragment: str, *, replacement: str = ""):
+        """Write a valid config, then remove or rewrite one line of the reminders table."""
+        path = write_config(self.directory)
+        text = path.read_text(encoding="utf-8")
+        self.assertIn(line_fragment, text)
+        path.write_text(text.replace(line_fragment, replacement), encoding="utf-8")
+        return path
+
+    def test_the_display_time_zone_has_no_default(self):
+        # A default would silently render reminders in a zone the owner never chose.
+        self.assertNotIn("display_timezone", DEFAULTS["reminders"])
+        config = load_config(write_config(self.directory), environ=dict(ENV))
+        self.assertEqual(config.reminders.display_timezone, "UTC")
+        self.assertTrue(config.public_dict()["reminders"]["display_zone_required"])
+
+    def test_a_missing_display_time_zone_is_refused_with_an_actionable_explanation(self):
+        path = self._config_without('display_timezone = "UTC"\n')
+        with self.assertRaises(ConfigError) as caught:
+            load_config(path, environ=dict(ENV))
+        message = str(caught.exception)
+        self.assertIn("reminders.display_timezone is required", message)
+        # Actionable: it says where to get the name, and that no zone is assumed.
+        self.assertIn("timedatectl", message)
+        self.assertIn("/usr/share/zoneinfo", message)
+        self.assertEqual(message, DISPLAY_ZONE_REQUIRED)
+
+    def test_a_config_with_no_reminders_section_is_refused_the_same_way(self):
+        """Absence of the whole table is the same refusal, not an implicit fallback."""
+        path = write_config(self.directory)
+        text = path.read_text(encoding="utf-8")
+        start = text.index("[reminders]")
+        end = text.index("[", start + 1)
+        path.write_text(text[:start] + text[end:], encoding="utf-8")
+        with self.assertRaises(ConfigError) as caught:
+            load_config(path, environ=dict(ENV))
+        self.assertEqual(str(caught.exception), DISPLAY_ZONE_REQUIRED)
+
+    def test_an_empty_display_time_zone_is_refused_with_the_same_explanation(self):
+        path = self._config_without('display_timezone = "UTC"',
+                                    replacement='display_timezone = ""')
+        with self.assertRaises(ConfigError) as caught:
+            load_config(path, environ=dict(ENV))
+        # Absent and empty must not diverge: one message, one meaning.
+        self.assertEqual(str(caught.exception), DISPLAY_ZONE_REQUIRED)
+
+    def test_an_unknown_display_time_zone_is_refused(self):
+        path = self._config_without('display_timezone = "UTC"',
+                                    replacement='display_timezone = "Mars/Olympus_Mons"')
+        with self.assertRaises(ConfigError) as caught:
+            load_config(path, environ=dict(ENV))
+        message = str(caught.exception)
+        self.assertIn("not a known IANA time zone", message)
+        self.assertIn("Mars/Olympus_Mons", message)
+        self.assertEqual(message, DISPLAY_ZONE_UNKNOWN.format(name="Mars/Olympus_Mons"))
+
+    def test_a_chosen_display_time_zone_is_accepted_and_reported(self):
+        config = load_config(write_config(self.directory, reminders_tz="Asia/Kolkata"),
+                             environ=dict(ENV))
+        self.assertEqual(config.reminders.display_timezone, "Asia/Kolkata")
+        self.assertEqual(config.public_dict()["reminders"]["display_timezone"], "Asia/Kolkata")
+        # Stored instants stay UTC; only rendering uses the zone.
+        self.assertEqual(display_zone(config.reminders.display_timezone).key, "Asia/Kolkata")
+
+    # ------------------------------------------------------------------ late threshold
+    def test_the_late_threshold_defaults_to_the_owners_ten_second_target(self):
+        path = self._config_without("late_after_seconds = 10\n")
+        config = load_config(path, environ=dict(ENV))
+        self.assertEqual(config.reminders.late_after_seconds, 10)
+
+    def test_the_late_threshold_is_configurable(self):
+        config = load_config(write_config(self.directory, reminders_late_after=45),
+                             environ=dict(ENV))
+        self.assertEqual(config.reminders.late_after_seconds, 45)
+        self.assertEqual(config.public_dict()["reminders"]["late_after_seconds"], 45)
+
+    def test_a_negative_or_absurd_late_threshold_is_refused(self):
+        for value in (-1, 3601):
+            with self.subTest(value=value):
+                with self.assertRaises(ConfigError) as caught:
+                    load_config(write_config(self.directory, reminders_late_after=value),
+                                environ=dict(ENV))
+                self.assertIn("late_after_seconds", str(caught.exception))
 
     def test_missing_config_file_is_refused(self):
         with self.assertRaises(ConfigError):

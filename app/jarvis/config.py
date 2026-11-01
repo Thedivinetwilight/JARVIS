@@ -68,7 +68,10 @@ SCHEMA: dict[str, dict[str, tuple[type, bool]]] = {
         "speech_tts": (str, False),
     },
     "reminders": {
+        # Required in effect, but validated below rather than by ``_require`` so that a missing key
+        # and an empty value produce the same actionable explanation (see ``clock.DISPLAY_ZONE_*``).
         "display_timezone": (str, False),
+        "late_after_seconds": (int, False),
         "max_delivery_attempts": (int, False),
         "retry_interval_minutes": (int, False),
         "delivery_window_minutes": (int, False),
@@ -114,10 +117,14 @@ DEFAULTS: dict[str, dict[str, object]] = {
     # hand-overs that counts as a new attempt, and how long an unacknowledged reminder stays
     # deliverable before it is marked expired.
     "reminders": {
-        "display_timezone": "UTC",
+        # There is deliberately no default display zone: the owner must name the home zone, and an
+        # absent or invalid one refuses startup instead of silently rendering in UTC.
         "max_delivery_attempts": 3,
         "retry_interval_minutes": 5,
         "delivery_window_minutes": 1440,
+        # Seconds after the scheduled time at which a hand-over is reported as late. The owner's
+        # 10-second figure is a client surfacing target; this is the label the server applies.
+        "late_after_seconds": 10,
     },
     "logging": {"level": "info"},
 }
@@ -175,6 +182,7 @@ class RemindersConfig:
     """Delivery policy. Every value is explicit; none of them is inferred from a device."""
 
     display_timezone: str
+    late_after_seconds: int
     max_delivery_attempts: int
     retry_interval_minutes: int
     delivery_window_minutes: int
@@ -218,6 +226,8 @@ class Config:
             "adapters": dict(self.adapters),
             "reminders": {
                 "display_timezone": self.reminders.display_timezone,
+                "late_after_seconds": self.reminders.late_after_seconds,
+                "display_zone_required": True,
                 "max_delivery_attempts": self.reminders.max_delivery_attempts,
                 "retry_interval_minutes": self.reminders.retry_interval_minutes,
                 "delivery_window_minutes": self.reminders.delivery_window_minutes,
@@ -349,22 +359,18 @@ def _prepare_data_dir(configured: str, base: Path) -> Path:
 
 
 def _validate_timezone(name: str) -> None:
-    """A display time zone must be a real IANA zone, resolved locally, with no network call.
+    """A display time zone is **required** and must be a real IANA zone, resolved on this host.
 
-    ``UTC`` is accepted because it is what the storage layer already uses; an empty or invented
-    name is refused rather than defaulted, so the owner cannot silently get the wrong wall clock
-    on a daylight-saving boundary.
+    There is no default: an absent, empty or invented name refuses startup with the same stable,
+    actionable explanation, so nobody silently gets a wall clock in the wrong zone across a
+    daylight-saving boundary. ``UTC`` is accepted when it is *chosen*, never as a fallback.
     """
-    import zoneinfo
+    from .clock import display_zone
 
-    if not name:
-        raise ConfigError("reminders.display_timezone must not be empty")
     try:
-        zoneinfo.ZoneInfo(name)
-    except (zoneinfo.ZoneInfoNotFoundError, ValueError) as exc:
-        raise ConfigError(
-            f"reminders.display_timezone is not a known IANA time zone: {name!r}"
-        ) from exc
+        display_zone(name)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
 
 
 def load_config(path: str | Path, *, environ: dict | None = None) -> Config:
@@ -473,12 +479,20 @@ def load_config(path: str | Path, *, environ: dict | None = None) -> Config:
         )
 
     reminders = RemindersConfig(
-        display_timezone=str(merged["reminders"]["display_timezone"]).strip(),
+        # ``.get`` on purpose: a missing key and an empty string must fail the same way, with the
+        # same sentence, rather than one of them falling back to UTC.
+        display_timezone=str(merged["reminders"].get("display_timezone", "")).strip(),
+        late_after_seconds=int(merged["reminders"]["late_after_seconds"]),
         max_delivery_attempts=int(merged["reminders"]["max_delivery_attempts"]),
         retry_interval_minutes=int(merged["reminders"]["retry_interval_minutes"]),
         delivery_window_minutes=int(merged["reminders"]["delivery_window_minutes"]),
     )
     _validate_timezone(reminders.display_timezone)
+    if not 0 <= reminders.late_after_seconds <= 3600:
+        raise ConfigError(
+            "reminders.late_after_seconds must be between 0 and 3600; it is the delay after which "
+            "a hand-over is labelled late, not the client's surfacing target"
+        )
     if not 1 <= reminders.max_delivery_attempts <= 10:
         raise ConfigError("reminders.max_delivery_attempts must be between 1 and 10")
     if not 1 <= reminders.retry_interval_minutes <= 1440:

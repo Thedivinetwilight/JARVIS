@@ -41,10 +41,24 @@ speech_asr = "unavailable"
 speech_tts = "unavailable"
 
 # Reminder delivery is a local per-client queue: the server never pushes, speaks or displays
-# anything. display_timezone is only used to render a wall clock for a human; storage is UTC.
-# The zone is resolved locally (IANA database) and never fetched over the network.
+# anything. Every stored instant is UTC; display_timezone is used only to render a wall clock for a
+# human, and it is resolved on this host from the IANA database, never fetched over the network.
 [reminders]
-display_timezone = "UTC"
+
+# REQUIRED — choose the home display time zone and put its IANA name here. There is deliberately no
+# default: an empty value is refused at startup with an explanation rather than silently rendering
+# reminders in UTC. Take the name from this host (`timedatectl show -p Timezone`, or a file under
+# /usr/share/zoneinfo) instead of copying one from a document — no zone is assumed for the owner.
+display_timezone = ""
+
+# Seconds after a reminder's scheduled time at which the server labels a hand-over "late". This is a
+# label the server applies to its own hand-over delay. It is NOT the time until a client shows the
+# reminder: the owner's 10-second figure is a client polling cadence, it has not been measured, and
+# no client application exists.
+late_after_seconds = 10
+
+# Still-unapproved placeholders: the owner has explicitly declined to approve these numbers. Keep
+# them configurable; do not read them as requirements.
 max_delivery_attempts = 3
 retry_interval_minutes = 5
 delivery_window_minutes = 1440

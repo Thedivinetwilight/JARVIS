@@ -23,12 +23,18 @@ the delivery is closed as ``failed`` with reason ``attempts_exhausted`` and is n
 a pending event, but it is still reported (without its contents) so the client can see why nothing
 appeared.
 
-**Time.** Every stored timestamp is UTC. ``display_timezone`` is used only to *render* a local wall
-clock for a human, with the zone's rules at that instant, so the two 01:30s on a daylight-saving
-fall-back day are two distinct instants and each is delivered once. The service never converts a
-local wall-clock time back into an instant, which is why it cannot invent a time that does not
-exist (a spring-forward gap). Naive timestamps are accepted for compatibility and recorded as
-``time_basis: "assumed_utc"`` rather than silently treated as the owner's local time.
+**Time.** Every stored timestamp is UTC. ``display_timezone`` (required, never defaulted) is used
+only to *render* a local wall clock for a human, with the zone's rules at that instant, so the two
+01:30s on a daylight-saving fall-back day are two distinct instants and each is delivered once. The
+service never converts a local wall-clock time back into an instant, which is why it cannot invent a
+time that does not exist (a spring-forward gap). Naive timestamps are accepted for compatibility and
+recorded as ``time_basis: "assumed_utc"`` rather than silently treated as the owner's local time.
+
+**Two different numbers, deliberately not conflated.** ``late_after_seconds`` is the delay, measured
+by the server at hand-over, after which an event is *labelled* late. The owner's 10-second figure is
+a target for how quickly a **client** surfaces a reminder once it is online — a client-side polling
+cadence that this server neither controls nor observes. A hand-over inside the threshold therefore
+proves only that the queue answered promptly; it proves nothing about a client that does not exist.
 """
 
 from __future__ import annotations
@@ -38,14 +44,18 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from .audit import AuditLog
-from .clock import Clock, parse_iso, to_iso
+from .clock import Clock, display_zone, parse_iso, to_iso
 from .config import RemindersConfig
 from .db import Store
-from .errors import BadRequest, Conflict, NotFound
+from .errors import BadRequest, Conflict, NotFound, Unavailable
 
-#: A hand-over this long after the scheduled time is labelled late. Below it, the difference is
-#: ordinary scheduling jitter rather than a missed reminder.
-LATE_AFTER_S = 60
+#: What the delay figures mean. Carried in every payload so a reader cannot mistake a server-side
+#: hand-over delay for the client-side surfacing time the owner asked for.
+DELAY_MODEL = (
+    "seconds after the scheduled time, measured by the server when the event is handed over. This is "
+    "not the time until a client shows the reminder, and no client exists to measure that. The "
+    "owner's 10-second target is a client polling cadence."
+)
 
 DELIVERY_MODEL = (
     "local queue: a paired client retrieves events by polling and acknowledges them. The server "
@@ -268,12 +278,29 @@ class ReminderDeliveryService:
         return changed
 
     # ------------------------------------------------------------------ reading
+    def _require_display_zone(self) -> None:
+        """Refuse to render rather than render in the wrong zone.
+
+        Configuration validation and readiness both catch a bad zone first; this is the last line of
+        defence for a host whose tz database changed under a running process. It answers 503 with the
+        same explanation instead of a generic internal error. ``fresh=True`` so the check describes
+        the host's tz database now rather than the cached object parsed at startup.
+        """
+        try:
+            display_zone(self.config.display_timezone, fresh=True)
+        except ValueError as exc:
+            raise Unavailable(
+                str(exc), code="display_timezone_unresolved",
+                detail={"display_timezone": self.config.display_timezone},
+            ) from exc
+
     def inbox(
         self, *, client_id: str, now: datetime | None = None, limit: int = 50
     ) -> dict:
         """Hand over this client's actionable events. Not a push: the client asked."""
         if not 1 <= int(limit) <= 200:
             raise BadRequest("limit must be between 1 and 200")
+        self._require_display_zone()
         moment = now or self.clock.now()
         self.sweep(now=moment)
 
@@ -318,6 +345,8 @@ class ReminderDeliveryService:
                 "spoken": False,
                 "displayed": False,
                 "transport": "client-initiated polling over the authenticated local API",
+                "late_after_seconds": self.config.late_after_seconds,
+                "delay": DELAY_MODEL,
             },
             "display_timezone": self.config.display_timezone,
         }
@@ -355,10 +384,21 @@ class ReminderDeliveryService:
                 actor_kind="client", actor_id=delivery.client_id,
                 action="reminder_delivery.attempt", target=delivery.id, outcome="info",
                 detail={"attempt": new_attempts, "max_attempts": delivery.max_attempts,
-                        "late_by_seconds": int(due_since_s)},
+                        "late_by_seconds": int(due_since_s),
+                        "late_by_seconds_exact": round(due_since_s, 6),
+                        "late": due_since_s > self.config.late_after_seconds,
+                        "late_after_seconds": self.config.late_after_seconds},
             )
 
-        late_by = max(0, int((parse_iso(first) - fire).total_seconds()))
+        # Lateness is decided from the exact interval: at exactly the threshold the event is within
+        # target, and any fraction beyond it is late, so a floored integer cannot mask the boundary.
+        late_by_s = max(0.0, (parse_iso(first) - fire).total_seconds())
+        # The precise value is published next to the floored one: a reader must never see
+        # ``late: true`` beside ``late_by_seconds: 10`` and a threshold of 10 with nothing to explain
+        # the gap. Microsecond resolution, because the comparison itself is exact.
+        late_by_exact = round(late_by_s, 6)
+        threshold = self.config.late_after_seconds
+        late = late_by_s > threshold
         return {
             "delivery_id": delivery.id,
             "reminder_id": delivery.reminder_id,
@@ -370,8 +410,18 @@ class ReminderDeliveryService:
             "attempt": new_attempts,
             "max_attempts": delivery.max_attempts,
             "expires_at": delivery.expires_at,
-            "late": late_by > LATE_AFTER_S,
-            "late_by_seconds": late_by,
+            "late": late,
+            "late_by_seconds": int(late_by_s),
+            "late_by_seconds_exact": late_by_exact,
+            "late_after_seconds": threshold,
+            "delay": {
+                "measured": "server hand-over delay after the scheduled time",
+                "seconds": int(late_by_s),
+                "seconds_exact": late_by_exact,
+                "late_after_seconds": threshold,
+                "late": late,
+                "not_measured": DELAY_MODEL,
+            },
             "delivery": {
                 "model": DELIVERY_MODEL,
                 "pushed": False,
@@ -432,9 +482,7 @@ class ReminderDeliveryService:
 
     def _render_local(self, moment: datetime) -> dict:
         """Render a UTC instant as a wall clock in the configured zone. Never the reverse."""
-        import zoneinfo
-
-        zone = zoneinfo.ZoneInfo(self.config.display_timezone)
+        zone = display_zone(self.config.display_timezone)
         local = moment.astimezone(zone)
         return {
             "iso": local.isoformat(),
@@ -531,6 +579,6 @@ class ReminderDeliveryService:
 __all__ = [
     "DELIVERY_MODEL",
     "Delivery",
-    "LATE_AFTER_S",
+    "DELAY_MODEL",
     "ReminderDeliveryService",
 ]

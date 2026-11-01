@@ -6,7 +6,8 @@ specification, capability registers and research notes live elsewhere and are no
 | Document | What it answers |
 | --- | --- |
 | [`threat-boundaries.md`](threat-boundaries.md) | What the local server protects, from whom, and what it explicitly does not protect |
-| [`reminder-delivery.md`](reminder-delivery.md) | Why reminder delivery is a local poll-and-acknowledge queue rather than a push channel, and what it deliberately cannot do |
+| [`reminder-delivery.md`](reminder-delivery.md) | Why reminder delivery is a local poll-and-acknowledge queue rather than a push channel, what it deliberately cannot do, and which of its values are unapproved defaults |
+| [`../product/reminder-delivery-decision.md`](../product/reminder-delivery-decision.md) | The owner decision record for that queue: six choices decided on 2026-11-01 (one recipient, UTC storage with a **required** local display zone and no default, polling while online, a Windows PC companion first, OS notifications first, a 10-second target and late threshold) and four still **pending** (attempts, retry interval, window, attempt semantics) |
 | [`../adr/0001-local-first-server-architecture.md`](../adr/0001-local-first-server-architecture.md) | Why `app/` is a Python-stdlib, single-process, local-only service, and what that costs |
 | [`../../app/README.md`](../../app/README.md) | How to configure, run and test the server; the endpoint and limitation surface |
 | [`../benchmarks/voice-workload-benchmark.md`](../benchmarks/voice-workload-benchmark.md) | The pre-registered methodology of the local measurement tool: what it measures, what it refuses, and why a result is not a decision |

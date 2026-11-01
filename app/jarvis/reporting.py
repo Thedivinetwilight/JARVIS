@@ -15,6 +15,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .capabilities import SPEC_VERSION, capability_report, infrastructure_report
+from .clock import display_zone
+from .config import RemindersConfig
 
 if TYPE_CHECKING:  # pragma: no cover
     from .app import App
@@ -126,6 +128,35 @@ def health_payload(app: "App") -> dict:
     }
 
 
+def _reminder_readiness(config: RemindersConfig) -> dict:
+    """Readiness for reminder rendering: the display zone must resolve on *this* host.
+
+    Configuration validation already refuses a bad zone at startup, so this check exists for the
+    case that matters at runtime: a host whose tz database cannot resolve the configured zone (a
+    minimal container, a missing tzdata package, a tz database removed under a running process).
+    Rendering in an unknown zone would silently shift every reminder, so the server reports itself
+    not ready instead. ``fresh=True`` is what makes this true of the host *now*: the ordinary
+    resolver would answer from the object parsed at startup and never notice the database had gone.
+    """
+    try:
+        display_zone(config.display_timezone, fresh=True)
+    except ValueError as exc:
+        return {
+            "ok": False,
+            "detail": str(exc),
+            "display_timezone": config.display_timezone,
+            "late_after_seconds": config.late_after_seconds,
+        }
+    return {
+        "ok": True,
+        "detail": f"display time zone resolved locally: {config.display_timezone}",
+        "display_timezone": config.display_timezone,
+        "late_after_seconds": config.late_after_seconds,
+        "note": "a hand-over delay is measured by the server; it is not a client surfacing time, "
+                "and no client application exists",
+    }
+
+
 def readiness_payload(app: "App") -> tuple[bool, dict]:
     storage = app.store.status()
     writable = app.data_dir_writable()
@@ -146,6 +177,7 @@ def readiness_payload(app: "App") -> tuple[bool, dict]:
             "detail": "speech adapters unavailable by design; readiness is not a capability claim",
             "speech": dict(app.config.adapters),
         },
+        "reminders": _reminder_readiness(app.config.reminders),
     }
     ready = all(check["ok"] for check in checks.values())
     return ready, {"ready": ready, "checks": checks}

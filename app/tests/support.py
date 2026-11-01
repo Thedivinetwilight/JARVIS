@@ -52,6 +52,7 @@ speech_tts = "{tts}"
 
 [reminders]
 display_timezone = "{reminders_tz}"
+late_after_seconds = {reminders_late_after}
 max_delivery_attempts = {reminders_max_attempts}
 retry_interval_minutes = {reminders_retry}
 delivery_window_minutes = {reminders_window}
@@ -85,6 +86,7 @@ def write_config(directory: pathlib.Path, *, name: str = "jarvis.toml", **overri
         "asr": "unavailable",
         "tts": "unavailable",
         "reminders_tz": "UTC",
+        "reminders_late_after": 10,
         "reminders_max_attempts": 3,
         "reminders_retry": 5,
         "reminders_window": 1440,

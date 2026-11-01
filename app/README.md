@@ -42,6 +42,8 @@ drifts.
 cd /path/to/JARVIS
 export JARVIS_SERVER_SECRET="$(python3 -c 'import secrets;print(secrets.token_urlsafe(48))')"
 
+# First: set [reminders].display_timezone in the trial config to the IANA name of your home
+# display zone (the file ships empty on purpose — there is no default, and check-config says so).
 python3 -m app.jarvis check-config --config app/deploy/config.trial.toml
 python3 -m app.jarvis migrate      --config app/deploy/config.trial.toml
 python3 -m app.jarvis operator     --config app/deploy/config.trial.toml   # prints a token ONCE
@@ -145,16 +147,45 @@ event as `failed`. An unacknowledged event older than `delivery_window_minutes` 
 `expired`. Both are reported in `held_back` with a reason, never silently dropped. Revoking the
 target cancels its open events immediately.
 
-Timestamps are stored in UTC. `reminders.display_timezone` renders a wall clock with the offset in
-force at that instant, so the two 01:30s of a daylight-saving fall-back are two distinct instants
-(each delivered once), and a time that does not exist on a spring-forward day is never invented.
-A naive `due_at` is recorded as `due_time_basis: "assumed_utc"` rather than presented as local time.
+Timestamps are stored in UTC. `reminders.display_timezone` — **required, never defaulted** — renders
+a wall clock with the offset in force at that instant, so the two 01:30s of a daylight-saving fall-back
+are two distinct instants (each delivered once), and a time that does not exist on a spring-forward day
+is never invented. A naive `due_at` is recorded as `due_time_basis: "assumed_utc"` rather than
+presented as local time.
+
+`reminders.late_after_seconds` (default 10) is the delay after which the server labels its own
+hand-over `late`. At exactly the threshold the event is within target; any fraction beyond it is late,
+and the comparison is made on the exact interval rather than a floored integer. **This number is not
+the client's surfacing time.** The owner's 10-second figure is a target for how quickly a *client*
+shows a reminder once it is online — a polling cadence the server neither controls nor observes — and
+no client exists, so nothing here demonstrates that target. Every event therefore carries three delay
+fields that always agree: `late_by_seconds` (whole seconds, floored for display),
+`late_by_seconds_exact` (the fractional value the comparison actually used) and
+`late_after_seconds`, plus a `delay` block repeating them with a `not_measured` field that says what
+none of them mean. So a late event never reports `late: true` beside a whole-second delay equal to the
+threshold without the precise value explaining why — at 10.5 s it sends `late: true`,
+`late_by_seconds: 10`, `late_by_seconds_exact: 10.5`, threshold `10`.
 
 The audit trail records `reminder_delivery.enqueued`, `.attempt`, `.acknowledged`, `.expired`,
 `.failed`, `.cancelled` and `.reconciled` with ids, counts and reasons only — never a reminder title
 or note. No response describes a queued event as spoken, displayed, pushed or notified, and the
 limitation `reminder_delivery_unavailable` keeps saying so. Full rationale:
 `docs/architecture/reminder-delivery.md`.
+
+**Which of these values are decided.** On 2026-11-01 the owner decided part of the contract: **one**
+explicitly selected target device per reminder ("for now"), **UTC storage** with a configurable local
+display zone, **polling** while the client is online (nothing pushed), a **Windows PC companion
+first**, **local OS notifications first** with speech only after local speech is available and
+measured, and a **10-second surface target while online**.
+
+**Which are still unapproved.** The attempt count (3), the retry interval (5 minutes), the delivery
+window (24 hours) and the hand-off definition of an attempt are implementation placeholders: the owner
+has directed that they stay configurable and must **not** be treated as approved defaults. The full
+record, with alternatives and consequences, is `docs/product/reminder-delivery-decision.md`.
+
+No client exists, so the companion, its notification and the 10-second target are **unverified**, and
+no server change was made for them. Speech stays unavailable either way, G-O1 stays blocked, and no
+capability status changes.
 
 ## 6. Configuration
 
@@ -176,6 +207,9 @@ same thing with a repository-local data directory. Neither contains a secret.
 | | `secret_file` | optional 0600 alternative to the environment variable |
 | `external_services` | `web_retrieval`, `telephony`, `device_vendor_cloud`, `update_downloads` | **must be `false`**; `true` refuses startup |
 | `adapters` | `speech_asr`, `speech_tts` | **must be `unavailable`**; anything else refuses startup |
+| `reminders` | `display_timezone` | **required** IANA zone for rendering; empty, absent or unknown refuses startup (there is no UTC fallback) |
+| | `late_after_seconds` | delay after which a hand-over is labelled `late` (default 10; range 0–3600) |
+| | `max_delivery_attempts`, `retry_interval_minutes`, `delivery_window_minutes` | unapproved placeholders — see `docs/product/reminder-delivery-decision.md` |
 | `logging` | `level` | `debug`/`info`/`warning`/`error` |
 
 Rules that are enforced, not documented-and-hoped:
@@ -184,7 +218,13 @@ Rules that are enforced, not documented-and-hoped:
 - the secret is read **only** from `JARVIS_SERVER_SECRET` (≥32 bytes, not a placeholder) or a 0600
   file, never from the TOML file, and never written to the database, the logs or a response;
 - startup is refused for: a non-loopback bind without TLS, an enabled external service, a selected
-  speech adapter, an unwritable or misplaced data directory, or a bad secret.
+  speech adapter, an unwritable or misplaced data directory, a bad secret, or a missing/unknown
+  `reminders.display_timezone`. That last one has **no default**: the server will not guess a display
+  zone, so an empty value stops it with the sentence
+  `reminders.display_timezone is required: …`. `/readyz` re-resolves the zone **without the process
+  cache** on every call, so a running host whose tz database loses the zone reports `503` (and the
+  reminder inbox answers `503 display_timezone_unresolved` with the same sentence) without needing a
+  restart — and recovers by itself when the zone data returns.
 
 ## 7. CLI
 

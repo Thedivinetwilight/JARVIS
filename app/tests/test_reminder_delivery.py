@@ -18,6 +18,7 @@ makes every scheduling case exact, and no test measures anything.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import pathlib
 import re
@@ -518,6 +519,197 @@ class SchedulingTests(DeliveryBase):
         self.clock.advance(minutes=6)
         self.assertEqual(self.inbox()[1]["events"][0]["attempt"], 2)
 
+    # ------------------------------------------------------------------ late threshold
+    def test_a_hand_over_exactly_at_the_threshold_is_within_target(self):
+        """10.000 s after the scheduled time is inside the 10-second threshold, not late."""
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3610)  # exactly 10 s past the due time
+        event = self.inbox()[1]["events"][0]
+        self.assertEqual(event["late_by_seconds"], 10)
+        self.assertEqual(event["late_by_seconds_exact"], 10.0)
+        self.assertEqual(event["late_after_seconds"], 10)
+        self.assertFalse(event["late"], event)
+        self.assertEqual(event["delay"]["seconds"], 10)
+        self.assertEqual(event["delay"]["seconds_exact"], 10.0)
+        self.assertFalse(event["delay"]["late"])
+        # The exact value is the one the comparison used, so the payload is self-consistent.
+        self.assertLessEqual(event["late_by_seconds_exact"], event["late_after_seconds"])
+
+    def test_a_hand_over_past_the_threshold_is_late(self):
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3611)  # 11 s past the due time
+        event = self.inbox()[1]["events"][0]
+        self.assertTrue(event["late"])
+        self.assertTrue(event["delay"]["late"])
+        self.assertEqual(event["late_by_seconds"], 11)
+
+    def test_a_fractional_second_past_the_threshold_is_late(self):
+        """A floored integer must not hide 10.5 s: the boundary is decided on the exact interval."""
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3610, milliseconds=500)
+        event = self.inbox()[1]["events"][0]
+        self.assertEqual(event["late_by_seconds"], 10)          # floored for display
+        self.assertEqual(event["late_by_seconds_exact"], 10.5)  # what the comparison used
+        self.assertTrue(event["late"])                          # decidably past the threshold
+        self.assertEqual(event["late_after_seconds"], 10)
+        self.assertEqual(event["delay"]["seconds"], 10)
+        self.assertEqual(event["delay"]["seconds_exact"], 10.5)
+        self.assertGreater(event["late_by_seconds_exact"], event["late_after_seconds"])
+
+    def test_a_late_event_at_the_threshold_never_reports_only_the_whole_second(self):
+        """The trap: ``late: true`` beside ``late_by_seconds: 10`` and a threshold of 10.
+
+        Any event whose floored delay equals the threshold but which is late must publish a precise
+        value greater than the threshold, or a client reading whole seconds sees a contradiction.
+        Three fractions, each read at the exact instant that makes the floored value equal 10.
+        """
+        self.clock.advance(seconds=3600)  # 10:00:00Z, the first reminder's due time
+        cases = (
+            # due_at, advance to reach "due + 10 s + fraction", expected exact delay
+            ("2026-11-01T10:00:00Z", dict(seconds=10, microseconds=500_000), 10.5),
+            ("2026-11-01T10:00:11Z", dict(seconds=10, microseconds=501_000), 10.001),
+            ("2026-11-01T10:00:22Z", dict(seconds=11, microseconds=99_000), 10.1),
+        )
+        for due_at, step, expected in cases:
+            with self.subTest(expected=expected):
+                task_id = self.make_reminder(due_at=due_at)[1]["task"]["id"]
+                self.clock.advance(**step)
+                events = {e["task_id"]: e for e in self.inbox()[1]["events"]}
+                event = events[task_id]
+                self.assertEqual(event["late_by_seconds"], 10)  # floored: equals the threshold
+                self.assertTrue(event["late"])                  # but genuinely late
+                self.assertEqual(event["late_after_seconds"], 10)  # the owner's number, unchanged
+                self.assertEqual(event["late_by_seconds_exact"], expected)
+                self.assertGreater(event["late_by_seconds_exact"], event["late_after_seconds"])
+                self.assertEqual(event["delay"]["seconds_exact"], expected)
+                self.assertGreater(event["delay"]["seconds_exact"],
+                                   event["delay"]["late_after_seconds"])
+
+    def test_a_delay_of_exactly_one_millisecond_past_the_threshold_is_late_and_explained(self):
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3610, milliseconds=1)
+        event = self.inbox()[1]["events"][0]
+        self.assertTrue(event["late"])
+        self.assertEqual(event["late_by_seconds"], 10)
+        self.assertEqual(event["late_by_seconds_exact"], 10.001)
+        self.assertEqual(event["late_after_seconds"], 10)
+        self.assertIn("late_by_seconds_exact", json.dumps(event))
+        # A reader is never left with late=true beside 10 s and a 10 s threshold only.
+        self.assertGreater(event["late_by_seconds_exact"], event["late_after_seconds"])
+
+    def test_the_late_threshold_is_configurable(self):
+        self.restart_with_zone("UTC", late_after=60)
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3611)
+        relaxed = self.inbox()[1]["events"][0]
+        self.assertEqual(relaxed["late_after_seconds"], 60)
+        self.assertFalse(relaxed["late"])
+
+        self.restart_with_zone("UTC", late_after=0)
+        self.make_reminder(due_at="2026-11-01T10:00:05Z")
+        self.clock.advance(seconds=3606)
+        strict = self.inbox()[1]["events"][0]
+        self.assertEqual(strict["late_after_seconds"], 0)
+        self.assertTrue(strict["late"])
+
+    def test_the_threshold_is_reported_without_claiming_the_client_target_is_met(self):
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3610)
+        _, payload = self.inbox()
+        # The server states its own measurement, and says plainly what it is not.
+        self.assertEqual(payload["delivery"]["late_after_seconds"], 10)
+        self.assertIn("not the time until a client shows the reminder",
+                      payload["delivery"]["delay"])
+        self.assertIn("no client exists", payload["delivery"]["delay"].lower())
+        event = payload["events"][0]
+        self.assertIn("client polling cadence", event["delay"]["not_measured"])
+        rendered = json.dumps(payload).lower()
+        for claim in ("target met", "within 10 seconds of surfacing", "surfaced within",
+                      "delivered within 10 seconds"):
+            self.assertNotIn(claim, rendered)
+
+    def test_readiness_reports_the_resolved_display_zone_and_the_threshold(self):
+        response, payload = self.call("GET", "/readyz")
+        self.assertIn(response.status, (200, 503))
+        check = payload["checks"]["reminders"]
+        self.assertTrue(check["ok"])
+        self.assertEqual(check["display_timezone"], "UTC")
+        self.assertEqual(check["late_after_seconds"], 10)
+        self.assertIn("not a client surfacing time", check["note"])
+
+    def test_readiness_fails_when_the_configured_zone_cannot_be_resolved_on_this_host(self):
+        """The runtime case: a host whose tz database cannot resolve the configured zone."""
+        broken = dataclasses.replace(
+            self.config,
+            reminders=dataclasses.replace(self.config.reminders,
+                                          display_timezone="Nowhere/Here"),
+        )
+        from app.jarvis.app import App
+
+        app = App(broken, store=self.app.store, clock=self.clock, install_guard=False)
+        response = app.request("GET", "/readyz", {}, b"")
+        parsed = json.loads(response.body)
+        self.assertEqual(response.status, 503)
+        self.assertFalse(parsed["ready"])
+        self.assertFalse(parsed["checks"]["reminders"]["ok"])
+        self.assertIn("not a known IANA time zone", parsed["checks"]["reminders"]["detail"])
+
+    def test_readiness_and_the_inbox_notice_a_tz_database_that_lost_the_zone(self):
+        """A running process must not answer from its cached zone object for ever.
+
+        ``zoneinfo`` caches parsed zones, so the ordinary resolver would keep saying the zone is fine
+        after the host's tz database stopped containing it. Readiness and the hand-over guard resolve
+        with ``fresh=True``; this test points the tz path at a database that lacks the configured zone
+        and asserts both surfaces refuse with the same sentence.
+        """
+        import zoneinfo
+
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        self.clock.advance(seconds=3610)
+        self.assertEqual(self.inbox()[0].status, 200)  # resolutions and renders normally
+
+        # A tz database that exists but does not contain the configured zone ("UTC" here).
+        disposable = pathlib.Path(self.directory) / "tzdb"
+        (disposable / "Asia").mkdir(parents=True, exist_ok=True)
+        shutil.copyfile("/usr/share/zoneinfo/Asia/Kolkata", disposable / "Asia" / "Kolkata")
+        try:
+            zoneinfo.reset_tzpath([str(disposable)])
+            response, payload = self.call("GET", "/readyz")
+            self.assertEqual(response.status, 503)
+            self.assertFalse(payload["checks"]["reminders"]["ok"])
+            self.assertIn("not a known IANA time zone", payload["checks"]["reminders"]["detail"])
+
+            response, payload = self.inbox()
+            self.assertEqual(response.status, 503)
+            self.assertEqual(payload["error"]["code"], "display_timezone_unresolved")
+            self.assertIn("not a known IANA time zone", payload["error"]["message"])
+            self.assertEqual(payload["error"]["detail"]["display_timezone"], "UTC")
+        finally:
+            zoneinfo.reset_tzpath()
+
+        # Once the database is back, the same running process serves normally again.
+        self.assertEqual(self.inbox()[0].status, 200)
+
+    def test_the_inbox_refuses_to_render_in_an_unresolvable_zone(self):
+        """503 with the same explanation, rather than a 500 or a wrong wall clock."""
+        self.make_reminder(due_at="2026-11-01T10:00:00Z")
+        broken = dataclasses.replace(
+            self.config,
+            reminders=dataclasses.replace(self.config.reminders,
+                                          display_timezone="Nowhere/Here"),
+        )
+        from app.jarvis.app import App
+
+        app = App(broken, store=self.app.store, clock=self.clock, install_guard=False)
+        self.pair_device(label="phone2", platform="phone")
+        response = app.request("GET", "/v1/reminders/inbox",
+                               {"authorization": f"Bearer {self.token}"}, b"")
+        parsed = json.loads(response.body)
+        self.assertEqual(response.status, 503)
+        self.assertEqual(parsed["error"]["code"], "display_timezone_unresolved")
+        self.assertIn("not a known IANA time zone", parsed["error"]["message"])
+        self.assertEqual(parsed["error"]["detail"]["display_timezone"], "Nowhere/Here")
+
     def test_an_invalid_display_time_zone_is_refused(self):
         with tempfile.TemporaryDirectory() as staging:
             with self.assertRaises(ConfigError) as caught:
@@ -525,9 +717,10 @@ class SchedulingTests(DeliveryBase):
         self.assertIn("IANA time zone", str(caught.exception))
 
     # ------------------------------------------------------------------ helper
-    def restart_with_zone(self, zone: str, *, device_ttl: int = 90):
+    def restart_with_zone(self, zone: str, *, device_ttl: int = 90, late_after: int = 10):
         self.app, self.config = support.build_app(self.directory, clock=self.clock,
-                                                  reminders_tz=zone, device_ttl=device_ttl)
+                                                  reminders_tz=zone, device_ttl=device_ttl,
+                                                  reminders_late_after=late_after)
         self.device, self.token = self.pair_device(label="zone-phone", platform="phone")
         self.client_id = self.device["id"]
         return self.app
