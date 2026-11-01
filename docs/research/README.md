@@ -123,12 +123,43 @@ measure is in
 [Phase 15 §7](15-revised-roadmap-supersession-and-next-step.md#7-what-the-current-harness-cannot-measure)
 plus [M4 §4](stage-1-m4-breadth-and-ladder.md).
 
-**Immediate next action (Stage 2):** run 2–3 sampled model configurations through all six families with
-variance, cost and latency recorded, using the ladder and the mutations as controls, and work the
-difficulty backlog M4 identified (a ladder-relevant B2 rung, a B9 *acquisition* task, and at least one
-item per family the reference program cannot solve for free). Model choice (O1) is now a measured
-decision rather than a preference, but it is still a decision — nothing in this repository recommends a
-model, provider or hardware.
+**Immediate next action (M5 — capability coverage and workload mapping):** the product requirements are now
+specified in [`docs/product/`](../product/README.md) as ten capabilities (C-01…C-10); the evaluator covers six
+synthetic families and cannot see voice, speaker identity, telephony, the people database, invention
+support, self-evolution beyond B9/B10, or canon parity. Before any model is measured or chosen, each
+capability must be mapped to an evaluation family with pre-registered thresholds, every planned family must
+have fixtures and a harness delta described, and the Phase 1 latency/cost envelopes must be re-derived for
+the voice, telephony and invention classes. **Model selection (O1) is blocked by gate G-O1 until that
+mapping is reviewed** ([capability roadmap §4](../product/capability-roadmap.md#4-gates-and-why-model-selection-is-blocked));
+nothing in this repository recommends a model, provider, parameter count or hardware. The difficulty
+backlog M4 identified (a ladder-relevant B2 rung, a B9 *acquisition* task, at least one item per family the
+reference program cannot solve for free) is part of the same mapping work.
+
+## Product requirements (outside the research set)
+
+The **product** view is published separately in [`docs/product/`](../product/README.md), because it answers a
+different question from the research documents (what must be built and how it will be judged, not what is
+true or feasible):
+
+- [Capability specification v1.0.0](../product/capability-specification.md) — ten normative requirements
+  **C-01…C-10**: learn and apply preferences and personal context; a people database and modular stores with
+  source, freshness, sensitivity, permissions and review/correction/deletion; **voice-first operation with
+  no chat boxes**; speech recognition and authorized-speaker verification with a safe fallback; authorized
+  inbound and outbound calls; brain-inspired operation **without consciousness as a goal**; bounded
+  self-evolution (boundaries, measurement, versioning, rollback); invention support without novelty or
+  patentability promises; explanation of what is limiting the system and practical ways forward; and
+  practical MCU J.A.R.V.I.S. equivalents plus comics-AI Rescue support, with the MCU AI kept distinct from
+  the human Edwin Jarvis of mainline comics. Every capability lists dependencies, provisional acceptance
+  criteria, data and permission needs, and the future evaluation family and milestone that will validate it.
+- [Capability roadmap v1.0.0](../product/capability-roadmap.md) — milestones **M5–M13** (M1–M4 complete),
+  exit and kill criteria, and five gates. Gate **G-O1 blocks model selection** until the workload and
+  coverage mapping (M5) is complete; **G-UX** forbids conversational text interfaces in every release.
+- [`capabilities.json`](../product/capabilities.json) — the machine-readable index, checked by
+  `eval/tests/test_product_spec.py`.
+
+**None of this is implemented.** There is no application, interface, model or user data in the repository;
+the evaluator's capability registry remains a synthetic **test-harness inventory** and is never evidence for
+a product capability.
 
 **Review requests for the project owner:**
 

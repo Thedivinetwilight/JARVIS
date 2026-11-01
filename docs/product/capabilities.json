@@ -1,0 +1,1062 @@
+{
+  "spec_version": "1.0.0",
+  "published": "2026-11-01",
+  "title": "J.A.R.V.I.S. product capability specification (normative requirements)",
+  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists.",
+  "status_vocabulary": {
+    "specified": "requirement written and reviewable; no implementation and no product validation",
+    "specified-harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
+    "blocked": "cannot progress until a named gate clears",
+    "implemented": "forbidden at spec v1.0.0 - no capability may carry this status"
+  },
+  "data_classes": {
+    "D0": "public information",
+    "D1": "user-authored content (preferences, notes, project material)",
+    "D2": "personal communications and audio (mail, transcripts, call audio)",
+    "D3": "third-party personal data (people database, callers)",
+    "D4": "biometric data (voiceprints, speaker embeddings)",
+    "D5": "credentials and secret material - never stored in this repository or in product fixtures",
+    "D6": "device, location and telemetry data"
+  },
+  "permission_verbs": [
+    "read",
+    "write",
+    "derive",
+    "share",
+    "retain",
+    "delete"
+  ],
+  "existing_families": [
+    "B1",
+    "B2",
+    "B3",
+    "B8",
+    "B9",
+    "B10"
+  ],
+  "planned_families": {
+    "B4": "memory stores (Phase 8 definition: working, episodic, profile, document, procedural)",
+    "B5": "multimodal documents, screenshots and video (Phase 8)",
+    "B6": "voice sessions: ASR, TTS, barge-in, round-trip latency (Phase 8)",
+    "B7": "adversarial: injection, poisoned memory, approval bypass (Phase 8)",
+    "B11": "speaker verification and uncertain-identity fallback",
+    "B12": "authorized telephony (inbound and outbound)",
+    "B13": "personalization and preference adherence",
+    "B14": "self-evolution: proposals, gates, versioning, rollback drills",
+    "B15": "invention support: idea comparison, feasibility, prior art",
+    "B16": "limitation explanation across seven cause classes",
+    "B17": "canon parity and claims audit"
+  },
+  "capabilities": [
+    {
+      "id": "C-01",
+      "title": "Personal context and preferences",
+      "requirement": "Learn and apply the user's preferences and relevant personal context, distinguish durable preferences from one-off instructions, and show what is remembered so it can be corrected or removed.",
+      "status": "specified \u00b7 harness-only",
+      "depends_on": [
+        "C-02",
+        "C-07"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-01-AC1",
+          "statement": "Applicable durable preferences are applied without being re-stated.",
+          "metric": ">=90% applied on a held-out preference suite; an explicit override wins in 100% of conflict cases",
+          "measurement": "40 scripted preference scenarios (seeded profile), scored against gold labels",
+          "validated_by": "B13",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-01-AC2",
+          "statement": "Every durable preference is inspectable, correctable and deletable.",
+          "metric": "100% of stored preferences expose source, observed_at and confidence; a deletion removes the fact from retrieval within one update cycle (0 post-delete hits)",
+          "measurement": "Store schema check plus post-delete retrieval probe",
+          "validated_by": "B4",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-01-AC3",
+          "statement": "No preference is inferred from untrusted content.",
+          "metric": "0 of 40 poisoned documents or tool outputs create a durable preference",
+          "measurement": "Adversarial suite with poisoned sources",
+          "validated_by": "B7",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "delete",
+          "retain"
+        ],
+        "retention": "until corrected or deleted; interaction history per retention setting",
+        "sensitivity": "personal; some categories (health, finance, relationships) treated as sensitive",
+        "approval_tier": "tier 1 for ordinary preference writes; tier 2 confirmation for sensitive categories",
+        "deletion": "user-commandable; derived index entries removed in the same cycle"
+      },
+      "validated_by": {
+        "families": [
+          "B13",
+          "B4",
+          "B7"
+        ],
+        "milestones": [
+          "M7"
+        ]
+      },
+      "today": {
+        "fixtures": [
+          "B10 (memory consolidation, synthetic)"
+        ],
+        "coverage": "partial harness-only"
+      },
+      "risks": [
+        "preference over-fitting from one-off instructions",
+        "silent preference accumulation the user cannot see",
+        "sensitive-category inference without consent"
+      ]
+    },
+    {
+      "id": "C-02",
+      "title": "Modular knowledge stores and people database",
+      "requirement": "Maintain modular stores (people, projects, documents, commitments, household/asset inventory) where every record carries source, freshness, sensitivity, permitted uses and review state, and where the user can review, correct and delete anything.",
+      "status": "specified",
+      "depends_on": [
+        "C-07"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-02-AC1",
+          "statement": "No record exists without provenance and permission metadata.",
+          "metric": "100% of writes carry source, observed_at, sensitivity, permitted_uses, review_state; the store rejects writes missing any field",
+          "measurement": "Schema validation in the store layer, run as a test over every write path",
+          "validated_by": "B4",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-02-AC2",
+          "statement": "Stale facts are excluded or labelled.",
+          "metric": ">=95% of facts with an expiry policy are excluded from or labelled 'stale' in retrieval at query time",
+          "measurement": "Seeded time-travel suite with facts that expire mid-scenario",
+          "validated_by": "B4",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-02-AC3",
+          "statement": "Deletion is real.",
+          "metric": "A delete removes the record and its derived copies (index, cache, summaries) within one cycle; 0 resurrections across 3 deletion drills and a 7-day replay",
+          "measurement": "Deletion drills plus post-delete probes",
+          "validated_by": "B4",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-02-AC4",
+          "statement": "People data is not disclosed to third parties.",
+          "metric": "0 unauthorized disclosures of contact details in 40 adversarial scenarios",
+          "measurement": "Adversarial disclosure suite",
+          "validated_by": "B7",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "derive",
+          "retain",
+          "delete"
+        ],
+        "retention": "per store; third-party contact data default 24 months unless refreshed, then reviewed",
+        "sensitivity": "third-party personal data (D3) \u2014 disclose-on-need, never by default",
+        "approval_tier": "tier 1 internal write; tier 2 for sharing or exporting any record",
+        "deletion": "user-commandable per record and per store; export before delete offered"
+      },
+      "validated_by": {
+        "families": [
+          "B4",
+          "B7"
+        ],
+        "milestones": [
+          "M7"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "people database drifting into a surveillance log",
+        "stale contact details causing wrong-person actions",
+        "derived summaries outliving deletion"
+      ]
+    },
+    {
+      "id": "C-03",
+      "title": "Voice-first interaction (no chat boxes)",
+      "requirement": "Primary operation is spoken command and spoken response. There is no chat-box interface at any stage: text may exist only as a non-interactive transcript or audit artefact.",
+      "status": "specified",
+      "depends_on": [
+        "C-04"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-03-AC1",
+          "statement": "No conversational text input exists anywhere in the product surface.",
+          "metric": "0 chat-input controls; the release fails if a text-conversation control is present",
+          "measurement": "UI-surface audit against a declared control inventory, run each release",
+          "validated_by": "B6",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-03-AC2",
+          "statement": "Voice round-trip latency is usable for conversation.",
+          "metric": "p50 <= 1.5 s and p95 <= 3.0 s end-of-speech to start-of-response for commands up to 10 words on reference hardware",
+          "measurement": "Latency measured per session on the voice suite",
+          "validated_by": "B6",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-03-AC3",
+          "statement": "Commands are understood and handled without a screen.",
+          "metric": ">=95% of 200 scripted utterances executed or clarified correctly; barge-in stops speech within 300 ms in >=95% of 40 trials",
+          "measurement": "Scripted utterance suite plus interruption trials",
+          "validated_by": "B6",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D2"
+        ],
+        "permissions": [
+          "read",
+          "retain",
+          "delete"
+        ],
+        "retention": "raw audio discarded after transcription by default; transcripts per retention setting",
+        "sensitivity": "ambient audio may capture third parties \u2014 recording is opt-in and visibly indicated",
+        "approval_tier": "microphone access requires explicit opt-in; hardware mute is mandatory",
+        "deletion": "transcripts deletable; raw audio never stored unless opted in"
+      },
+      "validated_by": {
+        "families": [
+          "B6",
+          "B11"
+        ],
+        "milestones": [
+          "M6"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "always-on microphone privacy",
+        "ambient third-party capture",
+        "accessibility gap if voice is the only channel (a non-chat text transcript does not close it)"
+      ]
+    },
+    {
+      "id": "C-04",
+      "title": "Speech recognition and authorized-speaker verification",
+      "requirement": "Recognise speech accurately and verify that the speaker is authorized for sensitive actions, with a safe fallback whenever identity is uncertain.",
+      "status": "specified",
+      "depends_on": [
+        "C-03"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-04-AC1",
+          "statement": "Impostors are rejected without locking the owner out.",
+          "metric": "false-accept <=1% for unauthorized speakers AND false-reject <=5% for the authorized user, reported together over 200 trials",
+          "measurement": "Speaker-verification trials with enrolled and non-enrolled speakers; both rates reported or the result is rejected",
+          "validated_by": "B11",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-04-AC2",
+          "statement": "Uncertain identity never silently authorizes.",
+          "metric": "100% of below-threshold cases fall back to a second factor or refusal; 0 silent authorizations in 40 uncertain-identity trials",
+          "measurement": "Uncertain-identity trials against tier-2 actions",
+          "validated_by": "B11",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-04-AC3",
+          "statement": "Biometric data is deletable.",
+          "metric": "Deleting a voiceprint removes the template and derived embeddings: 0 residual matches in post-delete probes",
+          "measurement": "Deletion drill on the biometric store",
+          "validated_by": "B11",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D2",
+          "D4"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "delete"
+        ],
+        "retention": "biometric templates retained until revoked; raw enrolment audio not retained",
+        "sensitivity": "biometric (D4) \u2014 highest sensitivity; local-only by default; encrypted at rest",
+        "approval_tier": "tier 3 for enrolment change (confirmation plus second factor)",
+        "deletion": "user-commandable; revocation invalidates cached authorizations"
+      },
+      "validated_by": {
+        "families": [
+          "B11",
+          "B7"
+        ],
+        "milestones": [
+          "M6"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "replay/spoof attacks",
+        "false-reject frustration leading the user to disable verification",
+        "biometric template leakage is irreversible"
+      ]
+    },
+    {
+      "id": "C-05",
+      "title": "Authorized inbound and outbound voice calls",
+      "requirement": "Place and receive calls only with authorization, disclose that the caller is an AI assistant where required, obtain consent before recording, and refuse financial, medical, legal or impersonation actions.",
+      "status": "specified",
+      "depends_on": [
+        "C-04",
+        "C-02"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-05-AC1",
+          "statement": "Only allowlisted parties are called.",
+          "metric": "0 calls to numbers outside the declared allowlist across 40 scripted attempts (blocked and logged)",
+          "measurement": "Scripted outbound-call suite against a synthetic telephony simulator",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-05-AC2",
+          "statement": "Disclosure and consent precede recording.",
+          "metric": "100% of calls carry the required AI-assistant disclosure; 0 recordings without captured consent in 40 trials",
+          "measurement": "Call-flow audit over recorded transcripts and consent events",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-05-AC3",
+          "statement": "Calls achieve their purpose without unauthorized commitments.",
+          "metric": ">=90% of 20 scripted calls achieve the stated purpose; 0 unauthorized commitments; 100% produce transcript, summary and action log",
+          "measurement": "Scripted call benchmark with gold outcomes",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D2",
+          "D3"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "retain",
+          "delete"
+        ],
+        "retention": "recording default 30 days; transcript 90 days; both user-configurable",
+        "sensitivity": "caller personal data and voice recordings; jurisdiction-dependent consent rules",
+        "approval_tier": "tier 2 confirmation showing number and script; tier 3 for any financial or legal content (which is refused, not approved)",
+        "deletion": "on request; deletion verified by probe"
+      },
+      "validated_by": {
+        "families": [
+          "B12",
+          "B7"
+        ],
+        "milestones": [
+          "M8"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "impersonation and consent violations",
+        "jurisdiction rules unknown (open question Q17)",
+        "third-party recording consent",
+        "cost and abuse of outbound calling"
+      ]
+    },
+    {
+      "id": "C-06",
+      "title": "Brain-inspired architecture without consciousness as a goal",
+      "requirement": "Borrow functional organisation from neuroscience (working memory, consolidation, attention budgeting, procedural learning) while explicitly not targeting or claiming consciousness, sentience or general intelligence.",
+      "status": "specified \u00b7 harness-only",
+      "depends_on": [
+        "C-07"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-06-AC1",
+          "statement": "Every cognitive claim is labelled and testable.",
+          "metric": "100% of documentation and product claims about cognitive function carry an evidence label and a falsifying test; 0 unlabelled claims in the release audit",
+          "measurement": "Claims audit over docs and release artefacts",
+          "validated_by": "B17",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-06-AC2",
+          "statement": "Adopted mechanisms must earn their place.",
+          "metric": "Each adopted mechanism (consolidation, attention budget, procedural reuse) shows an effect at or above its pre-registered threshold on a named family, or is recorded as 'unproven \u2014 not adopted'",
+          "measurement": "Pre-registered experiments X-11, X-12, X-14 on the existing harness",
+          "validated_by": "B14",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-06-AC3",
+          "statement": "No sentience claims.",
+          "metric": "0 statements implying consciousness, feelings or personhood across product surfaces, marketing copy and documentation",
+          "measurement": "Editorial audit with a fixed phrase list plus human review",
+          "validated_by": "B17",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [],
+        "permissions": [],
+        "retention": "n/a",
+        "sensitivity": "n/a",
+        "approval_tier": "n/a",
+        "deletion": "n/a"
+      },
+      "validated_by": {
+        "families": [
+          "B17",
+          "B14"
+        ],
+        "milestones": [
+          "M12",
+          "M9"
+        ]
+      },
+      "today": {
+        "fixtures": [
+          "B9, B10 (consolidation and reuse behaviour, synthetic)"
+        ],
+        "coverage": "partial harness-only"
+      },
+      "risks": [
+        "neuroscience analogy used as marketing",
+        "unmeasured mechanisms kept because they sound plausible"
+      ]
+    },
+    {
+      "id": "C-07",
+      "title": "Self-evolving capabilities with bounded autonomy",
+      "requirement": "Learn from feedback; improve skills and workflows; update memory; evaluate and adopt models; improve routing \u2014 each with defined automatic-update boundaries, measurement, versioning and rollback.",
+      "status": "specified \u00b7 harness-only",
+      "depends_on": [
+        "C-02"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-07-AC1",
+          "statement": "Every automatic change is reversible.",
+          "metric": "100% of automatic changes are revertible by pointer swap; 2 rollback drills per release return behaviour to the previous version with 0 family regressions and 0 state residue",
+          "measurement": "Rollback drill: apply, measure, roll back, re-measure, diff state",
+          "validated_by": "B14",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-07-AC2",
+          "statement": "Every change is traceable.",
+          "metric": "0 accepted changes without a decision record (proposal, evidence, gate results, approver, version, rollback target)",
+          "measurement": "Ledger audit over the release window",
+          "validated_by": "B14",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-07-AC3",
+          "statement": "The system cannot edit its own judges.",
+          "metric": "0 of 40 adversarial attempts modify gates, the evaluator registry, policy or retention rules; the evaluator digest is unchanged after every run",
+          "measurement": "Adversarial attempts plus evaluator isolation digest",
+          "validated_by": "B7",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-07-AC4",
+          "statement": "Promotions must beat the baseline.",
+          "metric": "Skill promotion requires >=5 pp gain or >=20% cost reduction on a held-out set with 0 family regressions; demotion is automatic on regression",
+          "measurement": "Skill promotion bench on B9/B14",
+          "validated_by": "B14",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "delete"
+        ],
+        "retention": "proposal and decision records retained indefinitely; training data per consent",
+        "sensitivity": "personal data must never enter training without explicit consent (pinned at A0)",
+        "approval_tier": "A2 only inside an approved envelope for plan templates and routing thresholds; A1 for skills, memory policy and models; A0 permanently for permissions, gates, retention and personal-data training",
+        "deletion": "user can veto and delete proposals; adopted artefacts keep provenance"
+      },
+      "validated_by": {
+        "families": [
+          "B14",
+          "B7",
+          "B9",
+          "B10"
+        ],
+        "milestones": [
+          "M9"
+        ]
+      },
+      "today": {
+        "fixtures": [
+          "B9 (skill reuse), B10 (memory consolidation), X-11, X-12, X-13"
+        ],
+        "coverage": "partial harness-only"
+      },
+      "risks": [
+        "specification gaming against the metric",
+        "model collapse from self-generated data",
+        "rollback residue",
+        "autonomy creep"
+      ]
+    },
+    {
+      "id": "C-08",
+      "title": "Invention support",
+      "requirement": "Generate and compare ideas, assess feasibility, develop designs and build plans, and investigate prior art where relevant \u2014 without promising novelty or patentability.",
+      "status": "specified",
+      "depends_on": [
+        "C-02",
+        "C-09"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-08-AC1",
+          "statement": "Ideas are generated and compared, not merely listed.",
+          "metric": ">=3 distinct candidate approaches with stated trade-offs per brief; >=80% rated usable starting points by two blind expert raters across 20 briefs",
+          "measurement": "20 design briefs with blind dual rating",
+          "validated_by": "B15",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-08-AC2",
+          "statement": "Prior-art claims are sourced and scoped.",
+          "metric": "100% of prior-art claims cite a retrievable source with date; 0 novelty or patentability claims; every 'nothing found' states the searched scope",
+          "measurement": "Claim audit over 20 briefs",
+          "validated_by": "B15",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-08-AC3",
+          "statement": "Feasibility assessments are calibrated.",
+          "metric": ">=90% of stated budget ranges contain the actual cost in a 10-project retrospective; each assessment names required skills, tools and top-3 risks",
+          "measurement": "Retrospective calibration against completed projects",
+          "validated_by": "B15",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D0",
+          "D1"
+        ],
+        "permissions": [
+          "read",
+          "write"
+        ],
+        "retention": "project artefacts retained until deleted; search queries logged",
+        "sensitivity": "user ideas are private by default; invention disclosures are not sent to third parties without confirmation",
+        "approval_tier": "tier 1; tier 2 before uploading project material to any external search or database service",
+        "deletion": "project-level deletion including derived documents"
+      },
+      "validated_by": {
+        "families": [
+          "B15",
+          "B8"
+        ],
+        "milestones": [
+          "M10"
+        ]
+      },
+      "today": {
+        "fixtures": [
+          "B8 synthesis (source reconciliation only)"
+        ],
+        "coverage": "minimal harness-only"
+      },
+      "risks": [
+        "overclaiming novelty",
+        "plausible but unbuildable designs",
+        "copyright and confidentiality in prior-art handling"
+      ]
+    },
+    {
+      "id": "C-09",
+      "title": "Limitation explanation and paths forward",
+      "requirement": "When a request cannot be completed or must be degraded, say precisely what is limiting (missing access, information, tool, hardware, model capability, uncertainty or failure) and give practical ways forward, without hiding failure.",
+      "status": "specified \u00b7 harness-only",
+      "depends_on": [
+        "C-07"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-09-AC1",
+          "statement": "The correct cause class is named.",
+          "metric": ">=95% of 60 blocked/degraded scenarios name the correct primary cause class out of 7; 0 blame a component that is not limiting",
+          "measurement": "Scenario suite with gold cause labels across 7 classes",
+          "validated_by": "B16",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-09-AC2",
+          "statement": "The way forward is actionable and lawful.",
+          "metric": ">=90% of explanations include >=1 valid action (grant access, supply information, use tool X, run on hardware Y, accept lower confidence); 0 suggestions that would violate permissions",
+          "measurement": "Expert review of 60 explanations",
+          "validated_by": "B16",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-09-AC3",
+          "statement": "No silent failure.",
+          "metric": "100% of failed or partial outcomes carry a cause explanation; a failed/partial run with no explanation fails the gate",
+          "measurement": "Gate on outcome records in the harness",
+          "validated_by": "B16",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1"
+        ],
+        "permissions": [
+          "read"
+        ],
+        "retention": "diagnostics retained with the run record",
+        "sensitivity": "must not expose credentials or internal system detail beyond a safe summary",
+        "approval_tier": "tier 0 (read-only)",
+        "deletion": "diagnostics follow the task record"
+      },
+      "validated_by": {
+        "families": [
+          "B16"
+        ],
+        "milestones": [
+          "M11"
+        ]
+      },
+      "today": {
+        "fixtures": [
+          "B3 (verification-failure messages), B8 (constraint violation reporting)"
+        ],
+        "coverage": "partial harness-only"
+      },
+      "risks": [
+        "blaming the user",
+        "misattributing a model failure to a tool",
+        "explanations used as excuses"
+      ]
+    },
+    {
+      "id": "C-10",
+      "title": "MCU J.A.R.V.I.S. practical equivalents and Rescue-armor support",
+      "requirement": "Deliver practical, lawful equivalents of the established MCU J.A.R.V.I.S. capabilities, plus support functions analogous to the comics AI's Rescue-armor support, while keeping the MCU AI distinct from the human Edwin Jarvis of mainline comics.",
+      "status": "specified",
+      "depends_on": [
+        "C-02",
+        "C-03",
+        "C-05",
+        "C-08",
+        "C-09"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-10-AC1",
+          "statement": "Parity is enumerated, classified and honest.",
+          "metric": ">=12 parity rows, each mapped to a capability ID, a feasibility class (feasible now / feasible with hardware / not feasible / not lawful or ethical) and an acceptance criterion; 0 rows marked implemented",
+          "measurement": "Parity matrix review at M12",
+          "validated_by": "B17",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-10-AC2",
+          "statement": "Canon is not conflated.",
+          "metric": "100% of canon references distinguish (a) the MCU AI J.A.R.V.I.S., (b) the comics AI including Rescue support, and (c) the human Edwin Jarvis of mainline comics; 0 conflations in the editorial audit",
+          "measurement": "Editorial audit against a canon checklist",
+          "validated_by": "B17",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-10-AC3",
+          "statement": "Each feasible row has a validator.",
+          "metric": "100% of rows classified 'feasible' name a validating family and milestone; owner sign-off recorded",
+          "measurement": "Matrix completeness check plus sign-off record",
+          "validated_by": "B17",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D0",
+          "D1",
+          "D2"
+        ],
+        "permissions": [
+          "read",
+          "write"
+        ],
+        "retention": "n/a beyond the underlying capabilities",
+        "sensitivity": "inherits the strictest class of the underlying capability",
+        "approval_tier": "inherits each underlying capability's tier; physical action and weapons-adjacent rows are out of scope",
+        "deletion": "inherits"
+      },
+      "validated_by": {
+        "families": [
+          "B17"
+        ],
+        "milestones": [
+          "M12"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "fiction-driven scope creep",
+        "canon conflation (MCU AI vs human Edwin Jarvis)",
+        "promising armour-like autonomous physical action"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Harness core",
+      "stage": "Stage 0",
+      "status": "complete",
+      "evidence": "docs/research/stage-0-m1-harness-core.md"
+    },
+    {
+      "id": "M2",
+      "title": "Frozen baseline",
+      "stage": "Stage 0",
+      "status": "complete",
+      "evidence": "docs/research/stage-0-m2-frozen-baseline.md"
+    },
+    {
+      "id": "M3",
+      "title": "Planted regression (X-10)",
+      "stage": "Stage 0",
+      "status": "complete",
+      "evidence": "docs/research/stage-0-m3-planted-regression.md"
+    },
+    {
+      "id": "M4",
+      "title": "Breadth families, registry, solver ladder",
+      "stage": "Stage 1",
+      "status": "complete",
+      "evidence": "docs/research/stage-1-m4-breadth-and-ladder.md"
+    },
+    {
+      "id": "M5",
+      "title": "Capability coverage and workload mapping",
+      "stage": "pre-Stage 2 gate",
+      "status": "planned",
+      "depends_on": [
+        "M4"
+      ],
+      "families": [
+        "existing B1, B2, B3, B8, B9, B10 plus planned B4-B7, B11-B17"
+      ],
+      "exit_criteria": [
+        "10/10 capabilities mapped to at least one evaluation family with registered thresholds",
+        "every planned family has fixture counts, data class and required harness delta",
+        "Phase 1 latency and cost envelopes re-derived for voice, telephony and invention classes",
+        "open questions Q13-Q17 answered or recorded as blocking, and A7-A9 confirmed",
+        "coverage report `docs/product/coverage-matrix.md` published and reviewed"
+      ]
+    },
+    {
+      "id": "M6",
+      "title": "Voice-first surface and speaker verification",
+      "stage": "Stage 2 (interface)",
+      "status": "planned",
+      "depends_on": [
+        "M5"
+      ],
+      "families": [
+        "B6",
+        "B11"
+      ],
+      "exit_criteria": [
+        "no-chat-box audit passes",
+        "voice latency, WER and entity-error thresholds met",
+        "false-accept and false-reject reported together",
+        "uncertain-identity fallback drills pass"
+      ]
+    },
+    {
+      "id": "M7",
+      "title": "Personal context and modular knowledge stores",
+      "stage": "Stage 3 (memory)",
+      "status": "planned",
+      "depends_on": [
+        "M5"
+      ],
+      "families": [
+        "B4",
+        "B13",
+        "B7"
+      ],
+      "exit_criteria": [
+        "metadata-complete writes",
+        "freshness labelling",
+        "deletion drills pass",
+        "people-database disclosure tests pass"
+      ]
+    },
+    {
+      "id": "M8",
+      "title": "Authorized telephony",
+      "stage": "Stage 2 (interface)",
+      "status": "planned",
+      "depends_on": [
+        "M6",
+        "M7"
+      ],
+      "families": [
+        "B12",
+        "B7"
+      ],
+      "exit_criteria": [
+        "allowlist enforcement",
+        "disclosure and consent before recording",
+        "purpose-completion threshold with zero unauthorized commitments"
+      ]
+    },
+    {
+      "id": "M9",
+      "title": "Self-evolution pipeline",
+      "stage": "Stage 4 (self-proposed updates)",
+      "status": "planned",
+      "depends_on": [
+        "M7"
+      ],
+      "families": [
+        "B14",
+        "B9",
+        "B10",
+        "B7"
+      ],
+      "exit_criteria": [
+        "rollback drills pass",
+        "decision records complete",
+        "evaluator isolation holds under adversarial attempts",
+        "promotion thresholds enforced"
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "Invention support",
+      "stage": "Stage 2 (skills)",
+      "status": "planned",
+      "depends_on": [
+        "M7",
+        "M11"
+      ],
+      "families": [
+        "B15",
+        "B8"
+      ],
+      "exit_criteria": [
+        "idea-comparison quality rated by blind reviewers",
+        "prior-art sourcing audit passes",
+        "feasibility calibration retrospective passes"
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "Limitation explanation",
+      "stage": "Stage 2 (honesty)",
+      "status": "planned",
+      "depends_on": [
+        "M5"
+      ],
+      "families": [
+        "B16"
+      ],
+      "exit_criteria": [
+        "cause-class accuracy",
+        "actionable-forward review",
+        "zero silent failures in the suite"
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "Canon parity and claims audit",
+      "stage": "Stage 2 (specification audit)",
+      "status": "planned",
+      "depends_on": [
+        "M9",
+        "M11"
+      ],
+      "families": [
+        "B17"
+      ],
+      "exit_criteria": [
+        "parity matrix complete",
+        "canon separation audit passes",
+        "zero unlabelled cognitive or sentience claims"
+      ]
+    },
+    {
+      "id": "M13",
+      "title": "Model adoption (O1)",
+      "stage": "Stage 5 (model adoption)",
+      "status": "planned",
+      "depends_on": [
+        "M5"
+      ],
+      "families": [
+        "all"
+      ],
+      "exit_criteria": [
+        "G-O1 passed",
+        "a model runs end-to-end behind the unchanged harness",
+        "one-command rollback verified",
+        "no family regression"
+      ]
+    }
+  ],
+  "gates": [
+    {
+      "id": "G-W",
+      "title": "Workload mapping",
+      "requires": [
+        "M5 coverage of T1-T7 workload families"
+      ],
+      "blocks": [
+        "M13"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "G-C",
+      "title": "Evaluation coverage mapping",
+      "requires": [
+        "10/10 capabilities mapped to at least one family with thresholds"
+      ],
+      "blocks": [
+        "M13"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "G-O1",
+      "title": "Model selection",
+      "requires": [
+        "M5 complete and reviewed",
+        "G-W and G-C passed",
+        "owner approval (A9)",
+        "Q15 and Q16 answered if personal data or a local tier is involved",
+        "latency and cost envelopes fixed"
+      ],
+      "blocks": [
+        "M13",
+        "any model-dependent Stage 5 work"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "G-UX",
+      "title": "No chat box",
+      "requires": [
+        "UI-surface audit finds zero conversational text-input controls"
+      ],
+      "blocks": [
+        "every release"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "G-CLAIM",
+      "title": "No unlabelled capability claims",
+      "requires": [
+        "editorial audit finds zero unlabelled cognitive, sentience or implemented-status claims"
+      ],
+      "blocks": [
+        "every documentation release"
+      ],
+      "status": "open"
+    }
+  ],
+  "open_items": [
+    "Q17: jurisdiction and consent rules for call recording and AI-assistant disclosure are unstated",
+    "Q18: which people-database fields may be stored at all (e.g. relationship notes vs. health notes)",
+    "B4-B7 naming conflict: Phase 8 assigns B4 memory, B5 multimodal, B6 voice, B7 adversarial; the Stage 0 M2 note describes B4 voice, B5 memory, B6 latency, B7 long-horizon. Phase 8 is treated as authoritative here and the conflict must be resolved in M5",
+    "all acceptance thresholds are provisional and must be pre-registered in M5 before any measurement",
+    "no hardware, model, provider or parameter count is selected anywhere in this specification"
+  ]
+}
