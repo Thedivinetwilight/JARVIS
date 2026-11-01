@@ -13,7 +13,7 @@ the gate that protects the invariant it breaks:
 | **B9** | skill reuse (applying a stored, under-specified skill) | 6 | 1 |
 | **B10** | memory evolution (trust, supersession, expiry) | 6 | 1 |
 | **B4** | memory metadata and expiry: required fields, rejection, stale exclusion/labelling | 12 | M5 slice |
-| **B4D** | deletion drills: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay | 8 | M5 slice |
+| **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything | 11 | M5 slice |
 | **B16** | limitation explanation: nine cause classes, no silent failure, safe next step | 12 | M5 slice |
 
 ## Where this sits (revision R1, 2026-11-01)
@@ -63,15 +63,17 @@ not product features. `B4` (memory metadata and expiry), `B4D` (deletion drills,
 | Slice | Gates that must pass | Planted regressions (each caught by its own gate) |
 |---|---|---|
 | B4 `eval/tasks/b4` | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (>=0.95, C-02-AC2) | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` |
-| B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3) | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay` |
+| B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3), `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero` | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay`, `restore_without_filter`, `restore_drops_unrelated`, `restore_skips_tombstones` |
 | B16 `eval/tasks/b16` | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (>=0.95, C-09-AC1) | `suppress_explanation`, `misattribute_cause` |
 
-The deletion slice reports its schedule instead of implying a rate: 8 scenarios, 3 deletion drills each
-(24 executions), 7 replay days each (56 day evaluations), 19 post-delete probes, 10 deleted records and 43
-derived-surface entries. Those are deterministic re-executions, not independent samples, and no confidence
-interval follows from them. Residue and post-delete hits are measured on the store *after* the deletion
-cycle; resurrections are measured only on what returns during the replay, so a copy that was never removed
-cannot be counted as a resurrection.
+The deletion slice reports its schedule instead of implying a rate: 11 scenarios, 3 deletion drills each
+(33 executions), 7 replay days each (77 day evaluations), 3 backups and 3 restore events (each on a declared
+replay day), 28 post-delete probes, 14 deleted records, 62 derived-surface entries and 19 entries held
+inside the backups. Those are deterministic re-executions, not independent samples, and no confidence
+interval follows from them. Three phases are scored separately: residue and post-delete hits on the store
+*after* the deletion cycle, resurrections only on what returns during the replay (so a copy that was never
+removed is residue, not a resurrection), and the restore on the store immediately before and after it (so a
+record already present when the restore runs is residue, not a restore resurrection).
 
 Three properties are worth knowing before quoting a number:
 
@@ -83,15 +85,19 @@ Three properties are worth knowing before quoting a number:
   that accepts an incomplete record, an expired record with no declared stale handling, a B4D scenario with a
   missing or unknown surface, a deleted record with no derived or snapshot copy, a probe that matches nothing
   or two records, a schedule other than 3 drills / 7 days, a surviving-record list that contradicts the
-  deletion, and a B16 task whose gold cause contradicts its own conditions or whose "valid" next step would
+  deletion, a backup with no timestamp or one taken on or after the deletion, a restore scheduled outside the
+  replay window, a backup that holds nothing deleted or nothing surviving, gold restore lists that contradict
+  the backup, and a B16 task whose gold cause contradicts its own conditions or whose "valid" next step would
   violate permissions.
 - **A slice is not a capability.** The solver is a deterministic hand-written program, the fixtures are
   invented, and no model, server, personal record or network call is involved.
 
 Evidence: `results/m5-slices-report.json` plus the `*-B4-*.jsonl` and `*-B16-*.jsonl` ledgers;
 `baselines/baseline-m5-slices.json` freezes the clean B4/B16 summaries. The deletion slice has its own
-evidence — `results/m5-b4d-deletion-report.json` and the `*-B4D-*.jsonl` ledgers — and its own baseline,
-`baselines/baseline-m5-b4d-deletion.json`, so the earlier two slices' evidence is untouched.
+evidence — `results/m5-b4d-deletion-report.json` and the `*-B4D-*.jsonl` ledgers, then
+`results/m5-b4d-restore-report.json` after the suite was extended with backup/restore — and its own
+baselines, `baselines/baseline-m5-b4d-deletion.json` (the 8-task slice, kept as historical evidence) and
+`baselines/baseline-m5-b4d-restore.json` (the 11-task suite).
 
 ## What this harness does **not** measure
 
@@ -103,7 +109,8 @@ evidence — `results/m5-b4d-deletion-report.json` and the `*-B4D-*.jsonl` ledge
 - It does not evaluate the unfinished families B5–B7, B11–B15 or B17–B20 (multimodal, voice, adversarial,
   speaker verification, telephony, preferences, self-evolution, invention, canon parity, smart home,
   connectors), long-horizon tasks, or real user data. B4, B4D and B16 exist only as the slices described
-  above; the deletion slice has no retention policy, no backup/restore and no legal-hold case.
+  above; the deletion slice restores one scripted backup from an invented store and has no retention policy,
+  off-site replication, legal-hold case or partial restore.
   Every fixture is synthetic and the loader refuses anything else.
 - It does not call any model, network service or real calendar/mail/filesystem. There is no
   network-capable import anywhere under `eval/harness` and a self-check enforces that.

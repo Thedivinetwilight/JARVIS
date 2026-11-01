@@ -844,6 +844,95 @@
       "records": 8,
       "run_id": "514dc3a95633b917",
       "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-8f4433253305f2b5-delete_primary_only.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "30f3c9faf3f5752e958b088b8099ff6fb9f55d40ce0d66a6fa2be13ae2b92679",
+      "mutations": [
+        "delete_primary_only"
+      ],
+      "records": 11,
+      "run_id": "8f4433253305f2b5",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-207c0ad030002377-keep_derived_copy.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "1ff6666620da76e7c6c8ea793643fba81eb05db54db9b6f6aeaae7975af381c8",
+      "mutations": [
+        "keep_derived_copy"
+      ],
+      "records": 11,
+      "run_id": "207c0ad030002377",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-66e1a84b28f5033c-resurrect_on_replay.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "e860b8076e2dbe2ba26837f957ed75e0b7ceaf346adb9a24d4534b8f49ec448f",
+      "mutations": [
+        "resurrect_on_replay"
+      ],
+      "records": 11,
+      "run_id": "66e1a84b28f5033c",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-e5c481c9ea48318a-restore_without_filter.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "c0f811ca41c7f4473a2f105aaaded448bc850afd467fb77c594df257fde91e67",
+      "mutations": [
+        "restore_without_filter"
+      ],
+      "records": 11,
+      "run_id": "e5c481c9ea48318a",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-92100c689d91f169-restore_drops_unrelated.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "a3a89f025726e731b8a94ee3cc4ac71d57b25326c1b99aa914c89cfe05a1ebe3",
+      "mutations": [
+        "restore_drops_unrelated"
+      ],
+      "records": 11,
+      "run_id": "92100c689d91f169",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:25+00:00",
+      "file": "eval/results/2026-11-01-B4D-7d74021b4db1d9a8-restore_skips_tombstones.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "5d0aad167a124078f1bac72530f7f19f0e6e6e07735dce5ecac4a99b1d0e3088",
+      "mutations": [
+        "restore_skips_tombstones"
+      ],
+      "records": 11,
+      "run_id": "7d74021b4db1d9a8",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:07:27+00:00",
+      "file": "eval/results/2026-11-01-B4D-06d60f9cbcb1fb2f.jsonl",
+      "git_sha": "8dfffc114f0c",
+      "ledger_digest": "31b7386d78dfb8c151392b03f623c8fa6b1377c3da68a84673c8b54194aaa503",
+      "mutations": [],
+      "records": 11,
+      "run_id": "06d60f9cbcb1fb2f",
+      "solver": "stub"
     }
   ]
 }

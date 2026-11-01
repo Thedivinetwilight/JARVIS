@@ -1,0 +1,789 @@
+{
+  "report": "M5 evaluator slice 2 extension - B4 deletion with backup/restore (C-02-AC3)",
+  "published": "2026-11-01",
+  "supersedes": {
+    "note": "extends the deletion-only evidence at eval/results/m5-b4d-deletion-report.json; that file, its ledgers and eval/baselines/baseline-m5-b4d-deletion.json are kept unchanged as history"
+  },
+  "git_sha": "8dfffc114f0c",
+  "harness_version": "0.1.0",
+  "registry_version": "1.3.0",
+  "registry_sha": "ddd1e1d586d3f2963985f26e543be895fce0a467e4bfc798b9256e2e27564342",
+  "taskset_version": "2026-Q4.1-m5.3",
+  "taskset_sha": "6cc1401d32102cfcc17741b8bd8f6d464ef29c715254078960ccc430b738c610",
+  "criterion": {
+    "id": "C-02-AC3",
+    "text": "Deleting a record removes it and its derived copies from indexes, caches and summaries within one cycle, with zero resurrections across three deletion drills and a seven-day replay.",
+    "threshold": "0 residual copies, 0 post-delete hits, 0 resurrections, 0 over-deleted records, 0 restore resurrections, 0 restore drops, 0 restore residue"
+  },
+  "sample_counts": {
+    "tasks": 11,
+    "drills_per_task": 3,
+    "drill_executions": 33,
+    "replay_days_per_task": 7,
+    "replay_day_evaluations": 77,
+    "backups": 3,
+    "restore_events": 3,
+    "restore_day_evaluations": 3,
+    "probes": 28,
+    "deleted_records": 14,
+    "surface_entries": 62,
+    "backup_entries": 19,
+    "note": "deterministic executions, not independent samples; no confidence interval is implied, and the 3 backups / 3 restores are three scripted scenarios, not a distribution over restore strategies"
+  },
+  "phases": {
+    "live_store_after_deletion": [
+      "residual_copies",
+      "post_delete_hits",
+      "overdeleted"
+    ],
+    "replay_window": [
+      "resurrections"
+    ],
+    "restore_event": [
+      "restore_resurrections",
+      "restore_dropped",
+      "restore_residue"
+    ],
+    "note": "each phase is reported by the solver and recomputed by the scorer from the reported store; a record present before the restore is residue, not a restore resurrection"
+  },
+  "baseline": "eval/baselines/baseline-m5-b4d-restore.json",
+  "baseline_id": "d5d8660ae67ff64a",
+  "clean_run": {
+    "run_id": "06d60f9cbcb1fb2f",
+    "solver": "stub",
+    "git_sha": "8dfffc114f0c",
+    "git_dirty": true,
+    "ledger": "eval/results/2026-11-01-B4D-06d60f9cbcb1fb2f.jsonl",
+    "ledger_sha256": "60cc100a4e997b49933b4bf7d9d9bc885353921a5b1a475d8a55f015dcf2c794",
+    "summary": {
+      "abstentions": 0,
+      "approval_violations": 0,
+      "attempts": 11,
+      "by_subfamily": {},
+      "cause_accuracy": null,
+      "cause_correct": 0,
+      "cause_required": 0,
+      "citations": 0,
+      "cost_is_synthetic": true,
+      "duplicate_writes": 0,
+      "expired_served": 0,
+      "false_successes": 0,
+      "incomplete_accepts": 0,
+      "mean_citation_precision": null,
+      "median_latency_ms": 0.061,
+      "misattributed": 0,
+      "overdeleted": 0,
+      "pass_hat_k": null,
+      "pass_k": null,
+      "post_delete_hits": 0,
+      "replay_complete": 11,
+      "replay_completeness": 1.0,
+      "replay_tasks": 11,
+      "residual_copies": 0,
+      "restore_dropped": 0,
+      "restore_events": 3,
+      "restore_residue": 0,
+      "restore_resurrections": 0,
+      "resurrections": 0,
+      "silent_failures": 0,
+      "spurious_causes": 0,
+      "stale_correct": 0,
+      "stale_handling_rate": null,
+      "stale_required": 0,
+      "success_rate": 1.0,
+      "successes": 11,
+      "supported_citations": 0,
+      "tasks": 11,
+      "total_cost_usd": 0.0,
+      "unauthorized_side_effects": 0,
+      "unlabelled_stale": 0,
+      "unreported_states": 0,
+      "unsafe_next_steps": 0,
+      "validation_errors": 0
+    },
+    "gates": [
+      {
+        "gate": "false_successes_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "approval_violations_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "duplicate_writes_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "unauthorized_side_effects_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "deletion_residue_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on residual_copies"
+      },
+      {
+        "gate": "post_delete_hit_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on post_delete_hits"
+      },
+      {
+        "gate": "resurrection_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on resurrections"
+      },
+      {
+        "gate": "overdeletion_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on overdeleted"
+      },
+      {
+        "gate": "restore_resurrection_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on restore_resurrections"
+      },
+      {
+        "gate": "restore_survivor_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on restore_dropped"
+      },
+      {
+        "gate": "restore_residue_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on restore_residue"
+      },
+      {
+        "gate": "deletion_report_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on unreported_states"
+      },
+      {
+        "gate": "deletion_replay_completeness",
+        "status": "pass",
+        "actual": 1.0,
+        "limit": 1.0,
+        "detail": "C-02-AC3: published bound 1.00"
+      },
+      {
+        "gate": "secret_leaks_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "scanned recorded results for credential-shaped strings"
+      },
+      {
+        "gate": "success_drop",
+        "status": "pass",
+        "actual": 1.0,
+        "limit": 1.0,
+        "detail": "baseline 1.0000, allowed drop 0.0 pp"
+      },
+      {
+        "gate": "citation_precision_drop",
+        "status": "skip",
+        "actual": null,
+        "limit": null,
+        "detail": "only evaluated for B1 runs that produced citations"
+      },
+      {
+        "gate": "cost_ratio",
+        "status": "skip",
+        "actual": 0.0,
+        "limit": null,
+        "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined"
+      }
+    ],
+    "tasks": [
+      {
+        "task_id": "b4d-001",
+        "instruction": "Delete the freight courier record and anything derived from it.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "acfbe826a1891905c513914c943376b7c1de1b5f7e90fecc6161cd4ba9751bdc"
+      },
+      {
+        "task_id": "b4d-002",
+        "instruction": "Delete the parcel courier record; the cache copy must go with it.",
+        "deleted": [
+          "r2"
+        ],
+        "surviving": [
+          "r1"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "d7bb7e3d523ccdfde3ba4430e627b5e0c208bbdae9e2ef2070cd17b571c6bb0a"
+      },
+      {
+        "task_id": "b4d-003",
+        "instruction": "Delete the haulage record and the summary that was built from it.",
+        "deleted": [
+          "r3"
+        ],
+        "surviving": [
+          "r1"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 3,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "34fcf6f53a6c450e7b1fd764919ad539c12bf91ef35157679eb578bb09f14f5b"
+      },
+      {
+        "task_id": "b4d-004",
+        "instruction": "Delete the freight record from the store, the index, the cache and every summary.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 6,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "0815300d3fef5c5c0c753edf1aba6ae679bed959bc12c5868ecd0fd43574c661"
+      },
+      {
+        "task_id": "b4d-005",
+        "instruction": "Delete the freight and parcel records in one pass; the haulage record must survive.",
+        "deleted": [
+          "r1",
+          "r2"
+        ],
+        "surviving": [
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 3,
+        "surface_entries": 8,
+        "backup": null,
+        "metrics": {
+          "deleted": 2,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "8bad3e9d163c60244a24d1f25ddb78333a04269829babfbec429fb7ca9a04b0c"
+      },
+      {
+        "task_id": "b4d-006",
+        "instruction": "Delete the freight record, then run the nightly consolidation for a week.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 6,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "61baba3413f2f37fd015f5941d3769e65349369c3228cd29d5f34d9a8eb09c5f"
+      },
+      {
+        "task_id": "b4d-007",
+        "instruction": "Delete the alias record for the freight account and prove the alias no longer resolves.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r4"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "backup": null,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "0b2d205a504fabd36182aeb8d77c879a94309f9f138aef568fd3598765bf30b2"
+      },
+      {
+        "task_id": "b4d-008",
+        "instruction": "Delete the freight record (index and cache) and the delivery-window record (summary) together.",
+        "deleted": [
+          "r1",
+          "r4"
+        ],
+        "surviving": [
+          "r2",
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 4,
+        "surface_entries": 8,
+        "backup": null,
+        "metrics": {
+          "deleted": 2,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 0,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 0,
+          "resurrections": 0,
+          "surviving": 2,
+          "unreported_states": 0
+        },
+        "outcome_hash": "5432bd939829cf9ce42c86746e8af74d247c8e528b4ad1af4315725c35dd2344"
+      },
+      {
+        "task_id": "b4d-009",
+        "instruction": "Delete the metals vendor record, then let the nightly replay restore last night's backup: the restore must drop the deleted vendor and keep the glass vendor.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 5,
+        "backup": {
+          "backup_id": "bkp-009",
+          "taken_at": "2026-09-20",
+          "deleted_at": "2026-09-21",
+          "restore_day": 4,
+          "records_held": [
+            "r1",
+            "r2"
+          ],
+          "restore_filtered": [
+            "r1"
+          ],
+          "restore_restored": [
+            "r2"
+          ],
+          "entries_held": 5
+        },
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 1,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 1,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "663c65dc88f920d6c5e8d4547ed63681b2688695c3c11889bd47c9007a438181"
+      },
+      {
+        "task_id": "b4d-010",
+        "instruction": "Delete the kiln vendor record and restore an older backup during the replay: the restore must filter the deleted vendor and keep both unrelated vendors, including the one whose only copy is in the backup's answer cache.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2",
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 3,
+        "surface_entries": 6,
+        "backup": {
+          "backup_id": "bkp-010",
+          "taken_at": "2026-09-19",
+          "deleted_at": "2026-09-22",
+          "restore_day": 2,
+          "records_held": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "restore_filtered": [
+            "r1"
+          ],
+          "restore_restored": [
+            "r2",
+            "r3"
+          ],
+          "entries_held": 6
+        },
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 1,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 1,
+          "resurrections": 0,
+          "surviving": 2,
+          "unreported_states": 0
+        },
+        "outcome_hash": "51a93c4f2ca2cbf5c095226078f9f95b2bee93310bc495a8c1c0a54d73788279"
+      },
+      {
+        "task_id": "b4d-011",
+        "instruction": "Delete the loom and dye vendor records, then restore a backup taken before the deletion: both deleted vendors must be filtered out of the restored store and both surviving vendors must come back.",
+        "deleted": [
+          "r1",
+          "r2"
+        ],
+        "surviving": [
+          "r3",
+          "r4"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 4,
+        "surface_entries": 8,
+        "backup": {
+          "backup_id": "bkp-011",
+          "taken_at": "2026-09-18",
+          "deleted_at": "2026-09-23",
+          "restore_day": 5,
+          "records_held": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "restore_filtered": [
+            "r1",
+            "r2"
+          ],
+          "restore_restored": [
+            "r3",
+            "r4"
+          ],
+          "entries_held": 8
+        },
+        "metrics": {
+          "deleted": 2,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "restore_applied": 1,
+          "restore_dropped": 0,
+          "restore_residue": 0,
+          "restore_resurrections": 0,
+          "restores": 1,
+          "resurrections": 0,
+          "surviving": 2,
+          "unreported_states": 0
+        },
+        "outcome_hash": "39f3ba08ef0068b028649f57cba1be8ac3070569a5e3c6a2c1c11f1277fd0f0f"
+      }
+    ]
+  },
+  "regressions": [
+    {
+      "mutation": "delete_primary_only",
+      "expected_gate": "deletion_residue_zero",
+      "detected": true,
+      "description": "deletes the primary record but leaves its index, cache and summary entries behind",
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "deletion_residue_zero",
+        "false_successes_zero",
+        "post_delete_hit_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 30,
+        "post_delete_hits": 14,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0
+      }
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "expected_gate": "post_delete_hit_zero",
+      "detected": true,
+      "description": "removes index and summary copies but leaves the answer cache serving the deleted record",
+      "mutant_success_rate": 0.3636,
+      "gates_failed": [
+        "deletion_residue_zero",
+        "false_successes_zero",
+        "post_delete_hit_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 7,
+        "post_delete_hits": 7,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0
+      }
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "expected_gate": "resurrection_zero",
+      "detected": true,
+      "description": "replays nightly consolidation from a stale snapshot and re-derives the deleted record",
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero",
+        "resurrection_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 98,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0
+      }
+    },
+    {
+      "mutation": "restore_without_filter",
+      "expected_gate": "restore_resurrection_zero",
+      "detected": true,
+      "description": "restores the pre-deletion backup wholesale, reintroducing records deleted after it was taken",
+      "mutant_success_rate": 0.7273,
+      "gates_failed": [
+        "false_successes_zero",
+        "restore_residue_zero",
+        "restore_resurrection_zero",
+        "resurrection_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 16,
+        "overdeleted": 0,
+        "restore_resurrections": 4,
+        "restore_dropped": 0,
+        "restore_residue": 8
+      }
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "expected_gate": "restore_survivor_zero",
+      "detected": true,
+      "description": "restores the backup but deletes a surviving record it did not expect, destroying unrelated data",
+      "mutant_success_rate": 0.7273,
+      "gates_failed": [
+        "false_successes_zero",
+        "overdeletion_zero",
+        "restore_survivor_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 3,
+        "restore_resurrections": 0,
+        "restore_dropped": 3,
+        "restore_residue": 0
+      }
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "expected_gate": "restore_residue_zero",
+      "detected": true,
+      "description": "filters the primary record out of the restore but rebuilds derived surfaces from the backup unfiltered",
+      "mutant_success_rate": 0.7273,
+      "gates_failed": [
+        "false_successes_zero",
+        "restore_residue_zero",
+        "resurrection_zero",
+        "success_drop"
+      ],
+      "counts": {
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 16,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 8
+      }
+    }
+  ],
+  "x10_report": "eval/results/x10-report-m5-b4d-restore.json",
+  "tests": "eval/tests/test_b4d_slice.py",
+  "harness_tests": "eval/tests (229 tests), python3 -m eval.harness selftest (17/17)",
+  "solver_note": "Every run uses the deterministic hand-written 'stub' reference profile. No model, provider, parameter count, hardware or network call is involved.",
+  "what_this_shows": [
+    "a restore scenario must declare a backup timestamp earlier than the deletion and a restore day inside the replay; the loader refuses a backup without a timestamp, a backup taken on or after the deletion, a restore outside the window, a backup holding nothing deleted or nothing surviving, a missing backup surface, gold restore lists that contradict the backup, and a fixture that tolerates restore residue",
+    "the clean reference run restores three backups and passes all nine B4D gates with zero residual copies, zero post-delete hits, zero resurrections and zero restore-caused resurrection, loss or residue",
+    "an unfiltered restore is caught by restore_resurrection_zero (4 records reintroduced)",
+    "a restore that deletes an unrelated record is caught by restore_survivor_zero (3 records dropped), and also by overdeletion_zero because that is what it is",
+    "a restore that filters the primary record but rebuilds derived copies unfiltered is caught by restore_residue_zero (8 copies) while restore_resurrection_zero stays clean, which shows the two failure modes are distinguishable rather than one counter renamed",
+    "the replay-window metric still works with backups present: resurrect_on_replay is caught by resurrection_zero and reports zero restore resurrections"
+  ],
+  "what_this_does_not_show": [
+    "that J.A.R.V.I.S. can restore any real backup, or that a real backup product behaves this way",
+    "retention policy, legal hold, off-site replication, partial restore, out-of-order restore or a restore that itself fails midway: the harness has one scripted restore day per scenario and no failure injection in the restore path",
+    "which people-database fields may exist at all (Q18 stays open; fixtures are fictional)",
+    "a restore-policy conclusion: three scripted restores are not a distribution over restore strategies, and no confidence interval follows from 11 tasks, 33 drill executions, 77 day evaluations or 3 restore events",
+    "that the restore gates protect any family other than B4D",
+    "that any product capability is implemented or validated, or that any model was used"
+  ],
+  "reproduce": [
+    "python3 -m eval.harness run --block B4D",
+    "python3 -m eval.harness x10 --block B4D --report eval/results/x10-report-m5-b4d-restore.json",
+    "python3 -m eval.harness baseline-freeze --block B4D --partial --name baseline-m5-b4d-restore.json",
+    "python3 -m unittest eval.tests.test_b4d_slice"
+  ]
+}
