@@ -269,8 +269,10 @@ appears in `not_measured` holding either `null` or a reason; percentiles below t
 withheld rather than printed. A development-host run says so and is never decision-eligible.
 
 Full detail: `app/bench/README.md` (usage, exit codes, adapter contract) and
-`docs/benchmarks/voice-workload-benchmark.md` (the pre-registered methodology). Gate **G-O1**
-stays blocked; Q19 and Q20 stay open.
+`docs/benchmarks/voice-workload-benchmark.md` (the pre-registered methodology). Current measurement
+status — tool verified, development-host plumbing measured with test doubles, **owner-server speech
+measurement not obtained** — is `docs/benchmarks/benchmark-status.md`; the procedure for the owner's
+server is `docs/benchmarks/operator-runbook.md`. Gate **G-O1** stays blocked; Q19 and Q20 stay open.
 
 ## 12. What is deliberately absent, and why
 

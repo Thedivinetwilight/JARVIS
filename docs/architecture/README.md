@@ -10,6 +10,8 @@ specification, capability registers and research notes live elsewhere and are no
 | [`../../app/README.md`](../../app/README.md) | How to configure, run and test the server; the endpoint and limitation surface |
 | [`../benchmarks/voice-workload-benchmark.md`](../benchmarks/voice-workload-benchmark.md) | The pre-registered methodology of the local measurement tool: what it measures, what it refuses, and why a result is not a decision |
 | [`../../app/bench/README.md`](../../app/bench/README.md) | How to run the benchmark: flags, exit codes, adapter contract, fixture pack format |
+| [`../benchmarks/benchmark-status.md`](../benchmarks/benchmark-status.md) | What is verified, what has been measured, and what is still missing before any speech measurement exists |
+| [`../benchmarks/operator-runbook.md`](../benchmarks/operator-runbook.md) | The exact steps, files and checks for running the benchmark on the owner's designated server |
 
 Adjacent, unchanged material:
 

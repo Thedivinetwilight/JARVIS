@@ -2,6 +2,11 @@
 
 Status: **measurement tooling only.** Not a capability, not a decision, not a model selection.
 
+Measurement status: the tool is **verified** and development-host **plumbing** has been measured with
+test doubles; **no owner-server speech measurement has been obtained**. The current state, and what
+counts as evidence, is `docs/benchmarks/benchmark-status.md`. The procedure for producing a real run
+is `docs/benchmarks/operator-runbook.md`.
+
 - Implementation: `app/bench/` (see `app/bench/README.md` for the command and flags).
 - Result schema: `jarvis.voice-bench/1`; benchmark version `0.1.0`.
 - Gates this document touches: **G-O1 stays blocked**, G-W and G-C stay open, Q19 (languages) and

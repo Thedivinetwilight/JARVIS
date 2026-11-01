@@ -35,6 +35,8 @@ DOCUMENTS = (
     REPO / "docs" / "architecture" / "README.md",
     REPO / "docs" / "adr" / "0001-local-first-server-architecture.md",
     REPO / "docs" / "benchmarks" / "voice-workload-benchmark.md",
+    REPO / "docs" / "benchmarks" / "benchmark-status.md",
+    REPO / "docs" / "benchmarks" / "operator-runbook.md",
 )
 
 

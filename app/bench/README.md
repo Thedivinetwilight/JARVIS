@@ -3,6 +3,14 @@
 A **measurement tool**, not a capability. It runs an operator-supplied speech adapter on a fixed
 workload on this machine, records what it observed, and refuses to say anything it did not observe.
 
+**Measurement status at commit `21515d8`:** the tool is verified (241 app tests, 456 evaluator tests
+green); the pipeline has been run end to end on a **development sandbox with test doubles**, which
+the result labels `host_role: development`, `comparable_to_owner_server: false`,
+`decision_eligible: false`; **no owner-server speech measurement exists**, because no operator
+adapter, model or licensed pack is present in this environment. See
+`docs/benchmarks/benchmark-status.md`, and `docs/benchmarks/operator-runbook.md` for the procedure on
+the owner's server.
+
 What it will not do, by construction:
 
 - **select** a model, a provider, an accelerator, a server or a language tier (gate **G-O1** stays
