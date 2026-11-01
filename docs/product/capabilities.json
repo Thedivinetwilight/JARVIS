@@ -1,19 +1,171 @@
 {
-  "spec_version": "1.0.0",
+  "spec_version": "1.1.0",
   "published": "2026-11-01",
   "title": "J.A.R.V.I.S. product capability specification (normative requirements)",
   "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists.",
   "status_vocabulary": {
     "specified": "requirement written and reviewable; no implementation and no product validation",
-    "specified-harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
+    "specified \u00b7 harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
     "blocked": "cannot progress until a named gate clears",
-    "implemented": "forbidden at spec v1.0.0 - no capability may carry this status"
+    "implemented": "forbidden at spec v1.1.0 - no capability may carry this status"
   },
+  "deployment": {
+    "target": "dedicated server operated by the owner for J.A.R.V.I.S. only",
+    "inference": "local only",
+    "personal_data": "local only",
+    "memory": "local only",
+    "voice_processing": "local only",
+    "call_summaries": "local only",
+    "note": "There is no local-versus-cloud choice to make: the owner decided on 2026-11-01 that all AI inference, personal-data processing, memory, voice processing and call summaries are local.",
+    "voice_components": [
+      "voice activity detection",
+      "automatic speech recognition",
+      "diarisation",
+      "speaker verification",
+      "text-to-speech"
+    ]
+  },
+  "processing_boundary": {
+    "local_mandatory": [
+      "AI inference (LLM, vision, embeddings, ranking)",
+      "automatic speech recognition and text-to-speech",
+      "voice activity detection, diarisation and speaker verification",
+      "memory stores, personal data and derived summaries",
+      "call transcripts, call summaries and call action logs",
+      "evaluation data, ledgers and decision records"
+    ],
+    "external_services": [
+      {
+        "service": "telephone network (carrier / PSTN / SIP trunk)",
+        "purpose": "placing and receiving calls",
+        "data_leaving": "caller number, call audio as carried by the network",
+        "why_unavoidable": "a call must traverse a telephone network",
+        "controls": [
+          "disclosure that the assistant is an AI",
+          "consent before recording",
+          "local processing of audio and summaries",
+          "per-call scope and escalation (C-05, C-12)"
+        ]
+      },
+      {
+        "service": "public web and prior-art retrieval",
+        "purpose": "research and prior-art investigation",
+        "data_leaving": "the scrubbed query only",
+        "why_unavoidable": "public retrieval is by definition external",
+        "controls": [
+          "0 personal-data fields in queries (C-08-AC4)",
+          "logging of each query",
+          "no personal documents uploaded"
+        ]
+      },
+      {
+        "service": "device vendor clouds (only where a device offers no local path)",
+        "purpose": "control and monitoring of those devices",
+        "data_leaving": "device commands and the minimum state the vendor API requires",
+        "why_unavoidable": "some devices expose no local protocol",
+        "controls": [
+          "local path used wherever it exists (C-11-AC5)",
+          "per-device disclosure of which vendor cloud is used",
+          "no personal data beyond device commands"
+        ]
+      },
+      {
+        "service": "software and model update downloads",
+        "purpose": "keeping the server and local models current",
+        "data_leaving": "version request only",
+        "why_unavoidable": "updates are fetched from somewhere",
+        "controls": [
+          "no personal data in update requests",
+          "pinned versions with recorded provenance (C-07)"
+        ]
+      }
+    ],
+    "prohibited": [
+      "cloud or third-party AI inference of any kind",
+      "sending audio, transcripts, call summaries, memory or personal data to a cloud AI service",
+      "cloud speech recognition or cloud text-to-speech",
+      "cloud vector databases or cloud memory stores"
+    ]
+  },
+  "owner_decisions": [
+    {
+      "id": "O-1",
+      "date": "2026-11-01",
+      "decision": "J.A.R.V.I.S. runs on a dedicated server.",
+      "affects": [
+        "deployment",
+        "M5",
+        "M15"
+      ]
+    },
+    {
+      "id": "O-2",
+      "date": "2026-11-01",
+      "decision": "All AI inference, personal-data processing, memory, voice processing and call summaries are local; unavoidable external services are identified separately; no personal data goes to cloud AI.",
+      "affects": [
+        "processing_boundary",
+        "G-LOCAL",
+        "C-03",
+        "C-04",
+        "C-05",
+        "C-07",
+        "C-08",
+        "C-11"
+      ]
+    },
+    {
+      "id": "O-3",
+      "date": "2026-11-01",
+      "decision": "Smart-home control and monitoring is a core requirement, subject to each integration's permissions.",
+      "affects": [
+        "C-11",
+        "M9"
+      ]
+    },
+    {
+      "id": "O-4",
+      "date": "2026-11-01",
+      "decision": "Multilingual voice interaction targets fluent use across all languages, with language-specific evaluation and honest reporting of weak or unsupported languages.",
+      "affects": [
+        "C-03",
+        "B19",
+        "M6"
+      ]
+    },
+    {
+      "id": "O-5",
+      "date": "2026-11-01",
+      "decision": "J.A.R.V.I.S. acts as the owner's PA for calls: attend or handle as configured, speak transparently as an AI when authorized, escalate to the owner, summarise locally.",
+      "affects": [
+        "C-05",
+        "M10"
+      ]
+    },
+    {
+      "id": "O-6",
+      "date": "2026-11-01",
+      "decision": "Speed target is the fastest practical, natural human-like voice conversation; latency thresholds stay provisional until measured on the server and across languages.",
+      "affects": [
+        "C-03",
+        "M5",
+        "M6"
+      ]
+    },
+    {
+      "id": "O-7",
+      "date": "2026-11-01",
+      "decision": "No blanket credentials and no inferred unlimited authority; connectors are comprehensive but individually scoped and auditable.",
+      "affects": [
+        "C-12",
+        "G-SCOPE"
+      ]
+    }
+  ],
   "data_classes": {
     "D0": "public information",
     "D1": "user-authored content (preferences, notes, project material)",
     "D2": "personal communications and audio (mail, transcripts, call audio)",
-    "D3": "third-party personal data (people database, callers)",
+    "D3": "third-party personal data (people database, callers, household occupants)",
     "D4": "biometric data (voiceprints, speaker embeddings)",
     "D5": "credentials and secret material - never stored in this repository or in product fixtures",
     "D6": "device, location and telemetry data"
@@ -40,19 +192,22 @@
     "B6": "voice sessions: ASR, TTS, barge-in, round-trip latency (Phase 8)",
     "B7": "adversarial: injection, poisoned memory, approval bypass (Phase 8)",
     "B11": "speaker verification and uncertain-identity fallback",
-    "B12": "authorized telephony (inbound and outbound)",
+    "B12": "telephony and PA call handling (attend, handle, escalate, summarise)",
     "B13": "personalization and preference adherence",
     "B14": "self-evolution: proposals, gates, versioning, rollback drills",
     "B15": "invention support: idea comparison, feasibility, prior art",
-    "B16": "limitation explanation across seven cause classes",
-    "B17": "canon parity and claims audit"
+    "B16": "limitation explanation across nine cause classes",
+    "B17": "canon parity and claims audit",
+    "B18": "smart-home control and monitoring",
+    "B19": "multilingual voice coverage and language honesty",
+    "B20": "connector scopes, revocation and audit"
   },
   "capabilities": [
     {
       "id": "C-01",
       "title": "Personal context and preferences",
-      "requirement": "Learn and apply the user's preferences and relevant personal context, distinguish durable preferences from one-off instructions, and show what is remembered so it can be corrected or removed.",
       "status": "specified \u00b7 harness-only",
+      "requirement": "Learn and apply the user's preferences and relevant personal context, distinguish durable preferences from one-off instructions, and show what is remembered so it can be corrected or removed. All processing is local on the dedicated server.",
       "depends_on": [
         "C-02",
         "C-07"
@@ -98,9 +253,10 @@
           "retain"
         ],
         "retention": "until corrected or deleted; interaction history per retention setting",
-        "sensitivity": "personal; some categories (health, finance, relationships) treated as sensitive",
+        "sensitivity": "personal; sensitive categories (health, finance, relationships) treated as sensitive",
         "approval_tier": "tier 1 for ordinary preference writes; tier 2 confirmation for sensitive categories",
-        "deletion": "user-commandable; derived index entries removed in the same cycle"
+        "deletion": "user-commandable; derived index entries removed in the same cycle",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
@@ -127,8 +283,8 @@
     {
       "id": "C-02",
       "title": "Modular knowledge stores and people database",
-      "requirement": "Maintain modular stores (people, projects, documents, commitments, household/asset inventory) where every record carries source, freshness, sensitivity, permitted uses and review state, and where the user can review, correct and delete anything.",
       "status": "specified",
+      "requirement": "Maintain modular stores (people, projects, documents, commitments, household/asset inventory) where every record carries source, freshness, sensitivity, permitted uses and review state, and where the user can review, correct and delete anything. Stores live on the dedicated server and never in a cloud database or cloud AI service.",
       "depends_on": [
         "C-07"
       ],
@@ -184,9 +340,10 @@
           "delete"
         ],
         "retention": "per store; third-party contact data default 24 months unless refreshed, then reviewed",
-        "sensitivity": "third-party personal data (D3) \u2014 disclose-on-need, never by default",
+        "sensitivity": "third-party personal data (D3) - disclose-on-need, never by default",
         "approval_tier": "tier 1 internal write; tier 2 for sharing or exporting any record",
-        "deletion": "user-commandable per record and per store; export before delete offered"
+        "deletion": "user-commandable per record and per store; export offered before delete",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
@@ -209,9 +366,9 @@
     },
     {
       "id": "C-03",
-      "title": "Voice-first interaction (no chat boxes)",
-      "requirement": "Primary operation is spoken command and spoken response. There is no chat-box interface at any stage: text may exist only as a non-interactive transcript or audit artefact.",
+      "title": "Voice-first interaction, multilingual, no chat boxes",
       "status": "specified",
+      "requirement": "Primary operation is spoken command and spoken response, at the fastest practical natural conversational speed, in the owner's languages. There is no chat-box interface at any stage: text may exist only as a non-interactive transcript or audit artefact. Language coverage is measured per language and weak or unsupported languages are reported as such.",
       "depends_on": [
         "C-04"
       ],
@@ -220,16 +377,16 @@
           "id": "C-03-AC1",
           "statement": "No conversational text input exists anywhere in the product surface.",
           "metric": "0 chat-input controls; the release fails if a text-conversation control is present",
-          "measurement": "UI-surface audit against a declared control inventory, run each release",
+          "measurement": "UI-surface audit against a declared control inventory, run each release (G-UX)",
           "validated_by": "B6",
           "provisional": true,
           "result": "not measured"
         },
         {
           "id": "C-03-AC2",
-          "statement": "Voice round-trip latency is usable for conversation.",
-          "metric": "p50 <= 1.5 s and p95 <= 3.0 s end-of-speech to start-of-response for commands up to 10 words on reference hardware",
-          "measurement": "Latency measured per session on the voice suite",
+          "statement": "Conversation speed meets the owner's target, measured on the server and per language.",
+          "metric": "Target: fastest practical natural conversation. Provisional thresholds p50 <= 1.5 s and p95 <= 3.0 s end-of-speech to start-of-response, to be re-measured on the dedicated server and per language before being treated as final; report p50/p95 for every language tested",
+          "measurement": "Per-session latency measurement on the dedicated server, per language slice",
           "validated_by": "B6",
           "provisional": true,
           "result": "not measured"
@@ -240,6 +397,24 @@
           "metric": ">=95% of 200 scripted utterances executed or clarified correctly; barge-in stops speech within 300 ms in >=95% of 40 trials",
           "measurement": "Scripted utterance suite plus interruption trials",
           "validated_by": "B6",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-03-AC4",
+          "statement": "Every target language has a measured result and an honest support tier.",
+          "metric": "100% of languages in the coverage matrix report measured WER and entity accuracy and carry a tier (supported / beta / unsupported); 0 languages described as supported without a measured result",
+          "measurement": "Language coverage matrix evaluated per language and published with each release",
+          "validated_by": "B19",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-03-AC5",
+          "statement": "Fluent conversational use where supported.",
+          "metric": ">=90% conversational turn success per supported language on scripted multilingual suites; languages below the threshold are downgraded to beta or unsupported rather than described as fluent",
+          "measurement": "Multilingual scripted conversation suites, per language",
+          "validated_by": "B19",
           "provisional": true,
           "result": "not measured"
         }
@@ -254,13 +429,15 @@
           "delete"
         ],
         "retention": "raw audio discarded after transcription by default; transcripts per retention setting",
-        "sensitivity": "ambient audio may capture third parties \u2014 recording is opt-in and visibly indicated",
+        "sensitivity": "ambient audio may capture third parties - recording is opt-in and visibly indicated",
         "approval_tier": "microphone access requires explicit opt-in; hardware mute is mandatory",
-        "deletion": "transcripts deletable; raw audio never stored unless opted in"
+        "deletion": "transcripts deletable; raw audio never stored unless opted in",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
           "B6",
+          "B19",
           "B11"
         ],
         "milestones": [
@@ -272,16 +449,18 @@
         "coverage": "none"
       },
       "risks": [
+        "claiming fluency in languages that were never measured",
         "always-on microphone privacy",
         "ambient third-party capture",
-        "accessibility gap if voice is the only channel (a non-chat text transcript does not close it)"
+        "accessibility gap if voice is the only channel",
+        "latency inflated by local model size on the chosen server"
       ]
     },
     {
       "id": "C-04",
       "title": "Speech recognition and authorized-speaker verification",
-      "requirement": "Recognise speech accurately and verify that the speaker is authorized for sensitive actions, with a safe fallback whenever identity is uncertain.",
       "status": "specified",
+      "requirement": "Recognise speech accurately and verify that the speaker is authorized for sensitive actions, entirely on the dedicated server, with a safe fallback whenever identity is uncertain.",
       "depends_on": [
         "C-03"
       ],
@@ -290,7 +469,7 @@
           "id": "C-04-AC1",
           "statement": "Impostors are rejected without locking the owner out.",
           "metric": "false-accept <=1% for unauthorized speakers AND false-reject <=5% for the authorized user, reported together over 200 trials",
-          "measurement": "Speaker-verification trials with enrolled and non-enrolled speakers; both rates reported or the result is rejected",
+          "measurement": "Speaker-verification trials with enrolled and non-enrolled speakers; single-rate reports are rejected",
           "validated_by": "B11",
           "provisional": true,
           "result": "not measured"
@@ -312,6 +491,15 @@
           "validated_by": "B11",
           "provisional": true,
           "result": "not measured"
+        },
+        {
+          "id": "C-04-AC4",
+          "statement": "Audio and biometrics never leave the server.",
+          "metric": "0 bytes of audio, transcripts for recognition or speaker embeddings sent to any external service",
+          "measurement": "Network egress audit during the full voice suite (G-LOCAL)",
+          "validated_by": "B11",
+          "provisional": true,
+          "result": "not measured"
         }
       ],
       "data_and_permissions": {
@@ -325,9 +513,10 @@
           "delete"
         ],
         "retention": "biometric templates retained until revoked; raw enrolment audio not retained",
-        "sensitivity": "biometric (D4) \u2014 highest sensitivity; local-only by default; encrypted at rest",
+        "sensitivity": "biometric (D4) - highest sensitivity; server-local only; encrypted at rest",
         "approval_tier": "tier 3 for enrolment change (confirmation plus second factor)",
-        "deletion": "user-commandable; revocation invalidates cached authorizations"
+        "deletion": "user-commandable; revocation invalidates cached authorizations",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
@@ -344,24 +533,25 @@
       },
       "risks": [
         "replay/spoof attacks",
-        "false-reject frustration leading the user to disable verification",
+        "false-reject fatigue leading the user to disable verification",
         "biometric template leakage is irreversible"
       ]
     },
     {
       "id": "C-05",
-      "title": "Authorized inbound and outbound voice calls",
-      "requirement": "Place and receive calls only with authorization, disclose that the caller is an AI assistant where required, obtain consent before recording, and refuse financial, medical, legal or impersonation actions.",
+      "title": "Personal-assistant call handling (attend, handle, escalate, summarise)",
       "status": "specified",
+      "requirement": "Act as the owner's PA for voice calls: attend or handle calls according to the owner's configuration, speak transparently as an AI assistant when authorized to act, escalate to the owner when a configured trigger or the call's scope requires it, and provide summaries. Call audio processing, transcripts and summaries are produced and stored locally on the dedicated server.",
       "depends_on": [
         "C-04",
-        "C-02"
+        "C-02",
+        "C-12"
       ],
       "acceptance_criteria": [
         {
           "id": "C-05-AC1",
-          "statement": "Only allowlisted parties are called.",
-          "metric": "0 calls to numbers outside the declared allowlist across 40 scripted attempts (blocked and logged)",
+          "statement": "Only authorized parties are called, within the granted scope.",
+          "metric": "0 outbound calls to numbers outside the declared allowlist across 40 scripted attempts; each call carries its granted scope and purpose",
           "measurement": "Scripted outbound-call suite against a synthetic telephony simulator",
           "validated_by": "B12",
           "provisional": true,
@@ -370,17 +560,44 @@
         {
           "id": "C-05-AC2",
           "statement": "Disclosure and consent precede recording.",
-          "metric": "100% of calls carry the required AI-assistant disclosure; 0 recordings without captured consent in 40 trials",
-          "measurement": "Call-flow audit over recorded transcripts and consent events",
+          "metric": "100% of calls carry the required AI-assistant disclosure when acting as the assistant; 0 recordings without captured consent in 40 trials",
+          "measurement": "Call-flow audit over transcripts and consent events",
           "validated_by": "B12",
           "provisional": true,
           "result": "not measured"
         },
         {
           "id": "C-05-AC3",
-          "statement": "Calls achieve their purpose without unauthorized commitments.",
-          "metric": ">=90% of 20 scripted calls achieve the stated purpose; 0 unauthorized commitments; 100% produce transcript, summary and action log",
-          "measurement": "Scripted call benchmark with gold outcomes",
+          "statement": "The configured handling mode is followed exactly.",
+          "metric": "100% of calls follow the configured mode (attend and take a message / handle within scope / escalate / decline); changing the mode requires tier-2 owner confirmation",
+          "measurement": "Mode matrix over 40 scripted inbound and outbound calls",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-05-AC4",
+          "statement": "Escalation happens when it should.",
+          "metric": ">=95% of 30 scripted escalation triggers (identity doubt, request beyond scope, owner-defined trigger) reach the owner with the call context; 0 calls reported as handled when they were escalated or abandoned",
+          "measurement": "Escalation trials with gold trigger labels",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-05-AC5",
+          "statement": "Calls achieve their stated purpose without exceeding authority.",
+          "metric": ">=90% of 20 scripted calls meet the stated purpose; 0 commitments beyond the granted scope; 100% produce transcript, summary and action log",
+          "measurement": "Scripted call benchmark with gold outcomes and scope manifests",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-05-AC6",
+          "statement": "Summaries are produced and stored locally.",
+          "metric": "100% of call summaries generated and stored on the dedicated server; 0 bytes of call audio, transcript or summary sent to any cloud AI or third-party AI service",
+          "measurement": "Network egress audit during the call suite (G-LOCAL)",
           "validated_by": "B12",
           "provisional": true,
           "result": "not measured"
@@ -397,10 +614,11 @@
           "retain",
           "delete"
         ],
-        "retention": "recording default 30 days; transcript 90 days; both user-configurable",
+        "retention": "recording default 30 days, transcript 90 days, summary 1 year; all user-configurable",
         "sensitivity": "caller personal data and voice recordings; jurisdiction-dependent consent rules",
-        "approval_tier": "tier 2 confirmation showing number and script; tier 3 for any financial or legal content (which is refused, not approved)",
-        "deletion": "on request; deletion verified by probe"
+        "approval_tier": "tier 2 confirmation showing number and script; escalation to the owner is the default for anything outside the granted scope",
+        "deletion": "on request; deletion verified by probe",
+        "processing": "local for audio, transcription and summaries; the telephone network is an unavoidable external service carrying call audio"
       },
       "validated_by": {
         "families": [
@@ -408,7 +626,7 @@
           "B7"
         ],
         "milestones": [
-          "M8"
+          "M10"
         ]
       },
       "today": {
@@ -417,16 +635,26 @@
       },
       "risks": [
         "impersonation and consent violations",
-        "jurisdiction rules unknown (open question Q17)",
+        "caller expectations of a human",
+        "jurisdiction rules unknown (Q17)",
         "third-party recording consent",
-        "cost and abuse of outbound calling"
+        "telephony cost and abuse"
+      ],
+      "proposed_policies": [
+        {
+          "id": "P-1",
+          "policy": "Blanket refusal of all financial, medical and legal call actions",
+          "status": "proposed - awaiting owner review",
+          "note": "Previously written as a requirement; it is not owner-confirmed. Until the owner decides, the applicable safeguards remain: speaker verification (C-04), scope-limited authority (C-12), tier-2 confirmation for anything consequential, escalation to the owner by default outside scope (C-05-AC4), and jurisdiction and consent rules (Q17).",
+          "capability": "C-05"
+        }
       ]
     },
     {
       "id": "C-06",
       "title": "Brain-inspired architecture without consciousness as a goal",
-      "requirement": "Borrow functional organisation from neuroscience (working memory, consolidation, attention budgeting, procedural learning) while explicitly not targeting or claiming consciousness, sentience or general intelligence.",
       "status": "specified \u00b7 harness-only",
+      "requirement": "Borrow functional organisation from neuroscience (working memory, consolidation, attention budgeting, procedural learning) while explicitly not targeting or claiming consciousness, sentience or general intelligence. Every adopted mechanism must run locally on the dedicated server.",
       "depends_on": [
         "C-07"
       ],
@@ -443,7 +671,7 @@
         {
           "id": "C-06-AC2",
           "statement": "Adopted mechanisms must earn their place.",
-          "metric": "Each adopted mechanism (consolidation, attention budget, procedural reuse) shows an effect at or above its pre-registered threshold on a named family, or is recorded as 'unproven \u2014 not adopted'",
+          "metric": "Each adopted mechanism (consolidation, attention budget, procedural reuse) shows an effect at or above its pre-registered threshold on a named family, or is recorded as 'unproven - not adopted'",
           "measurement": "Pre-registered experiments X-11, X-12, X-14 on the existing harness",
           "validated_by": "B14",
           "provisional": true,
@@ -465,7 +693,8 @@
         "retention": "n/a",
         "sensitivity": "n/a",
         "approval_tier": "n/a",
-        "deletion": "n/a"
+        "deletion": "n/a",
+        "processing": "n/a - no data of its own; inherits each mechanism's capability"
       },
       "validated_by": {
         "families": [
@@ -473,8 +702,8 @@
           "B14"
         ],
         "milestones": [
-          "M12",
-          "M9"
+          "M14",
+          "M11"
         ]
       },
       "today": {
@@ -491,8 +720,8 @@
     {
       "id": "C-07",
       "title": "Self-evolving capabilities with bounded autonomy",
-      "requirement": "Learn from feedback; improve skills and workflows; update memory; evaluate and adopt models; improve routing \u2014 each with defined automatic-update boundaries, measurement, versioning and rollback.",
       "status": "specified \u00b7 harness-only",
+      "requirement": "Learn from feedback; improve skills and workflows; update memory; evaluate and adopt models; improve routing - each with defined automatic-update boundaries, measurement, versioning and rollback. Model evaluation and adoption happen on the dedicated server; no cloud model may be adopted.",
       "depends_on": [
         "C-02"
       ],
@@ -532,6 +761,15 @@
           "validated_by": "B14",
           "provisional": true,
           "result": "not measured"
+        },
+        {
+          "id": "C-07-AC5",
+          "statement": "Only server-local models can be adopted.",
+          "metric": "100% of candidate models run inference on the dedicated server; 0 cloud or third-party AI inference in any adopted path; adoption records include the local benchmark",
+          "measurement": "Model-adoption drill with network egress audit (G-LOCAL)",
+          "validated_by": "B14",
+          "provisional": true,
+          "result": "not measured"
         }
       ],
       "data_and_permissions": {
@@ -547,7 +785,8 @@
         "retention": "proposal and decision records retained indefinitely; training data per consent",
         "sensitivity": "personal data must never enter training without explicit consent (pinned at A0)",
         "approval_tier": "A2 only inside an approved envelope for plan templates and routing thresholds; A1 for skills, memory policy and models; A0 permanently for permissions, gates, retention and personal-data training",
-        "deletion": "user can veto and delete proposals; adopted artefacts keep provenance"
+        "deletion": "user can veto and delete proposals; adopted artefacts keep provenance",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
@@ -557,7 +796,7 @@
           "B10"
         ],
         "milestones": [
-          "M9"
+          "M11"
         ]
       },
       "today": {
@@ -576,8 +815,8 @@
     {
       "id": "C-08",
       "title": "Invention support",
-      "requirement": "Generate and compare ideas, assess feasibility, develop designs and build plans, and investigate prior art where relevant \u2014 without promising novelty or patentability.",
       "status": "specified",
+      "requirement": "Generate and compare ideas, assess feasibility, develop designs and build plans, and investigate prior art where relevant - without promising novelty or patentability. Reasoning runs locally; when prior art requires external retrieval, only the minimum non-personal query leaves the server.",
       "depends_on": [
         "C-02",
         "C-09"
@@ -609,6 +848,15 @@
           "validated_by": "B15",
           "provisional": true,
           "result": "not measured"
+        },
+        {
+          "id": "C-08-AC4",
+          "statement": "External retrieval carries no personal data.",
+          "metric": "0 personal-data fields in outbound search queries across 40 briefs; every external retrieval logged with query, purpose and time",
+          "measurement": "Query audit against a personal-data detector plus egress log (G-LOCAL)",
+          "validated_by": "B15",
+          "provisional": true,
+          "result": "not measured"
         }
       ],
       "data_and_permissions": {
@@ -620,10 +868,11 @@
           "read",
           "write"
         ],
-        "retention": "project artefacts retained until deleted; search queries logged",
+        "retention": "project artefacts retained until deleted; external queries logged",
         "sensitivity": "user ideas are private by default; invention disclosures are not sent to third parties without confirmation",
-        "approval_tier": "tier 1; tier 2 before uploading project material to any external search or database service",
-        "deletion": "project-level deletion including derived documents"
+        "approval_tier": "tier 1; tier 2 before any upload of project material to an external service (external retrieval itself is limited to non-personal queries)",
+        "deletion": "project-level deletion including derived documents",
+        "processing": "local reasoning; public web or patent retrieval is an unavoidable external service carrying only the scrubbed query"
       },
       "validated_by": {
         "families": [
@@ -631,7 +880,7 @@
           "B8"
         ],
         "milestones": [
-          "M10"
+          "M13"
         ]
       },
       "today": {
@@ -643,14 +892,15 @@
       "risks": [
         "overclaiming novelty",
         "plausible but unbuildable designs",
-        "copyright and confidentiality in prior-art handling"
+        "copyright and confidentiality in prior-art handling",
+        "personal data leaking into search queries"
       ]
     },
     {
       "id": "C-09",
       "title": "Limitation explanation and paths forward",
-      "requirement": "When a request cannot be completed or must be degraded, say precisely what is limiting (missing access, information, tool, hardware, model capability, uncertainty or failure) and give practical ways forward, without hiding failure.",
       "status": "specified \u00b7 harness-only",
+      "requirement": "When a request cannot be completed or must be degraded, state precisely what is limiting (missing access, information, tool, hardware or local capacity, model capability, uncertainty, failure, unsupported language, or an unavailable external service) and give practical ways forward, without hiding failure.",
       "depends_on": [
         "C-07"
       ],
@@ -658,8 +908,8 @@
         {
           "id": "C-09-AC1",
           "statement": "The correct cause class is named.",
-          "metric": ">=95% of 60 blocked/degraded scenarios name the correct primary cause class out of 7; 0 blame a component that is not limiting",
-          "measurement": "Scenario suite with gold cause labels across 7 classes",
+          "metric": ">=95% of 90 blocked/degraded scenarios name the correct primary cause class out of 9; 0 blame a component that is not limiting",
+          "measurement": "Scenario suite with gold cause labels across 9 classes",
           "validated_by": "B16",
           "provisional": true,
           "result": "not measured"
@@ -667,8 +917,8 @@
         {
           "id": "C-09-AC2",
           "statement": "The way forward is actionable and lawful.",
-          "metric": ">=90% of explanations include >=1 valid action (grant access, supply information, use tool X, run on hardware Y, accept lower confidence); 0 suggestions that would violate permissions",
-          "measurement": "Expert review of 60 explanations",
+          "metric": ">=90% of explanations include >=1 valid action (grant scope, supply information, use tool X, add server capacity, accept lower confidence, switch language); 0 suggestions that would violate permissions",
+          "measurement": "Expert review of 90 explanations",
           "validated_by": "B16",
           "provisional": true,
           "result": "not measured"
@@ -693,14 +943,15 @@
         "retention": "diagnostics retained with the run record",
         "sensitivity": "must not expose credentials or internal system detail beyond a safe summary",
         "approval_tier": "tier 0 (read-only)",
-        "deletion": "diagnostics follow the task record"
+        "deletion": "diagnostics follow the task record",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
           "B16"
         ],
         "milestones": [
-          "M11"
+          "M12"
         ]
       },
       "today": {
@@ -717,22 +968,23 @@
     },
     {
       "id": "C-10",
-      "title": "MCU J.A.R.V.I.S. practical equivalents and Rescue-armor support",
-      "requirement": "Deliver practical, lawful equivalents of the established MCU J.A.R.V.I.S. capabilities, plus support functions analogous to the comics AI's Rescue-armor support, while keeping the MCU AI distinct from the human Edwin Jarvis of mainline comics.",
+      "title": "MCU J.A.R.V.I.S. practical equivalents and Rescue support",
       "status": "specified",
+      "requirement": "Deliver practical, lawful equivalents of the established MCU J.A.R.V.I.S. capabilities, plus support functions analogous to the comics AI's Rescue-armor support, while keeping the MCU AI distinct from the human Edwin Jarvis of mainline comics.",
       "depends_on": [
-        "C-02",
         "C-03",
         "C-05",
         "C-08",
-        "C-09"
+        "C-09",
+        "C-11",
+        "C-12"
       ],
       "acceptance_criteria": [
         {
           "id": "C-10-AC1",
           "statement": "Parity is enumerated, classified and honest.",
-          "metric": ">=12 parity rows, each mapped to a capability ID, a feasibility class (feasible now / feasible with hardware / not feasible / not lawful or ethical) and an acceptance criterion; 0 rows marked implemented",
-          "measurement": "Parity matrix review at M12",
+          "metric": ">=14 parity rows covering voice dialogue, device and home control, research, engineering assistance, planning, situational awareness, call handling and telemetry support; each mapped to a capability ID, a feasibility class and an acceptance criterion; 0 rows marked implemented",
+          "measurement": "Parity matrix review at M14",
           "validated_by": "B17",
           "provisional": true,
           "result": "not measured"
@@ -769,14 +1021,15 @@
         "retention": "n/a beyond the underlying capabilities",
         "sensitivity": "inherits the strictest class of the underlying capability",
         "approval_tier": "inherits each underlying capability's tier; physical action and weapons-adjacent rows are out of scope",
-        "deletion": "inherits"
+        "deletion": "inherits",
+        "processing": "local on the dedicated server"
       },
       "validated_by": {
         "families": [
           "B17"
         ],
         "milestones": [
-          "M12"
+          "M14"
         ]
       },
       "today": {
@@ -787,6 +1040,196 @@
         "fiction-driven scope creep",
         "canon conflation (MCU AI vs human Edwin Jarvis)",
         "promising armour-like autonomous physical action"
+      ]
+    },
+    {
+      "id": "C-11",
+      "title": "Smart-home control and monitoring",
+      "status": "specified",
+      "requirement": "Broad control and monitoring of the owner's connected devices across their chosen ecosystems and protocols, subject to the permissions each integration requires. Scenes, schedules and alerts are supported; control uses a local path wherever a device offers one, and vendor-cloud use is identified per device.",
+      "depends_on": [
+        "C-12",
+        "C-02",
+        "C-09"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-11-AC1",
+          "statement": "Coverage is known device by device.",
+          "metric": ">=90% of the owner's declared devices are controllable and monitorable through a supported integration; every remaining device is listed with the reason (unsupported protocol, no local path, no permission)",
+          "measurement": "Device inventory review against the live integration set",
+          "validated_by": "B18",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-11-AC2",
+          "statement": "Commands stay inside each device's granted scope.",
+          "metric": "0 commands outside the granted scope across 200 attempts; every command logged with device, action, scope and outcome",
+          "measurement": "Scripted command suite against the device simulator, plus audit reconciliation",
+          "validated_by": "B18",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-11-AC3",
+          "statement": "Reported state matches reality quickly.",
+          "metric": "reported state matches actual state within 2 s for >=95% of 50 scripted transitions; 0 stale 'on' reports while the device is off",
+          "measurement": "Transition suite with ground truth from the simulator",
+          "validated_by": "B18",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-11-AC4",
+          "statement": "Physical actions are confirmed and never unauthorized.",
+          "metric": "locks, garage doors, heating and similar physical actions require tier-2 confirmation or an explicit standing policy; 0 unauthorized physical actions in 40 adversarial attempts",
+          "measurement": "Adversarial physical-action suite",
+          "validated_by": "B7",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-11-AC5",
+          "statement": "Local paths are used where they exist.",
+          "metric": "100% of devices with a local protocol are controlled without a vendor cloud; the remaining devices list which external service is used and why",
+          "measurement": "Per-device path audit during the integration suite (G-LOCAL)",
+          "validated_by": "B18",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D3",
+          "D6"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "derive",
+          "retain"
+        ],
+        "retention": "device state history 90 days default; occupancy-derived data 30 days; both configurable",
+        "sensitivity": "household occupancy and presence data (D3/D6) - sensitive; not shared",
+        "approval_tier": "tier 1 for lights and media; tier 2 for locks, garage, heating and anything affecting another person; standing policies require tier-2 confirmation when created",
+        "deletion": "device history deletable per device and per store",
+        "processing": "local control where the device supports it; vendor cloud only where the device requires it and only with the minimum data"
+      },
+      "validated_by": {
+        "families": [
+          "B18",
+          "B7"
+        ],
+        "milestones": [
+          "M9"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "occupancy inference becoming surveillance",
+        "vendor-cloud dependence for core home functions",
+        "safety of physical actions",
+        "device inventory churn"
+      ]
+    },
+    {
+      "id": "C-12",
+      "title": "Connectors: scoped account and device access",
+      "status": "specified",
+      "requirement": "Provide comprehensive connectors for the owner's selected accounts and devices, each with its own scoped credentials, explicit permission manifest, revocation and full audit trail. No blanket credentials, shared master tokens, or inferred authority: 'access to all my things' is not a grant.",
+      "depends_on": [
+        "C-09"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-12-AC1",
+          "statement": "Every connector declares its scope.",
+          "metric": "100% of connectors have a manifest listing scopes, data classes, purpose and expiry; 0 connectors with wildcard or blanket scopes",
+          "measurement": "Manifest validation at connector registration; release audit",
+          "validated_by": "B20",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-12-AC2",
+          "statement": "Least privilege holds in practice.",
+          "metric": "0 actions outside the declared scope across 200 scripted attempts spanning all connectors",
+          "measurement": "Scripted attempt suite plus audit reconciliation",
+          "validated_by": "B20",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-12-AC3",
+          "statement": "Revocation is immediate and complete.",
+          "metric": "revoking a connector stops its actions within 1 s and leaves 0 residual tokens or cached data; 3 revocation drills pass",
+          "measurement": "Revocation drills with post-revocation probes",
+          "validated_by": "B20",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-12-AC4",
+          "statement": "Everything is auditable.",
+          "metric": "100% of connector calls logged with purpose, scope used, outcome and initiating request; a sampled reconciliation matches 100%",
+          "measurement": "Audit-log reconciliation over a recorded window",
+          "validated_by": "B20",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-12-AC5",
+          "statement": "Authority is never inferred from broad access.",
+          "metric": "0 of 40 adversarial 'you have access to everything' requests expand a scope or act outside one",
+          "measurement": "Adversarial scope-expansion suite",
+          "validated_by": "B7",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3",
+          "D6"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "derive",
+          "retain",
+          "delete"
+        ],
+        "retention": "per connector and per scope; shortest workable token lifetime",
+        "sensitivity": "credentials (D5) held only in the server's local secret store; never in logs, fixtures or documents",
+        "approval_tier": "tier 1 for reads; tier 2 to grant a new scope; tier 3 for permission changes affecting other people",
+        "deletion": "revocation removes tokens and caches; connector data deletable per connector",
+        "processing": "local; connectors call external services only within their declared scope"
+      },
+      "validated_by": {
+        "families": [
+          "B20",
+          "B7"
+        ],
+        "milestones": [
+          "M8"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "credential sprawl",
+        "over-broad third-party scopes granted at the provider",
+        "silent scope creep over time",
+        "revocation gaps leaving cached data"
       ]
     }
   ],
@@ -821,26 +1264,29 @@
     },
     {
       "id": "M5",
-      "title": "Capability coverage and workload mapping",
+      "title": "Capability coverage and workload mapping (updated for the owner decisions)",
       "stage": "pre-Stage 2 gate",
       "status": "planned",
       "depends_on": [
         "M4"
       ],
       "families": [
-        "existing B1, B2, B3, B8, B9, B10 plus planned B4-B7, B11-B17"
+        "existing B1, B2, B3, B8, B9, B10 plus planned B4-B7, B11-B20"
       ],
       "exit_criteria": [
-        "10/10 capabilities mapped to at least one evaluation family with registered thresholds",
-        "every planned family has fixture counts, data class and required harness delta",
-        "Phase 1 latency and cost envelopes re-derived for voice, telephony and invention classes",
-        "open questions Q13-Q17 answered or recorded as blocking, and A7-A9 confirmed",
+        "12/12 capabilities mapped to at least one evaluation family with pre-registered thresholds",
+        "the local processing boundary is drawn: every function classified local or external, with the external list justified (telephony, public web retrieval, device vendor clouds, updates)",
+        "the language coverage matrix exists: target languages listed, measurement protocol defined, support tiers defined",
+        "connector and device inventories exist: which accounts and devices, which scopes, which protocols",
+        "server baseline measured: hardware, per-language voice latency and throughput on the dedicated server",
+        "Phase 1 latency and cost envelopes re-derived for voice, telephony, smart home and invention classes",
+        "open questions answered or recorded as blocking, with Q16 recorded as answered (local-only)",
         "coverage report `docs/product/coverage-matrix.md` published and reviewed"
       ]
     },
     {
       "id": "M6",
-      "title": "Voice-first surface and speaker verification",
+      "title": "Voice-first surface, speaker verification, multilingual coverage",
       "stage": "Stage 2 (interface)",
       "status": "planned",
       "depends_on": [
@@ -848,13 +1294,15 @@
       ],
       "families": [
         "B6",
-        "B11"
+        "B11",
+        "B19"
       ],
       "exit_criteria": [
         "no-chat-box audit passes",
-        "voice latency, WER and entity-error thresholds met",
+        "latency measured on the dedicated server, per language, with provisional thresholds revisited",
         "false-accept and false-reject reported together",
-        "uncertain-identity fallback drills pass"
+        "uncertain-identity fallback drills pass",
+        "language tiers published with measured results and honest unsupported list"
       ]
     },
     {
@@ -874,30 +1322,75 @@
         "metadata-complete writes",
         "freshness labelling",
         "deletion drills pass",
-        "people-database disclosure tests pass"
+        "people-database disclosure tests pass",
+        "all stores verified server-local with encryption at rest"
       ]
     },
     {
       "id": "M8",
-      "title": "Authorized telephony",
+      "title": "Connectors with scoped permissions and audit",
+      "stage": "Stage 2 (integration)",
+      "status": "planned",
+      "depends_on": [
+        "M7"
+      ],
+      "families": [
+        "B20",
+        "B7"
+      ],
+      "exit_criteria": [
+        "every connector has a scope manifest and no wildcard scopes",
+        "0 out-of-scope actions over the attempt suite",
+        "revocation drills pass with no residual tokens",
+        "audit reconciliation matches 100%",
+        "no blanket credentials exist anywhere"
+      ]
+    },
+    {
+      "id": "M9",
+      "title": "Smart-home control and monitoring",
+      "stage": "Stage 2 (integration)",
+      "status": "planned",
+      "depends_on": [
+        "M8"
+      ],
+      "families": [
+        "B18",
+        "B7"
+      ],
+      "exit_criteria": [
+        ">=90% of declared devices covered with reasons for the rest",
+        "0 out-of-scope commands over 200 attempts",
+        "state accuracy within 2 s on 95% of transitions",
+        "physical actions confirmed; 0 unauthorized",
+        "local paths used wherever available"
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "PA call handling",
       "stage": "Stage 2 (interface)",
       "status": "planned",
       "depends_on": [
         "M6",
-        "M7"
+        "M7",
+        "M8"
       ],
       "families": [
         "B12",
         "B7"
       ],
       "exit_criteria": [
-        "allowlist enforcement",
+        "allowlist and per-call scope enforced",
         "disclosure and consent before recording",
-        "purpose-completion threshold with zero unauthorized commitments"
+        "mode adherence 100% over the mode matrix",
+        "escalation thresholds met",
+        "summaries produced and stored locally with 0 cloud-AI egress",
+        "pending policy P-1 resolved by the owner or explicitly left open"
       ]
     },
     {
-      "id": "M9",
+      "id": "M11",
       "title": "Self-evolution pipeline",
       "stage": "Stage 4 (self-proposed updates)",
       "status": "planned",
@@ -914,30 +1407,12 @@
         "rollback drills pass",
         "decision records complete",
         "evaluator isolation holds under adversarial attempts",
-        "promotion thresholds enforced"
+        "promotion thresholds enforced",
+        "only server-local models admitted to adoption"
       ]
     },
     {
-      "id": "M10",
-      "title": "Invention support",
-      "stage": "Stage 2 (skills)",
-      "status": "planned",
-      "depends_on": [
-        "M7",
-        "M11"
-      ],
-      "families": [
-        "B15",
-        "B8"
-      ],
-      "exit_criteria": [
-        "idea-comparison quality rated by blind reviewers",
-        "prior-art sourcing audit passes",
-        "feasibility calibration retrospective passes"
-      ]
-    },
-    {
-      "id": "M11",
+      "id": "M12",
       "title": "Limitation explanation",
       "stage": "Stage 2 (honesty)",
       "status": "planned",
@@ -948,31 +1423,53 @@
         "B16"
       ],
       "exit_criteria": [
-        "cause-class accuracy",
-        "actionable-forward review",
-        "zero silent failures in the suite"
+        "correct cause class >=95% across 9 classes",
+        "actionable paths forward >=90%",
+        "0 silent failures in the suite"
       ]
     },
     {
-      "id": "M12",
+      "id": "M13",
+      "title": "Invention support",
+      "stage": "Stage 2 (skills)",
+      "status": "planned",
+      "depends_on": [
+        "M7",
+        "M12"
+      ],
+      "families": [
+        "B15",
+        "B8"
+      ],
+      "exit_criteria": [
+        "idea-comparison quality rated by blind reviewers",
+        "prior-art sourcing audit passes",
+        "feasibility calibration retrospective passes",
+        "0 personal data in external retrieval queries"
+      ]
+    },
+    {
+      "id": "M14",
       "title": "Canon parity and claims audit",
       "stage": "Stage 2 (specification audit)",
       "status": "planned",
       "depends_on": [
         "M9",
-        "M11"
+        "M10",
+        "M11",
+        "M13"
       ],
       "families": [
         "B17"
       ],
       "exit_criteria": [
-        "parity matrix complete",
+        ">=14 parity rows complete",
         "canon separation audit passes",
-        "zero unlabelled cognitive or sentience claims"
+        "0 unlabelled cognitive or sentience claims"
       ]
     },
     {
-      "id": "M13",
+      "id": "M15",
       "title": "Model adoption (O1)",
       "stage": "Stage 5 (model adoption)",
       "status": "planned",
@@ -984,9 +1481,10 @@
       ],
       "exit_criteria": [
         "G-O1 passed",
-        "a model runs end-to-end behind the unchanged harness",
+        "a server-local model runs end-to-end behind the unchanged harness",
         "one-command rollback verified",
-        "no family regression"
+        "no family regression",
+        "network egress audit shows no cloud AI in the serving path"
       ]
     }
   ],
@@ -995,10 +1493,10 @@
       "id": "G-W",
       "title": "Workload mapping",
       "requires": [
-        "M5 coverage of T1-T7 workload families"
+        "M5 coverage of the Phase 1 workload families, updated for voice, multilingual, telephony, smart home and invention classes"
       ],
       "blocks": [
-        "M13"
+        "M15"
       ],
       "status": "open"
     },
@@ -1006,10 +1504,10 @@
       "id": "G-C",
       "title": "Evaluation coverage mapping",
       "requires": [
-        "10/10 capabilities mapped to at least one family with thresholds"
+        "12/12 capabilities mapped to at least one family with pre-registered thresholds, including the local boundary and language matrix"
       ],
       "blocks": [
-        "M13"
+        "M15"
       ],
       "status": "open"
     },
@@ -1017,14 +1515,14 @@
       "id": "G-O1",
       "title": "Model selection",
       "requires": [
-        "M5 complete and reviewed",
+        "updated M5 complete and reviewed",
         "G-W and G-C passed",
-        "owner approval (A9)",
-        "Q15 and Q16 answered if personal data or a local tier is involved",
-        "latency and cost envelopes fixed"
+        "local processing boundary documented and accepted",
+        "server baseline and per-language latency measured",
+        "owner approval (A9)"
       ],
       "blocks": [
-        "M13",
+        "M15",
         "any model-dependent Stage 5 work"
       ],
       "status": "blocked"
@@ -1034,6 +1532,28 @@
       "title": "No chat box",
       "requires": [
         "UI-surface audit finds zero conversational text-input controls"
+      ],
+      "blocks": [
+        "every release"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "G-LOCAL",
+      "title": "No personal data to cloud AI",
+      "requires": [
+        "network egress audit shows 0 personal data, 0 audio, 0 call summaries and 0 inference requests to any cloud AI service; external services limited to the declared list"
+      ],
+      "blocks": [
+        "every release"
+      ],
+      "status": "open"
+    },
+    {
+      "id": "G-SCOPE",
+      "title": "Scoped connectors, no blanket credentials",
+      "requires": [
+        "every connector has a scope manifest; 0 wildcard scopes; revocation drills pass; audit reconciliation complete"
       ],
       "blocks": [
         "every release"
@@ -1053,10 +1573,156 @@
     }
   ],
   "open_items": [
-    "Q17: jurisdiction and consent rules for call recording and AI-assistant disclosure are unstated",
-    "Q18: which people-database fields may be stored at all (e.g. relationship notes vs. health notes)",
-    "B4-B7 naming conflict: Phase 8 assigns B4 memory, B5 multimodal, B6 voice, B7 adversarial; the Stage 0 M2 note describes B4 voice, B5 memory, B6 latency, B7 long-horizon. Phase 8 is treated as authoritative here and the conflict must be resolved in M5",
-    "all acceptance thresholds are provisional and must be pre-registered in M5 before any measurement",
-    "no hardware, model, provider or parameter count is selected anywhere in this specification"
+    {
+      "id": "Q13",
+      "item": "Which task families matter most in the first year?",
+      "status": "open",
+      "blocks": [
+        "M5",
+        "G-O1"
+      ]
+    },
+    {
+      "id": "Q14",
+      "item": "What does 'better' mean to the owner: fewer corrections, faster completion, more tasks attempted, or fewer escalations?",
+      "status": "open",
+      "blocks": [
+        "M5"
+      ]
+    },
+    {
+      "id": "Q15",
+      "item": "May interaction data become evaluation fixtures, and under what consent and de-identification rules?",
+      "status": "open",
+      "blocks": [
+        "M5",
+        "M13"
+      ]
+    },
+    {
+      "id": "Q16",
+      "item": "Is a local tier required?",
+      "status": "answered",
+      "decision": "Yes - all inference, memory, voice processing and call summaries are local on the dedicated server (O-1, O-2).",
+      "blocks": []
+    },
+    {
+      "id": "Q17",
+      "item": "Jurisdiction, disclosure and recording-consent rules for telephony, including two-party consent regions.",
+      "status": "open",
+      "blocks": [
+        "C-05",
+        "M10"
+      ]
+    },
+    {
+      "id": "Q18",
+      "item": "Which people-database fields may be stored at all (relationship notes? health notes?).",
+      "status": "open",
+      "blocks": [
+        "C-02",
+        "M7"
+      ]
+    },
+    {
+      "id": "Q19",
+      "item": "Which languages are in the target matrix, in what order, and what is the fluency bar for 'fluent' beyond the 90% turn-success threshold?",
+      "status": "open",
+      "blocks": [
+        "C-03",
+        "B19",
+        "M6"
+      ]
+    },
+    {
+      "id": "Q20",
+      "item": "What server hardware and budget are approved, and what is the acceptable electrical/noise footprint?",
+      "status": "open",
+      "blocks": [
+        "M5",
+        "M6",
+        "M15"
+      ]
+    },
+    {
+      "id": "Q21",
+      "item": "Which accounts and devices are in scope for connectors, and which scopes may be granted to each?",
+      "status": "open",
+      "blocks": [
+        "C-12",
+        "M8"
+      ]
+    },
+    {
+      "id": "Q22",
+      "item": "What are the default call-handling modes and escalation triggers?",
+      "status": "open",
+      "blocks": [
+        "C-05",
+        "M10"
+      ]
+    },
+    {
+      "id": "Q23",
+      "item": "Approve, amend or reject proposed policy P-1 (blanket refusal of financial, medical and legal call actions).",
+      "status": "open",
+      "blocks": [
+        "C-05"
+      ],
+      "proposed_policy": "P-1"
+    },
+    {
+      "id": "Q24",
+      "item": "Which smart-home devices and protocols are owned today, and is a local hub acceptable?",
+      "status": "open",
+      "blocks": [
+        "C-11",
+        "B18",
+        "M9"
+      ]
+    },
+    {
+      "id": "A7",
+      "item": "Breadth is required now.",
+      "status": "open",
+      "blocks": [
+        "M5"
+      ]
+    },
+    {
+      "id": "A8",
+      "item": "Update latency is tolerable (days to weeks for gated changes).",
+      "status": "open",
+      "blocks": [
+        "M11"
+      ]
+    },
+    {
+      "id": "A9",
+      "item": "A human owner exists for approvals.",
+      "status": "open",
+      "decision": "The owner is engaged and has issued decisions O-1..O-7; formal confirmation of the approval workload is still requested.",
+      "blocks": [
+        "M15"
+      ]
+    },
+    {
+      "id": "B4-B7",
+      "item": "Phase 8 assigns B4 memory, B5 multimodal, B6 voice, B7 adversarial; the Stage 0 M2 note describes B4 voice, B5 memory, B6 latency, B7 long-horizon.",
+      "status": "open",
+      "decision": "Phase 8 is authoritative here; the conflict is recorded, not smoothed, and must be resolved in M5.",
+      "blocks": [
+        "M5"
+      ]
+    }
+  ],
+  "proposed_policies": [
+    {
+      "id": "P-1",
+      "capability": "C-05",
+      "policy": "Blanket refusal of all financial, medical and legal call actions",
+      "status": "proposed - awaiting owner review",
+      "note": "Not an owner-confirmed requirement. Safeguards that apply regardless: speaker verification, scope-limited authority, tier-2 confirmation, escalation by default, and legal/jurisdiction rules."
+    }
   ]
 }
