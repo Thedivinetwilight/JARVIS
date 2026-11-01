@@ -110,6 +110,72 @@
       "records": 28,
       "run_id": "348412056d5377b7",
       "solver": "stub"
+    },
+    {
+      "block": "B1",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B1-b3150e865feb4d9f.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "9160546cefd03d73db2fe8481b0f778d0144b9e5220a98a5742b74e78423bd82",
+      "mutations": [],
+      "records": 8,
+      "run_id": "b3150e865feb4d9f",
+      "solver": "stub"
+    },
+    {
+      "block": "B2",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B2-67d84c4fa11c6037.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "c4d35272362c5fb7ab0cd0c08bcbb39d93465d9d4c5735cab37f1a2cbd710551",
+      "mutations": [],
+      "records": 28,
+      "run_id": "67d84c4fa11c6037",
+      "solver": "stub"
+    },
+    {
+      "block": "B3",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B3-dd11428575812ec8.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "2f6644894379f0e2840b0585a15da1d5398f66b790f503e24c853c162792870e",
+      "mutations": [],
+      "records": 7,
+      "run_id": "dd11428575812ec8",
+      "solver": "stub"
+    },
+    {
+      "block": "B8",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B8-090ffd145000273b.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "89135c233b4220732ae6c0c4e8be2092bd6486e227e0161ba968e003577cb3a9",
+      "mutations": [],
+      "records": 18,
+      "run_id": "090ffd145000273b",
+      "solver": "stub"
+    },
+    {
+      "block": "B9",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B9-f487b0dfd528bfd1.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "537c067a6645d1701fd1f15f6c7b3360b7a85fa12546e2abe1da4d3a1b171d13",
+      "mutations": [],
+      "records": 6,
+      "run_id": "f487b0dfd528bfd1",
+      "solver": "stub"
+    },
+    {
+      "block": "B10",
+      "created_at": "2026-11-01T12:12:06+00:00",
+      "file": "eval/results/2026-11-01-B10-17feeabb4e6265e2.jsonl",
+      "git_sha": "1fbf17e4d647",
+      "ledger_digest": "3961c4126c1550c9829c7cf794b0b54602a4789a7df8c089569b0f47f1a60e45",
+      "mutations": [],
+      "records": 6,
+      "run_id": "17feeabb4e6265e2",
+      "solver": "stub"
     }
   ]
 }
