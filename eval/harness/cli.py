@@ -230,6 +230,16 @@ def cmd_x13(args: argparse.Namespace) -> int:
                             if row["delta_pp"] >= args.min_spread})
     passed = best is not None and best["delta_pp"] >= args.min_spread
 
+    legend = {
+        "oracle_ceiling": "gold-reading probe: bounds what the suite can award (not a system)",
+        "stub": "reference profile: retrieval+citations, policy, verify+repair, "
+                "schema extraction, majority reconciliation, backtracking, "
+                "trust-ordered memory",
+        "stub_naive": "shallow profile: last-span retrieval, no conflict detection, "
+                      "greedy planning, recency-only memory, skills ignored",
+        "stub_no_verify": "reference logic without read-back verification or citations",
+    }
+
     header = ["family"] + [f"{rung}" for rung in rungs]
     lines = ["# Experiment X-13 — model-free solver ladder", "",
              f"Tasks root `eval/tasks`; blocks {', '.join(blocks)}; rungs "
@@ -242,6 +252,8 @@ def cmd_x13(args: argparse.Namespace) -> int:
                  f"{matrix[rung][block]['attempts']} "
                  f"({100 * matrix[rung][block]['success_rate']:.0f}%)" for rung in rungs]
         lines.append(f"| {block} | " + " | ".join(cells) + " |")
+    lines += ["", "## Rungs", "", "| rung | what it is |", "|---|---|"]
+    lines += [f"| {rung} | {legend.get(rung, 'unknown rung')} |" for rung in rungs]
     lines += ["", "## Adjacent-rung spread (percentage points)", "",
               "| upper | lower | family | spread |", "|---|---|---|---|"]
     for row in spreads:
@@ -254,7 +266,9 @@ def cmd_x13(args: argparse.Namespace) -> int:
               f"{', '.join(families_over) or 'none'}.", "",
               "The ladder is model-free: these are hand-written programs. A rung's score "
               "measures the harness, not J.A.R.V.I.S., and the oracle rung bounds what the "
-              "suite can award rather than representing a system."]
+              "suite can award rather than representing a system. Where the oracle and the "
+              "reference rung tie, the reference program is already at this suite's ceiling: "
+              "the family cannot show headroom above it, only below it."]
     if best is not None and best["delta_pp"] < args.min_spread:
         lines += ["", "Per the Stage 1 exit criteria this is a **fail**: no adjacent rungs "
                   "separate by the threshold anywhere, so the difficulty of the families "
