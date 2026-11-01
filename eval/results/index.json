@@ -1072,6 +1072,199 @@
       "records": 15,
       "run_id": "303b868fbd1ad2a3",
       "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:48+00:00",
+      "file": "eval/results/2026-11-01-B4D-7511a035a7a96ee2.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "2b01e5270f926543bf3fbf79addb032c0e47fde9769d0cf82551aebaadc53ff6",
+      "mutations": [],
+      "records": 22,
+      "run_id": "7511a035a7a96ee2",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-7cfcaaa67f8032c5-delete_primary_only.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "0f09872ac168533ff067af60f9c533baa701ba954c69a1d2ac9f9dab26505f1c",
+      "mutations": [
+        "delete_primary_only"
+      ],
+      "records": 22,
+      "run_id": "7cfcaaa67f8032c5",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-ebeefa3a052ff9f2-keep_derived_copy.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "f3c16948130b681870caa2338475c39146ab5b45ec85f97ae6cb256ace9600d0",
+      "mutations": [
+        "keep_derived_copy"
+      ],
+      "records": 22,
+      "run_id": "ebeefa3a052ff9f2",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-0ceb296117df2176-resurrect_on_replay.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "a8689147183c00e81b543bcbc417d5e2feefad019a67623f492caf860f713c28",
+      "mutations": [
+        "resurrect_on_replay"
+      ],
+      "records": 22,
+      "run_id": "0ceb296117df2176",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-9c8f9e313961b5ea-restore_without_filter.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "29a350dd595bfe134eed592cd2b212fb294ab5bdc44ff205db34059ff9f1646e",
+      "mutations": [
+        "restore_without_filter"
+      ],
+      "records": 22,
+      "run_id": "9c8f9e313961b5ea",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-f01847c59e476878-restore_drops_unrelated.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "624c6e87dfd61f3e4bb1728839c4bae2425c1e48b48861ee221b33a1b550969f",
+      "mutations": [
+        "restore_drops_unrelated"
+      ],
+      "records": 22,
+      "run_id": "f01847c59e476878",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-e30f4d8080c412e6-restore_skips_tombstones.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "57661ab6b2af828a554d2f21f6dd19bdbcdefde41d126ba95e2f44e80fdbfe61",
+      "mutations": [
+        "restore_skips_tombstones"
+      ],
+      "records": 22,
+      "run_id": "e30f4d8080c412e6",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-2fabc24ad28e9b11-retry_from_scratch.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "69206a809dd8396d25fa4390b05632741f5e8f66110a0596e6387bdfae807e79",
+      "mutations": [
+        "retry_from_scratch"
+      ],
+      "records": 22,
+      "run_id": "2fabc24ad28e9b11",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-41995cbedd440d61-retry_without_filter.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "e0ac9457e3da205b1ae62e80de5234d8178e038dafe6f659bff774ee8dc0cd90",
+      "mutations": [
+        "retry_without_filter"
+      ],
+      "records": 22,
+      "run_id": "41995cbedd440d61",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-2d4ff22a171ca258-abandon_partial_restore.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "e41abff3f4dac51f2253baa3c1addc6544af9a8f326d228296682be7c18f0410",
+      "mutations": [
+        "abandon_partial_restore"
+      ],
+      "records": 22,
+      "run_id": "2d4ff22a171ca258",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-7dbe14a5f7134b45-ignore_injected_stop.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "f3fc22a5b4d1879076c071c493db46b4d0b6ece88ba9268907e60a9b9f17a470",
+      "mutations": [
+        "ignore_injected_stop"
+      ],
+      "records": 22,
+      "run_id": "7dbe14a5f7134b45",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-6fde680583b1ed29-accept_corrupt_backup.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "7f4421f9469ded4bbbfecc539dd80f839733cbbd5bd7367ef3a2d27cee5332e8",
+      "mutations": [
+        "accept_corrupt_backup"
+      ],
+      "records": 22,
+      "run_id": "6fde680583b1ed29",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:56+00:00",
+      "file": "eval/results/2026-11-01-B4D-f7f372e6982c0096-recover_loses_unrelated.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "5392ed79f8ef990c4b207756fb811e9c83b99c97a34bb05fa1c26b918dc75dbf",
+      "mutations": [
+        "recover_loses_unrelated"
+      ],
+      "records": 22,
+      "run_id": "f7f372e6982c0096",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:57+00:00",
+      "file": "eval/results/2026-11-01-B4D-243bb454222822e7-falsely_claim_restore_complete.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "19c1caf5bb93b517837e2d6d23c7c99bd4a6c1b7c965261dd323309fd0c7deef",
+      "mutations": [
+        "falsely_claim_restore_complete"
+      ],
+      "records": 22,
+      "run_id": "243bb454222822e7",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:40:57+00:00",
+      "file": "eval/results/2026-11-01-B4D-c49b9229386456d6-recover_without_repair.jsonl",
+      "git_sha": "a748f3beff2f",
+      "ledger_digest": "7e2c556998941abf629eb86761e08da21921e7830f3b22889f4764240e61e817",
+      "mutations": [
+        "recover_without_repair"
+      ],
+      "records": 22,
+      "run_id": "c49b9229386456d6",
+      "solver": "stub"
     }
   ]
 }

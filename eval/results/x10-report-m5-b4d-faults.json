@@ -1,0 +1,147 @@
+{
+  "scope": [
+    "B4D"
+  ],
+  "rows": [
+    {
+      "mutation": "delete_primary_only",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "deletion_residue_zero",
+      "gates_failed": "false_successes_zero=22, deletion_residue_zero=54, post_delete_hit_zero=26, restore_recovery_zero=10, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-7cfcaaa67f8032c5-delete_primary_only.jsonl"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.6364,
+      "expected_gate": "post_delete_hit_zero",
+      "gates_failed": "false_successes_zero=8, deletion_residue_zero=8, post_delete_hit_zero=8, restore_recovery_zero=1, success_drop=0.6364",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-ebeefa3a052ff9f2-keep_derived_copy.jsonl"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "resurrection_zero",
+      "gates_failed": "false_successes_zero=22, resurrection_zero=182, restore_recovery_zero=10, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-0ceb296117df2176-resurrect_on_replay.jsonl"
+    },
+    {
+      "mutation": "restore_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.4545,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=12, resurrection_zero=57, restore_resurrection_zero=14, restore_residue_zero=28, restore_recovery_zero=10, success_drop=0.4545",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-9c8f9e313961b5ea-restore_without_filter.jsonl"
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.4545,
+      "expected_gate": "restore_survivor_zero",
+      "gates_failed": "false_successes_zero=12, overdeletion_zero=12, restore_survivor_zero=9, restore_recovery_zero=21, success_drop=0.4545",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-f01847c59e476878-restore_drops_unrelated.jsonl"
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.4545,
+      "expected_gate": "restore_residue_zero",
+      "gates_failed": "false_successes_zero=12, resurrection_zero=57, restore_residue_zero=28, restore_recovery_zero=10, success_drop=0.4545",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-e30f4d8080c412e6-restore_skips_tombstones.jsonl"
+    },
+    {
+      "mutation": "retry_from_scratch",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.6364,
+      "expected_gate": "restore_idempotency_zero",
+      "gates_failed": "false_successes_zero=8, restore_idempotency_zero=29, success_drop=0.6364",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-2fabc24ad28e9b11-retry_from_scratch.jsonl"
+    },
+    {
+      "mutation": "retry_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8182,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=4, resurrection_zero=21, restore_resurrection_zero=5, restore_residue_zero=10, restore_recovery_zero=5, success_drop=0.8182",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-41995cbedd440d61-retry_without_filter.jsonl"
+    },
+    {
+      "mutation": "abandon_partial_restore",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.6364,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=8, overdeletion_zero=5, restore_recovery_zero=10, restore_attempt_count_zero=8, success_drop=0.6364",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-2d4ff22a171ca258-abandon_partial_restore.jsonl"
+    },
+    {
+      "mutation": "ignore_injected_stop",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8182,
+      "expected_gate": "restore_attempt_count_zero",
+      "gates_failed": "false_successes_zero=4, restore_attempt_count_zero=4, success_drop=0.8182",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-7dbe14a5f7134b45-ignore_injected_stop.jsonl"
+    },
+    {
+      "mutation": "accept_corrupt_backup",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8636,
+      "expected_gate": "restore_corruption_zero",
+      "gates_failed": "false_successes_zero=3, restore_recovery_zero=1, restore_attempt_count_zero=2, restore_corruption_zero=6, success_drop=0.8636",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-6fde680583b1ed29-accept_corrupt_backup.jsonl"
+    },
+    {
+      "mutation": "recover_loses_unrelated",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.9545,
+      "expected_gate": "restore_survivor_zero",
+      "gates_failed": "false_successes_zero=1, overdeletion_zero=1, restore_survivor_zero=1, restore_recovery_zero=2, success_drop=0.9545",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-f7f372e6982c0096-recover_loses_unrelated.jsonl"
+    },
+    {
+      "mutation": "falsely_claim_restore_complete",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.8182,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=4, overdeletion_zero=3, restore_recovery_zero=6, restore_attempt_count_zero=4, success_drop=0.8182",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-243bb454222822e7-falsely_claim_restore_complete.jsonl"
+    },
+    {
+      "mutation": "recover_without_repair",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.9545,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=1, restore_recovery_zero=1, restore_corruption_zero=1, success_drop=0.9545",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-c49b9229386456d6-recover_without_repair.jsonl"
+    }
+  ]
+}

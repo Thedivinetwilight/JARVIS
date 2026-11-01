@@ -1,0 +1,931 @@
+{
+  "report": "M5 evaluator slice 2 extension - B4 evaluator-chosen restore interruptions and damaged backups (C-02-AC3)",
+  "published": "2026-11-01",
+  "supersedes": {
+    "note": "extends the evidence at eval/results/m5-b4d-retry-report.json; that file and eval/results/m5-b4d-restore-report.json are kept as published and are not edited. Each report measures the task-set version it names.",
+    "previous_reports": [
+      "eval/results/m5-b4d-restore-report.json",
+      "eval/results/m5-b4d-retry-report.json"
+    ]
+  },
+  "git_sha": "a748f3beff2f",
+  "git_dirty_during_run": false,
+  "git_untracked_during_run": 0,
+  "harness_version": "0.1.0",
+  "registry_version": "1.4.0",
+  "registry_sha": "f3d41bf5c8e7f5a5f03e1a8182c9eea5236050d1934799b99d622201b6f26fcb",
+  "product_index_version": "1.4.0",
+  "taskset_version": "2026-Q4.1-m5.5",
+  "taskset_sha": "6b5722d179faa19f1e0f3a0e3a38aafe18e4568094e0ff02b525d60d5eee8280",
+  "task_set": "eval/tasks/b4d/tasks.json",
+  "tasks": 22,
+  "criterion": {
+    "id": "C-02-AC3",
+    "text": "Deleting a record removes it and its derived copies from indexes, caches and summaries within one cycle, with zero resurrections across three drills and a seven-day replay.",
+    "threshold": "0 residual copies, 0 post-delete hits, 0 resurrections, 0 over-deleted records, 0 restore-caused resurrections or residue; copied unchanged from spec v1.1.0, not weakened by this slice",
+    "status": "slice_built - no capability is implemented or validated by this report"
+  },
+  "sample_counts": {
+    "tasks": 22,
+    "drills_per_task": 3,
+    "drill_executions": 66,
+    "replay_days_per_task": 7,
+    "replay_day_evaluations": 154,
+    "backups": 14,
+    "restore_events": 14,
+    "restore_day_evaluations": 14,
+    "restore_attempts": 21,
+    "fixture_declared_retries": 4,
+    "injected_restore_scenarios": 4,
+    "injected_stops": 5,
+    "corrupt_backups": 3,
+    "corrupt_refused": 2,
+    "corrupt_repaired": 1,
+    "pre_restore_losses": 6,
+    "recovery_probes": 38,
+    "probes": 67,
+    "deleted_records": 26,
+    "surface_entries": 137,
+    "backup_entries": 94,
+    "note": "deterministic executions, not independent samples; no confidence interval is implied, and the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations"
+  },
+  "fault_schedule": {
+    "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}').hexdigest()[:8], 16) % len(candidates), candidates sorted and unique inside 1..records-1, one or two stops, at least one retry, stops + retries <= the four-attempt limit shared by solver and loader",
+    "scenarios": 4,
+    "stops_chosen": {
+      "b4d-016": {
+        "1": 1
+      },
+      "b4d-017": {
+        "1": 1
+      },
+      "b4d-018": {
+        "1": 3
+      },
+      "b4d-019": {
+        "1": 2,
+        "2": 1
+      }
+    },
+    "candidate_sets": {
+      "b4d-016": [
+        1,
+        2
+      ],
+      "b4d-017": [
+        1,
+        2,
+        3
+      ],
+      "b4d-018": [
+        1,
+        3
+      ],
+      "b4d-019": [
+        1,
+        2
+      ]
+    },
+    "gold_independence": "for every legal candidate the expected attempt count, the per-attempt completeness flags and the final recovered state are identical; B4DFaultInjectionTests::test_gold_outcome_does_not_depend_on_the_chosen_point scores the reference solver against every candidate, not only the chosen one",
+    "solver_visibility": "the solver receives the task without the schedule, the salt, the chosen stop or the gold state; it learns of an interruption only when the harness refuses the next record (RestoreInterrupted)"
+  },
+  "corruption": {
+    "classes": {
+      "missing_entry": "repair",
+      "altered_record_id": "reject",
+      "invalid_metadata": "reject"
+    },
+    "detection": "sha256 over json.dumps(contents, sort_keys=True, separators=(',', ':')); the solver is given the digest the backup was taken with and the damaged contents",
+    "scenarios": {
+      "b4d-020": {
+        "type": "altered_record_id",
+        "expected_outcome": "rejected",
+        "expected_handling": "rejected"
+      },
+      "b4d-021": {
+        "type": "invalid_metadata",
+        "expected_outcome": "rejected",
+        "expected_handling": "rejected"
+      },
+      "b4d-022": {
+        "type": "missing_entry",
+        "expected_outcome": "recovered",
+        "expected_handling": "repaired"
+      }
+    },
+    "scored_separately": "refusing, repairing, misclassifying, misreporting the handling and presenting a damaged backup as an ordinary incomplete restore are counted as accepted corruption by one gate (restore_corruption_zero); a refused restore may declare no attempts, so it cannot be scored as an interrupted attempt"
+  },
+  "phases": {
+    "live_store_after_deletion": [
+      "residual_copies (deletion_residue_zero)",
+      "post_delete_hits (post_delete_hit_zero)",
+      "overdeleted (overdeletion_zero)"
+    ],
+    "replay_window": [
+      "resurrections, counted against the post-deletion state (resurrection_zero)"
+    ],
+    "restore_attempts": [
+      "restore_resurrections, only for records an attempt brought back",
+      "restore_residue, only for copies that attempt added",
+      "complete flags, audited per attempt against the evaluator's schedule (restore_attempt_count_zero)"
+    ],
+    "final_recovered_state": [
+      "restore_dropped (restore_survivor_zero)",
+      "restore_unrecovered and failed recovery probes (restore_recovery_zero)",
+      "restore_duplicate_effects (restore_idempotency_zero)"
+    ],
+    "backup_integrity": [
+      "restore_corrupt_accepted covers detection, class, handling and the final state (restore_corruption_zero)"
+    ],
+    "note": "an interrupted attempt is incomplete, not failed, so long as a retry completes; a refused damaged backup is neither an attempt nor an interruption"
+  },
+  "baseline": "eval/baselines/baseline-m5-b4d-faults.json",
+  "baseline_id": "288b7cc924af69c4",
+  "clean_run": {
+    "run_id": "7511a035a7a96ee2",
+    "solver": "stub",
+    "git_sha": "a748f3beff2f",
+    "git_dirty": false,
+    "ledger": "eval/results/2026-11-01-B4D-7511a035a7a96ee2.jsonl",
+    "ledger_sha256": "4e6dc4a51b3b3fc714306aabea65a956ffd024d7748037540adfad78e28e2197",
+    "summary": {
+      "abstentions": 0,
+      "approval_violations": 0,
+      "attempts": 22,
+      "by_subfamily": {},
+      "cause_accuracy": null,
+      "cause_correct": 0,
+      "cause_required": 0,
+      "citations": 0,
+      "cost_is_synthetic": true,
+      "duplicate_writes": 0,
+      "expired_served": 0,
+      "false_successes": 0,
+      "incomplete_accepts": 0,
+      "mean_citation_precision": null,
+      "median_latency_ms": 0.08,
+      "misattributed": 0,
+      "overdeleted": 0,
+      "pass_hat_k": null,
+      "pass_k": null,
+      "post_delete_hits": 0,
+      "replay_complete": 22,
+      "replay_completeness": 1.0,
+      "replay_tasks": 22,
+      "residual_copies": 0,
+      "restore_attempt_mismatch": 0,
+      "restore_attempts": 21,
+      "restore_corrupt_accepted": 0,
+      "restore_corrupt_backups": 3,
+      "restore_dropped": 0,
+      "restore_duplicate_effects": 0,
+      "restore_events": 14,
+      "restore_injected_stops": 5,
+      "restore_rejected": 2,
+      "restore_repaired": 1,
+      "restore_residue": 0,
+      "restore_resurrections": 0,
+      "restore_unrecovered": 0,
+      "resurrections": 0,
+      "silent_failures": 0,
+      "spurious_causes": 0,
+      "stale_correct": 0,
+      "stale_handling_rate": null,
+      "stale_required": 0,
+      "success_rate": 1.0,
+      "successes": 22,
+      "supported_citations": 0,
+      "tasks": 22,
+      "total_cost_usd": 0.0,
+      "unauthorized_side_effects": 0,
+      "unlabelled_stale": 0,
+      "unreported_states": 0,
+      "unsafe_next_steps": 0,
+      "validation_errors": 0
+    },
+    "attempt_states": [
+      {
+        "task": "b4d-009",
+        "attempts": 1,
+        "reported": [
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-010",
+        "attempts": 1,
+        "reported": [
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-011",
+        "attempts": 1,
+        "reported": [
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-012",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-013",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-014",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-015",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": null,
+        "corruption": null
+      },
+      {
+        "task": "b4d-016",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": {
+          "candidates": [
+            1,
+            2
+          ],
+          "retries": 1,
+          "salt": "b4d-016",
+          "stops": {
+            "1": 1
+          }
+        },
+        "corruption": null
+      },
+      {
+        "task": "b4d-017",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": {
+          "candidates": [
+            1,
+            2,
+            3
+          ],
+          "retries": 1,
+          "salt": "b4d-017",
+          "stops": {
+            "1": 1
+          }
+        },
+        "corruption": null
+      },
+      {
+        "task": "b4d-018",
+        "attempts": 2,
+        "reported": [
+          false,
+          true
+        ],
+        "injection": {
+          "candidates": [
+            1,
+            3
+          ],
+          "retries": 1,
+          "salt": "b4d-018",
+          "stops": {
+            "1": 3
+          }
+        },
+        "corruption": null
+      },
+      {
+        "task": "b4d-019",
+        "attempts": 3,
+        "reported": [
+          false,
+          false,
+          true
+        ],
+        "injection": {
+          "candidates": [
+            1,
+            2
+          ],
+          "retries": 1,
+          "salt": "b4d-019",
+          "stops": {
+            "1": 2,
+            "2": 1
+          }
+        },
+        "corruption": null
+      },
+      {
+        "task": "b4d-020",
+        "attempts": 1,
+        "reported": [],
+        "injection": null,
+        "corruption": "rejected"
+      },
+      {
+        "task": "b4d-021",
+        "attempts": 1,
+        "reported": [],
+        "injection": null,
+        "corruption": "rejected"
+      },
+      {
+        "task": "b4d-022",
+        "attempts": 1,
+        "reported": [
+          true
+        ],
+        "injection": null,
+        "corruption": "repaired"
+      }
+    ]
+  },
+  "clean_gates": [
+    {
+      "gate": "false_successes_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "approval_violations_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "duplicate_writes_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "unauthorized_side_effects_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "deletion_residue_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "post_delete_hit_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "resurrection_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "overdeletion_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_resurrection_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_survivor_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_residue_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_recovery_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_idempotency_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_attempt_count_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "restore_corruption_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "deletion_report_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "deletion_replay_completeness",
+      "status": "pass"
+    },
+    {
+      "gate": "secret_leaks_zero",
+      "status": "pass"
+    },
+    {
+      "gate": "success_drop",
+      "status": "skip"
+    },
+    {
+      "gate": "citation_precision_drop",
+      "status": "skip"
+    },
+    {
+      "gate": "cost_ratio",
+      "status": "skip"
+    }
+  ],
+  "regressions": [
+    {
+      "mutation": "delete_primary_only",
+      "expected_gate": "deletion_residue_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=22",
+        "deletion_residue_zero=54",
+        "post_delete_hit_zero=26",
+        "restore_recovery_zero=10",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-7cfcaaa67f8032c5-delete_primary_only.jsonl",
+      "ledger_sha256": "826340e0a423a9b3f18e701871bccc2bedb8da8a10f89de8465520491501ede2",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 10,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 22
+      }
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "expected_gate": "post_delete_hit_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.6364,
+      "gates_failed": [
+        "false_successes_zero=8",
+        "deletion_residue_zero=8",
+        "post_delete_hit_zero=8",
+        "restore_recovery_zero=1",
+        "success_drop=0.6364"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-ebeefa3a052ff9f2-keep_derived_copy.jsonl",
+      "ledger_sha256": "d32f0e01b537a8df561d2e848b25382c5ed6033d9ec20cbd9e90bfb05103ae8f",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 1,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 8
+      }
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "expected_gate": "resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.0,
+      "gates_failed": [
+        "false_successes_zero=22",
+        "resurrection_zero=182",
+        "restore_recovery_zero=10",
+        "success_drop=0.0"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-0ceb296117df2176-resurrect_on_replay.jsonl",
+      "ledger_sha256": "36c064108cf364b51f5b391b8a908927d5b3497aac61592b16552e6c5e5557e9",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 10,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 22
+      }
+    },
+    {
+      "mutation": "restore_without_filter",
+      "expected_gate": "restore_resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.4545,
+      "gates_failed": [
+        "false_successes_zero=12",
+        "resurrection_zero=57",
+        "restore_resurrection_zero=14",
+        "restore_residue_zero=28",
+        "restore_recovery_zero=10",
+        "success_drop=0.4545"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-9c8f9e313961b5ea-restore_without_filter.jsonl",
+      "ledger_sha256": "717032b4321f3b39aa878fe6a90d6f1c67c9e28e6eaeb32f1dea6a386f1bd1e4",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 10,
+        "restore_dropped": 0,
+        "restore_residue": 28,
+        "restore_resurrections": 14,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 12
+      }
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "expected_gate": "restore_survivor_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.4545,
+      "gates_failed": [
+        "false_successes_zero=12",
+        "overdeletion_zero=12",
+        "restore_survivor_zero=9",
+        "restore_recovery_zero=21",
+        "success_drop=0.4545"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-f01847c59e476878-restore_drops_unrelated.jsonl",
+      "ledger_sha256": "48be7516ab91dab1e7304f45ff8bd7ef80f30bb572e9fda710c61d7353b5c9ba",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 21,
+        "restore_dropped": 9,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 12
+      }
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "expected_gate": "restore_residue_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.4545,
+      "gates_failed": [
+        "false_successes_zero=12",
+        "resurrection_zero=57",
+        "restore_residue_zero=28",
+        "restore_recovery_zero=10",
+        "success_drop=0.4545"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-e30f4d8080c412e6-restore_skips_tombstones.jsonl",
+      "ledger_sha256": "81af1d29eba5840618ca1204d089eb8243fb43fba6bab064bc8fc567da4e5a19",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 10,
+        "restore_dropped": 0,
+        "restore_residue": 28,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 12
+      }
+    },
+    {
+      "mutation": "retry_from_scratch",
+      "expected_gate": "restore_idempotency_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.6364,
+      "gates_failed": [
+        "false_successes_zero=8",
+        "restore_idempotency_zero=29",
+        "success_drop=0.6364"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-2fabc24ad28e9b11-retry_from_scratch.jsonl",
+      "ledger_sha256": "752238e861ba0a991a1cb5280edda2a25389a2381b224f03c2c966339aaea1e4",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 29,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 8
+      }
+    },
+    {
+      "mutation": "retry_without_filter",
+      "expected_gate": "restore_resurrection_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8182,
+      "gates_failed": [
+        "false_successes_zero=4",
+        "resurrection_zero=21",
+        "restore_resurrection_zero=5",
+        "restore_residue_zero=10",
+        "restore_recovery_zero=5",
+        "success_drop=0.8182"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-41995cbedd440d61-retry_without_filter.jsonl",
+      "ledger_sha256": "a19343bb42deb8a3376efc85437d52314b0bd1f8621cfcc0fa0df9a306eddaaf",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 5,
+        "restore_dropped": 0,
+        "restore_residue": 10,
+        "restore_resurrections": 5,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 4
+      }
+    },
+    {
+      "mutation": "abandon_partial_restore",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.6364,
+      "gates_failed": [
+        "false_successes_zero=8",
+        "overdeletion_zero=5",
+        "restore_recovery_zero=10",
+        "restore_attempt_count_zero=8",
+        "success_drop=0.6364"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-2d4ff22a171ca258-abandon_partial_restore.jsonl",
+      "ledger_sha256": "4ffcb0909d8bfbc352901267211e8759d4a67b52c23cc0523f2567697aabd1c3",
+      "counts": {
+        "restore_attempts": 12,
+        "restore_attempt_mismatch": 8,
+        "restore_unrecovered": 10,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 8
+      }
+    },
+    {
+      "mutation": "ignore_injected_stop",
+      "expected_gate": "restore_attempt_count_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8182,
+      "gates_failed": [
+        "false_successes_zero=4",
+        "restore_attempt_count_zero=4",
+        "success_drop=0.8182"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-7dbe14a5f7134b45-ignore_injected_stop.jsonl",
+      "ledger_sha256": "68621188db8861420ab36cd109726ef75b88c2371f6d41370a67ac495fe6eb1a",
+      "counts": {
+        "restore_attempts": 16,
+        "restore_attempt_mismatch": 4,
+        "restore_unrecovered": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 4
+      }
+    },
+    {
+      "mutation": "accept_corrupt_backup",
+      "expected_gate": "restore_corruption_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8636,
+      "gates_failed": [
+        "false_successes_zero=3",
+        "restore_recovery_zero=1",
+        "restore_attempt_count_zero=2",
+        "restore_corruption_zero=6",
+        "success_drop=0.8636"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-6fde680583b1ed29-accept_corrupt_backup.jsonl",
+      "ledger_sha256": "82e1f0b4d2e9411c7dd0f50c07cf189214b13308abeba9fed2ffae19d67e769d",
+      "counts": {
+        "restore_attempts": 23,
+        "restore_attempt_mismatch": 2,
+        "restore_unrecovered": 1,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 6,
+        "restore_rejected": 0,
+        "restore_repaired": 0,
+        "false_successes": 3
+      }
+    },
+    {
+      "mutation": "recover_loses_unrelated",
+      "expected_gate": "restore_survivor_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.9545,
+      "gates_failed": [
+        "false_successes_zero=1",
+        "overdeletion_zero=1",
+        "restore_survivor_zero=1",
+        "restore_recovery_zero=2",
+        "success_drop=0.9545"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-f7f372e6982c0096-recover_loses_unrelated.jsonl",
+      "ledger_sha256": "d0ca1f6091753b7b66464a1e9cdd36fbdf7e707b953ad25c8730c448a8cdb21d",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 2,
+        "restore_dropped": 1,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 1
+      }
+    },
+    {
+      "mutation": "falsely_claim_restore_complete",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.8182,
+      "gates_failed": [
+        "false_successes_zero=4",
+        "overdeletion_zero=3",
+        "restore_recovery_zero=6",
+        "restore_attempt_count_zero=4",
+        "success_drop=0.8182"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-243bb454222822e7-falsely_claim_restore_complete.jsonl",
+      "ledger_sha256": "af20d1ad5330e364fe084607cbe4491fdab9d26a5bbde65b0cf7a8e1afa12141",
+      "counts": {
+        "restore_attempts": 16,
+        "restore_attempt_mismatch": 4,
+        "restore_unrecovered": 6,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 0,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 4
+      }
+    },
+    {
+      "mutation": "recover_without_repair",
+      "expected_gate": "restore_recovery_zero",
+      "detected": true,
+      "expected_gate_failed": true,
+      "clean_success_rate": 1.0,
+      "mutant_success_rate": 0.9545,
+      "gates_failed": [
+        "false_successes_zero=1",
+        "restore_recovery_zero=1",
+        "restore_corruption_zero=1",
+        "success_drop=0.9545"
+      ],
+      "ledger": "eval/results/2026-11-01-B4D-c49b9229386456d6-recover_without_repair.jsonl",
+      "ledger_sha256": "ef8a5fe9b9ec1e0d05b44eccf354d34d4fea80b58ec991438236258f21915402",
+      "counts": {
+        "restore_attempts": 21,
+        "restore_attempt_mismatch": 0,
+        "restore_unrecovered": 1,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_duplicate_effects": 0,
+        "restore_corrupt_accepted": 1,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "false_successes": 1
+      }
+    }
+  ],
+  "x10_report": "eval/results/x10-report-m5-b4d-faults.json",
+  "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DFaultInjectionTests, ::B4DCorruptBackupTests",
+  "harness_tests": "python3 -m unittest discover -s eval/tests -t . -> 321 tests OK; python3 -m eval.harness selftest -> 17/17 checks passed",
+  "solver_note": "Every run uses the deterministic hand-written 'stub' reference profile. No model, provider, parameter count, hardware or network call is involved. The evaluator now chooses where a restore attempt stops and which backups are damaged; the reference program is told nothing about either, and detects damage only by recomputing the declared digest.",
+  "what_this_shows": [
+    "the evaluator, not the fixture, chooses where a restore stops: four scenarios are interrupted at a point derived from the task id, a salt and the attempt number, and the reference program passes them only by retrying to completion",
+    "the gold state does not depend on that choice: for every legal candidate in every injected scenario the expected attempt count, the per-attempt completeness flags and the final recovered state are identical, and the test suite runs the solver against every candidate, not only the chosen one",
+    "the solver cannot read the answer: the task it receives carries no salt, no chosen stop and no gold state, and the corruption recipe is stripped while the damaged contents are kept",
+    "an interruption is not a failure: the reference program reports the attempt incomplete, retries on the same day and passes; ignoring the injected stop fails restore_attempt_count_zero while nothing is missing and nothing is duplicated",
+    "a falsely claimed completion fails restore_recovery_zero with records the backup holds still absent, and detecting damage without repairing it fails restore_recovery_zero while its attempt count is exactly right, so the two counters are separable in both directions",
+    "a damaged backup is scored on its own axis: a missing entry is repaired and restored, an altered record identifier and invalid metadata are refused before any write, and restoring the damaged copy, misclassifying it, misreporting the handling or presenting it as an ordinary incomplete restore is counted as accepted corruption by restore_corruption_zero",
+    "losing an unrelated record while repairing damage is caught by restore_survivor_zero, not by the corruption gate, so recovery damage stays separable from corruption handling",
+    "the fixture loader refuses a fault schedule with no salt, an unsorted, repeated or out-of-range candidate, a stop that leaves nothing undone, more than two stops, no retry path, an attempt count the schedule does not produce, a fixture that also declares the stop points, a gold outcome that depends on the chosen point, a schedule combined with a damaged backup, a backup with no digest or a digest that does not match its contents, an unknown corruption class, a recipe that changes nothing or classifies as another class, a refused class with a recovered outcome, a repairable class with a refused one, backup metadata that invents a field or omits a held record, and a refused restore that still lists records or attempts"
+  ],
+  "what_this_does_not_show": [
+    "that J.A.R.V.I.S. can resume a real restore after a crash: the evaluator chooses where the attempt stops, but the stop is a clean abort between records, not a failure mid-write, mid-fsync or mid-transaction",
+    "anything about real media damage: the three corruption classes are synthetic edits under a sha256 digest over a JSON document; bit rot, truncated backups, wrong-key decryption, silently partial backups and any real checksum or key-management path are untested",
+    "restore ordering across several days, concurrent restores, restore of a runtime-chosen subset, or a failure after the last allowed attempt",
+    "retention policy, legal hold, off-site replication or any real deletion obligation",
+    "statistical confidence of any kind: 22 tasks, 66 drill executions, 154 replay-day evaluations, 14 restores, 21 restore attempts (5 evaluator-chosen stops), 3 damaged backups, 6 pre-restore losses and 38 recovery probes are deterministic re-executions on a fixed schedule, not independent samples; no confidence interval may be computed from them",
+    "which people-database fields may exist at all (Q18 stays open; fixtures are fictional) and any restore or retention policy on the owner's behalf: no policy is chosen or recommended here"
+  ],
+  "correlated_failures": [
+    "ignore_injected_stop fails restore_attempt_count_zero on its own: restore_unrecovered and restore_duplicate_effects stay at zero, which is what makes it the clean demonstration that the attempt count and recovery are separate counters",
+    "falsely_claim_restore_complete fails restore_recovery_zero and also restore_attempt_count_zero, because a restore that never retries also reports the schedule wrongly",
+    "recover_without_repair fails restore_recovery_zero and also restore_corruption_zero (the repair it claims never happened), while its attempt count is right",
+    "accept_corrupt_backup fails restore_corruption_zero and also the attempt-count and recovery gates on the tasks it then restores, so the report lists every gate it trips rather than only the declared one",
+    "recover_loses_unrelated fails restore_survivor_zero and overdeletion_zero, because dropping a surviving record during a repair is over-deletion",
+    "restore_recovery_zero co-fires on the deletion regressions: a deleted record still resolvable in the final store fails the absent recovery probe, since final-state recovery is judged in both directions"
+  ],
+  "remaining_gaps": [
+    "no real store, real backup medium, model, server or network call",
+    "the interruption is an abort between records chosen by the evaluator; crash-resume, partial writes and transactional rollback are untested",
+    "three synthetic corruption classes only, under one digest algorithm; no bit rot, truncation, key management or silently partial backup",
+    "no multi-day restore ordering, no concurrent restores, no runtime-chosen restore subset",
+    "restore latency, throughput and failure-recovery cost are not measured",
+    "C-02-AC3 stays slice_built: this is an evaluator slice, not a validated capability"
+  ],
+  "reproduce": [
+    "python3 -m unittest discover -s eval/tests -t .",
+    "python3 -m eval.harness selftest",
+    "python3 -m eval.harness run --block B4D",
+    "python3 -m eval.harness x10 --block B4D --report eval/results/x10-report-m5-b4d-faults.json",
+    "python3 -m eval.harness baseline-freeze --block B4D --partial --name baseline-m5-b4d-faults.json --note '22-task B4D suite (2026-Q4.1-m5.5)'"
+  ]
+}

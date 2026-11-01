@@ -1,0 +1,141 @@
+{
+  "baseline_id": "288b7cc924af69c4",
+  "blocks": {
+    "B4D": {
+      "config_hash": "6bfcf72e7f46e9f2cbdcc1ca42553bf6ca5756ca68d7d840006050b5427cc3cf",
+      "repeats": 1,
+      "run_id": "7511a035a7a96ee2",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 22,
+        "by_subfamily": {},
+        "cause_accuracy": null,
+        "cause_correct": 0,
+        "cause_required": 0,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.08,
+        "misattributed": 0,
+        "overdeleted": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "post_delete_hits": 0,
+        "replay_complete": 22,
+        "replay_completeness": 1.0,
+        "replay_tasks": 22,
+        "residual_copies": 0,
+        "restore_attempt_mismatch": 0,
+        "restore_attempts": 21,
+        "restore_corrupt_accepted": 0,
+        "restore_corrupt_backups": 3,
+        "restore_dropped": 0,
+        "restore_duplicate_effects": 0,
+        "restore_events": 14,
+        "restore_injected_stops": 5,
+        "restore_rejected": 2,
+        "restore_repaired": 1,
+        "restore_residue": 0,
+        "restore_resurrections": 0,
+        "restore_unrecovered": 0,
+        "resurrections": 0,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 0,
+        "stale_handling_rate": null,
+        "stale_required": 0,
+        "success_rate": 1.0,
+        "successes": 22,
+        "supported_citations": 0,
+        "tasks": 22,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "unlabelled_stale": 0,
+        "unreported_states": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b4d-001": [
+          "8f46f80f0894c6edef17d6cf205c78233b4d1bc443ce5b7f588b72011b8571d0"
+        ],
+        "b4d-002": [
+          "8bb75eeb743fa9c7efcc06716c77f83dd1b76defc59cb4bb61f6c1e036916122"
+        ],
+        "b4d-003": [
+          "e945a7fce2111360feb38cab9fb0654a5774005f1d531553e0e4acde11e7e8f9"
+        ],
+        "b4d-004": [
+          "244d6e75732f152431546cbf4bc8e7a44f6a92516d903463726001598e803b62"
+        ],
+        "b4d-005": [
+          "63470b2325d16d30387bbf78c1703d09bcf93095945ae407636f21fa7406d070"
+        ],
+        "b4d-006": [
+          "318637b79c408784fc55401ad5d4becfd1f80b6a46b8fbc898111752e4ca2277"
+        ],
+        "b4d-007": [
+          "dfa6cb06d6b470f1a7cab4e62cab87587baaba48635dc8bbb62ecb3a9d039000"
+        ],
+        "b4d-008": [
+          "928ede8c76bb42d27ff46acf7de1b3c9a2337b7c52a1ad90173749f813c63fff"
+        ],
+        "b4d-009": [
+          "a0997b72cd235131743931b172d64c32c18647020095a1cb18df7bffae3230eb"
+        ],
+        "b4d-010": [
+          "267f8ef003991ac3d24d96fbe1c848bb67486147e0f9d689302a28831d90238d"
+        ],
+        "b4d-011": [
+          "40ed598323a8d62a8bd67f40ba30ed2df09b59541d28430b996ee43300f688be"
+        ],
+        "b4d-012": [
+          "5cf8ca9de05efb451a95a35f0db1adfbb062c6e87f86e0049948ff9a9b2c625b"
+        ],
+        "b4d-013": [
+          "f5bfdff856f22060e0080aaaf187db1d44f206deee222238db181d630923246b"
+        ],
+        "b4d-014": [
+          "b9913222b5ee2f6dea11e1aa0012336e2426d58fa8219eab4d4bf783e652416b"
+        ],
+        "b4d-015": [
+          "1b2b3d9b82e1570591ed8ba87e5b52c21e38d528cbf821092c83107253684b4d"
+        ],
+        "b4d-016": [
+          "b3d94f57b926f6dd8d44f073f995a0e4dfa3883c7b897d3b9131071974c27d6f"
+        ],
+        "b4d-017": [
+          "feec062bc60a731e2acfe2ea0de3dd43b8f1a0fc84b60a5938b84b55ef2ae7e6"
+        ],
+        "b4d-018": [
+          "fb38cf45c15e1950391393204605bedf7b95066b72a240ab1673a9eb29aa63f5"
+        ],
+        "b4d-019": [
+          "d7ea87395a4558cc7e653f985356ded0c8c51ca61e102a8355d6a35c4cfe25fd"
+        ],
+        "b4d-020": [
+          "7e4096a83770aae6edb414d8c8746a59c56464b301e57e1dbf292c657a3ec22c"
+        ],
+        "b4d-021": [
+          "bad596b6f4f1ca055c948842373299df9f0315743d9480355b4d39ab57b1b34d"
+        ],
+        "b4d-022": [
+          "a4d95bb324a86f27834181fd12c4220daff5a3d5f926ba0da7fb13291651424e"
+        ]
+      },
+      "taskset_sha": "6b5722d179faa19f1e0f3a0e3a38aafe18e4568094e0ff02b525d60d5eee8280",
+      "taskset_version": "2026-Q4.1-m5.5"
+    }
+  },
+  "created_at": "2026-11-01T13:40:48+00:00",
+  "git_dirty": false,
+  "git_sha": "a748f3beff2f",
+  "harness_version": "0.1.0",
+  "note": "22-task B4D suite (2026-Q4.1-m5.5): evaluator-chosen restore interruptions and damaged backups; frozen at code commit a748f3b"
+}
