@@ -72,6 +72,19 @@ not precede it.
 2. Confirm or amend the provisional latency/cost envelopes in [Phase 1 §6](01-jarvis-workload-and-requirements.md#6-latency-and-cost-envelopes).
 3. Approve or reject the proposed architecture and its alternatives in [Phase 10 §2–§3](10-proposed-architecture-and-experiments.md#2-proposed-modular-architecture).
 
+## Execution notes (Stage 0 — harness and baseline)
+
+Research documents stay frozen; implementation milestones are recorded as dated notes below.
+
+| Note | Milestone | Status | Published |
+|---|---|---|---|
+| [Stage 0 plan](stage-0-plan.md) | M0 — scope, files, blocking questions, fixture policy | published | 2026-11-01 |
+| [Stage 0 M1](stage-0-m1-harness-core.md) | M1 — harness core (schema, runner, scorers, ledger, gates) | planned | — |
+| [Stage 0 M2](stage-0-m2-frozen-baseline.md) | M2 — frozen baseline and reproducibility | planned | — |
+| [Stage 0 M3](stage-0-m3-planted-regression.md) | M3 — X-10 planted regression and Stage 0 summary | planned | — |
+
+Harness code lives in `eval/` and is not imported by any application code.
+
 ## Document status detail
 
 | Document | Version | Open review items |
