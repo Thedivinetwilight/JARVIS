@@ -1,0 +1,187 @@
+{
+  "baseline_id": "ade894af6b158805",
+  "blocks": {
+    "B1": {
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "repeats": 1,
+      "run_id": "d157c95b15ba6c3d",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 2,
+        "approval_violations": 0,
+        "attempts": 8,
+        "citations": 6,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": 1.0,
+        "median_latency_ms": 0.148,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "success_rate": 1.0,
+        "successes": 8,
+        "supported_citations": 6,
+        "tasks": 8,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b1-001": [
+          "ba8ec70e611323ae493d3b35accda6971fbc3df25f1ec9e331d7554c397c2886"
+        ],
+        "b1-002": [
+          "695a4720ed2ed655c4d3044fb4c20e6c0d8fa073a309a7dd39c432dbf01bf235"
+        ],
+        "b1-003": [
+          "947f19ed68bf635287de3791dce0f5896235944ee977f8fa96f301464ce5fcac"
+        ],
+        "b1-004": [
+          "44a33df778c10597736b5c78f1cedfaff648fe8392d73bc67c56d14478419717"
+        ],
+        "b1-005": [
+          "a22bfa2abe1b31d1bd00f36d51a6ff4bbf0be2c902ff33c2353dbc16c84d39c1"
+        ],
+        "b1-006": [
+          "bcb85004d86144f46a2b6707756e91adccfc8ec41a09eac0f39c599aee708308"
+        ],
+        "b1-007": [
+          "cc18aa574c227bf52849cc1f1b43a3c581a5373bde5599a11b76e0e7f022adf8"
+        ],
+        "b1-008": [
+          "c9ff287fef690fc5f9f837b710c52709a3762ea98d8bacd88483f675626ca156"
+        ]
+      },
+      "taskset_sha": "e10f2476c1fcfaca3fbdec95e817ea2b7d596ded2375d515154dcf6590550562",
+      "taskset_version": "2026-Q4.1"
+    },
+    "B2": {
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "repeats": 4,
+      "run_id": "95851d67af0a53c7",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 28,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.021,
+        "pass_hat_k": 1.0,
+        "pass_k": 4,
+        "success_rate": 1.0,
+        "successes": 28,
+        "supported_citations": 0,
+        "tasks": 7,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b2-001": [
+          "0382a0d815f45fd8d2a9f7764a95ea9f7e287d541245081c480e9cd3b9fa9442",
+          "42ddd05bbf3980daf8856089653c75e2a87828ddf491ef0c6d55bd558e1bdcb2",
+          "bfade01444210a39032f5b07727de8b1679e4bd20252fefe34bca59af721950e",
+          "f3aec80c31dab0cb1eb166959035f8e34cd3f877695e87ed47d846c25323f747"
+        ],
+        "b2-002": [
+          "258a81108e47cd8c257503c7bb20d84df35e4fd5b445e3f28b6acc557a322d86",
+          "274e8cb5c177287023895201e627dbb7a6a5091629364bb7ed4ab5201e33375e",
+          "75e1c5aa3ec5dc7fffd663a1b4b686666dd9425764a185190395dc274674649c",
+          "e34e23546dd58b23feeef3f526767201a1e00a7d9c5810bcf150aada89bbfa95"
+        ],
+        "b2-003": [
+          "5068ff172db4f15d2f3f12b5746d1d951456e0e5804e610fd0f24b19ccd9ff5e",
+          "5da4f1327c700a312caf27fc89c45728b8b46808b38e195ce40312de686fcc39",
+          "9f5883557796f9bc1ba2c05c73e11c90fdc7396a06e4f15abf19aacb93777897",
+          "d0282119e832ad1676a7bccb8c064775fc14d2589426086bb46acc34626d84f0"
+        ],
+        "b2-004": [
+          "3a878d0bf8137af2d101f90b77c52ae2cf25fd364aef2cd7f6164b8802b5101a",
+          "3e941bf628f0041478bfaef63f9b800973585dbf31bd1871a3ced2562cc381b0",
+          "7e153aa9f061241c58297c6cf175317776e9cd3e711a0409748ad0097365b4ac",
+          "c88b79bf60929875c31edfe9b51540309ec980c21afb3e04d41594b356fd13f0"
+        ],
+        "b2-005": [
+          "09a44059a5b3cb40d9d0d37774ee197c1c9cd69d2d0ffd6e3ad8d2ac531fcb33",
+          "46838e2bb610e83c0138bccb679f3f40d0b43679e328c2783af0b52474de19b6",
+          "7cc1ae5f4abb67ce7b1c593abfe453ac93ee7879ca8833b1b608dadbddd93307",
+          "c59078ff51e8af0d9e6fc14a5b606f997abe2a3c5fd18ee6a9d6bf41dfce8ff5"
+        ],
+        "b2-006": [
+          "261cbf14abc43b055f57b14f2dcdcaf8729bd165917e10f8b639861a473d9a88",
+          "638bbbbab9f44cb4b8f66422be9018ac87258825072b8f638ac3510fac945150",
+          "ebfec07be5dab097339d7311fb23cc37b0256bef08e001b27260daef6011337b",
+          "fa048d278e5df876334f0437bc470d609390b93e249ebec4eb9081488e77a023"
+        ],
+        "b2-007": [
+          "9a526492686685ac1c954f4a860af1d5b81f184f31f841dd12a4e63faa89de3b",
+          "a8d4dc3af9a8db8a91020d52d2e654a558b9b101c35f306e8b0ad58b6cecf6af",
+          "b8ddd45b37717a342343df825bb566f0e37b65ed59d52cccbe0103747d0aac10",
+          "f90f0141dfb54f0e8d764f9a4d1389343b4cd7e1ed3d051fcc6e7d0663b92d1a"
+        ]
+      },
+      "taskset_sha": "42663f224f72e2711e43ce740830604051187b9e346bc73d1f2ecb3a356b13a0",
+      "taskset_version": "2026-Q4.1"
+    },
+    "B3": {
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "repeats": 1,
+      "run_id": "a134e5d7f9f7fec6",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 7,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.036,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "success_rate": 1.0,
+        "successes": 7,
+        "supported_citations": 0,
+        "tasks": 7,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b3-001": [
+          "fa44ad0eee5ff9a2f161c2733bab33d2bd5dac1cc958c5ba294acb9c4c9e74c2"
+        ],
+        "b3-002": [
+          "fb83a26a0f73fa6635132896fa2a2fa527fdfd151e264a3b5542c82337328508"
+        ],
+        "b3-003": [
+          "8155bea56a476fa51b34eb97f38ed8fcaac3828abdd9f8dbf2c246a78da3ecf2"
+        ],
+        "b3-004": [
+          "aa0d9e6891f831be7c03c41e2f857b6c859b14e5673ff4ff063494bd89fb2218"
+        ],
+        "b3-005": [
+          "c10141b4598528848234204886f2c82239dd9b2b753b34d81085b5dde9f87c8e"
+        ],
+        "b3-006": [
+          "a00debcd137b5d0148d6a9632b55f81bf7aa9b2a9ca89b96591c5018c6b869ed"
+        ],
+        "b3-007": [
+          "0cbfa9a3e9c2cb93922c923024a952780b0d4bf2a167bab099b46f79d5332b6a"
+        ]
+      },
+      "taskset_sha": "e0a7f82f9aac30f3caadc7dbf47d9555bc8f9deca4bc975a643c7697fc02602c",
+      "taskset_version": "2026-Q4.1"
+    }
+  },
+  "created_at": "2026-11-01T11:56:55+00:00",
+  "git_dirty": false,
+  "git_sha": "2f2b41bc556f",
+  "harness_version": "0.1.0",
+  "note": "Stage 0 reference baseline (synthetic fixtures, keyword stub solver, no model calls)"
+}

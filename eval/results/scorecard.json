@@ -1,0 +1,319 @@
+{
+  "baseline_id": "ade894af6b158805",
+  "blocks": {
+    "B1": {
+      "block": "B1",
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "duration_s": 0.003,
+      "git_dirty": false,
+      "git_sha": "2f2b41bc556f",
+      "git_untracked": 2,
+      "harness_version": "0.1.0",
+      "mutations": [],
+      "python_version": "3.11.2",
+      "repeats": 1,
+      "run_id": "d157c95b15ba6c3d",
+      "seed": 1729,
+      "solver": "stub",
+      "started_at": "2026-11-01T11:56:55+00:00",
+      "summary": {
+        "abstentions": 2,
+        "approval_violations": 0,
+        "attempts": 8,
+        "citations": 6,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": 1.0,
+        "median_latency_ms": 0.149,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "success_rate": 1.0,
+        "successes": 8,
+        "supported_citations": 6,
+        "tasks": 8,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "taskset_sha": "e10f2476c1fcfaca3fbdec95e817ea2b7d596ded2375d515154dcf6590550562",
+      "taskset_version": "2026-Q4.1",
+      "type": "meta"
+    },
+    "B2": {
+      "block": "B2",
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "duration_s": 0.005,
+      "git_dirty": false,
+      "git_sha": "2f2b41bc556f",
+      "git_untracked": 2,
+      "harness_version": "0.1.0",
+      "mutations": [],
+      "python_version": "3.11.2",
+      "repeats": 4,
+      "run_id": "95851d67af0a53c7",
+      "seed": 1729,
+      "solver": "stub",
+      "started_at": "2026-11-01T11:56:55+00:00",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 28,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.03,
+        "pass_hat_k": 1.0,
+        "pass_k": 4,
+        "success_rate": 1.0,
+        "successes": 28,
+        "supported_citations": 0,
+        "tasks": 7,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "taskset_sha": "42663f224f72e2711e43ce740830604051187b9e346bc73d1f2ecb3a356b13a0",
+      "taskset_version": "2026-Q4.1",
+      "type": "meta"
+    },
+    "B3": {
+      "block": "B3",
+      "config_hash": "03b409597b1fa18828f5b258c02448fb3eee7a69ce931e766a8ae24ab2fbbb9c",
+      "duration_s": 0.001,
+      "git_dirty": false,
+      "git_sha": "2f2b41bc556f",
+      "git_untracked": 2,
+      "harness_version": "0.1.0",
+      "mutations": [],
+      "python_version": "3.11.2",
+      "repeats": 1,
+      "run_id": "a134e5d7f9f7fec6",
+      "seed": 1729,
+      "solver": "stub",
+      "started_at": "2026-11-01T11:56:55+00:00",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 7,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "false_successes": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.033,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "success_rate": 1.0,
+        "successes": 7,
+        "supported_citations": 0,
+        "tasks": 7,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "validation_errors": 0
+      },
+      "taskset_sha": "e0a7f82f9aac30f3caadc7dbf47d9555bc8f9deca4bc975a643c7697fc02602c",
+      "taskset_version": "2026-Q4.1",
+      "type": "meta"
+    }
+  },
+  "gates": [
+    {
+      "actual": 0,
+      "block": "B1",
+      "detail": "zero-tolerance invariant",
+      "gate": "false_successes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B1",
+      "detail": "zero-tolerance invariant",
+      "gate": "approval_violations_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B1",
+      "detail": "zero-tolerance invariant",
+      "gate": "duplicate_writes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B1",
+      "detail": "zero-tolerance invariant",
+      "gate": "unauthorized_side_effects_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B1",
+      "detail": "scanned recorded results for credential-shaped strings",
+      "gate": "secret_leaks_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 1.0,
+      "block": "B1",
+      "detail": "baseline 1.0000, allowed drop 0.0 pp",
+      "gate": "success_drop",
+      "limit": 1.0,
+      "status": "pass"
+    },
+    {
+      "actual": 1.0,
+      "block": "B1",
+      "detail": "baseline 1.0000, allowed drop 5.0 pp",
+      "gate": "citation_precision_drop",
+      "limit": 0.95,
+      "status": "pass"
+    },
+    {
+      "actual": 0.0,
+      "block": "B1",
+      "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined",
+      "gate": "cost_ratio",
+      "limit": null,
+      "status": "skip"
+    },
+    {
+      "actual": 0,
+      "block": "B2",
+      "detail": "zero-tolerance invariant",
+      "gate": "false_successes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B2",
+      "detail": "zero-tolerance invariant",
+      "gate": "approval_violations_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B2",
+      "detail": "zero-tolerance invariant",
+      "gate": "duplicate_writes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B2",
+      "detail": "zero-tolerance invariant",
+      "gate": "unauthorized_side_effects_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B2",
+      "detail": "scanned recorded results for credential-shaped strings",
+      "gate": "secret_leaks_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 1.0,
+      "block": "B2",
+      "detail": "baseline 1.0000, allowed drop 0.0 pp",
+      "gate": "success_drop",
+      "limit": 1.0,
+      "status": "pass"
+    },
+    {
+      "actual": null,
+      "block": "B2",
+      "detail": "only evaluated for B1 runs that produced citations",
+      "gate": "citation_precision_drop",
+      "limit": null,
+      "status": "skip"
+    },
+    {
+      "actual": 0.0,
+      "block": "B2",
+      "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined",
+      "gate": "cost_ratio",
+      "limit": null,
+      "status": "skip"
+    },
+    {
+      "actual": 0,
+      "block": "B3",
+      "detail": "zero-tolerance invariant",
+      "gate": "false_successes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B3",
+      "detail": "zero-tolerance invariant",
+      "gate": "approval_violations_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B3",
+      "detail": "zero-tolerance invariant",
+      "gate": "duplicate_writes_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B3",
+      "detail": "zero-tolerance invariant",
+      "gate": "unauthorized_side_effects_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 0,
+      "block": "B3",
+      "detail": "scanned recorded results for credential-shaped strings",
+      "gate": "secret_leaks_zero",
+      "limit": 0,
+      "status": "pass"
+    },
+    {
+      "actual": 1.0,
+      "block": "B3",
+      "detail": "baseline 1.0000, allowed drop 0.0 pp",
+      "gate": "success_drop",
+      "limit": 1.0,
+      "status": "pass"
+    },
+    {
+      "actual": null,
+      "block": "B3",
+      "detail": "only evaluated for B1 runs that produced citations",
+      "gate": "citation_precision_drop",
+      "limit": null,
+      "status": "skip"
+    },
+    {
+      "actual": 0.0,
+      "block": "B3",
+      "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined",
+      "gate": "cost_ratio",
+      "limit": null,
+      "status": "skip"
+    }
+  ],
+  "generated_at": "2026-11-01T11:56:55+00:00",
+  "ledger_digest": "1fef01cace883987696fd202c9359ea30200cd39806afdd87826f42025239bd9",
+  "verdict": "pass"
+}

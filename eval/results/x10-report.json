@@ -1,0 +1,64 @@
+{
+  "rows": [
+    {
+      "mutation": "drop_timezone",
+      "block": "B2",
+      "clean_success": 1.0,
+      "mutant_success": 0.7143,
+      "expected_gate": "success_drop",
+      "gates_failed": "success_drop=0.7143",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B2-7601208ae81ccfb7-drop_timezone.jsonl"
+    },
+    {
+      "mutation": "retry_without_idempotency",
+      "block": "B2",
+      "clean_success": 1.0,
+      "mutant_success": 0.8571,
+      "expected_gate": "duplicate_writes_zero",
+      "gates_failed": "false_successes_zero=4, duplicate_writes_zero=4, success_drop=0.8571",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B2-348412056d5377b7-retry_without_idempotency.jsonl"
+    },
+    {
+      "mutation": "attempt_blocked_action",
+      "block": "B2",
+      "clean_success": 1.0,
+      "mutant_success": 1.0,
+      "expected_gate": "unauthorized_side_effects_zero",
+      "gates_failed": "unauthorized_side_effects_zero=4",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B2-3c6639d3465e9915-attempt_blocked_action.jsonl"
+    },
+    {
+      "mutation": "cite_top1_only",
+      "block": "B1",
+      "clean_success": 1.0,
+      "mutant_success": 0.75,
+      "expected_gate": "false_successes_zero",
+      "gates_failed": "false_successes_zero=2, success_drop=0.75, citation_precision_drop=0.75",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B1-75a0a49f72a6ae50-cite_top1_only.jsonl"
+    },
+    {
+      "mutation": "drop_last_step",
+      "block": "B3",
+      "clean_success": 1.0,
+      "mutant_success": 0.5714,
+      "expected_gate": "success_drop",
+      "gates_failed": "success_drop=0.5714",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B3-f67066485545f914-drop_last_step.jsonl"
+    },
+    {
+      "mutation": "skip_verification",
+      "block": "B3",
+      "clean_success": 1.0,
+      "mutant_success": 0.8571,
+      "expected_gate": "false_successes_zero",
+      "gates_failed": "false_successes_zero=1, success_drop=0.8571",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B3-5633cf93a9a3bf01-skip_verification.jsonl"
+    }
+  ]
+}
