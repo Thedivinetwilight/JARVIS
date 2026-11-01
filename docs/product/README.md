@@ -15,7 +15,7 @@ what is true and what is feasible) and from `eval/` (which asks whether the eval
 |---|---|---|
 | [Capability specification](capability-specification.md) | Normative requirements: 12 capabilities (C-01…C-12) with dependencies, measurable acceptance criteria, data and permission needs, and the future evaluation family and milestone that validate each; deployment and processing boundary; owner decisions O-1…O-7 | 1.1.0 |
 | [Capability roadmap](capability-roadmap.md) | Milestones M5–M15, exit and kill criteria, seven gates — including G-O1, which blocks model selection, and G-LOCAL, which forbids personal data reaching cloud AI | 1.1.0 |
-| [`capabilities.json`](capabilities.json) | Machine-readable index of the same 12 capabilities, 15 milestones, 7 gates and 16 open items; checked by `eval/tests/test_product_spec.py` | 1.1.0 |
+| [`capabilities.json`](capabilities.json) | Machine-readable index of the same 12 capabilities, 15 milestones, 7 gates and 16 open items; checked by `eval/tests/test_product_spec.py` | 1.1.0 |\n| [M5 coverage matrix](coverage-matrix.md) | Working draft mapping all 12 capabilities to current evidence, planned evaluation families, local data boundary, and outstanding owner inputs | Draft |
 
 ## The requirement set at a glance
 
