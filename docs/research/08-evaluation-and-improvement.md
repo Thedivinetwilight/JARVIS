@@ -6,6 +6,13 @@
 - **Related:** [Index](README.md) · [Phase 1 — metrics](01-jarvis-workload-and-requirements.md) §5 · [Phase 4 — reasoning/agents](04-reasoning-agents-and-orchestration.md) · Phase 7 (latency/cost), Phase 9 (security)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — status of this document.** Retained as published, and now **implemented** in
+> part: Stage 0 code in `eval/` realises §2–§9 (task sets, ledger, gates, scorecard, X-10) with recorded
+> evidence ([M1](stage-0-m1-harness-core.md), [M2](stage-0-m2-frozen-baseline.md),
+> [M3](stage-0-m3-planted-regression.md)). §10's definition of self-improvement is **retained and extended**
+> into five update classes (S-5) by [Phase 13](13-evolving-intelligence-update-pipeline.md); §5's baselines
+> gain per-family counterparts (S-6).
+
 ---
 
 ## 0. Purpose

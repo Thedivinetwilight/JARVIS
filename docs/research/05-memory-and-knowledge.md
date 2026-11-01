@@ -6,6 +6,11 @@
 - **Related:** [Index](README.md) · [Phase 1 — Workload](01-jarvis-workload-and-requirements.md) (T4) · [Phase 4 — Orchestration](04-reasoning-agents-and-orchestration.md) · Phase 9 (security)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — status of this document.** Retained as published. §10's memory design stands
+> and is **extended** with a fourth store — **procedural memory** (verified skills) — in
+> [Phase 12 §3](12-capability-integration-architecture.md) (S-8). Memory writes are now also the first class
+> of "evolving intelligence" ([Phase 13](13-evolving-intelligence-update-pipeline.md), U1).
+
 ---
 
 ## 0. The requirement, stated as a test

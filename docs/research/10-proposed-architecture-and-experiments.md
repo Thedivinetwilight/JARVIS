@@ -6,6 +6,14 @@
 - **Related:** synthesises [Phase 1](01-jarvis-workload-and-requirements.md) through [Phase 9](09-security-and-permissions.md)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — this document is partly superseded.** Retained as published for the record.
+> §2 (single coordinator pipeline) is **amended** into five layers plus a capability registry (S-1,
+> [Phase 12](12-capability-integration-architecture.md)); §9 (staged roadmap) is **superseded** by
+> [Phase 15 §2](15-revised-roadmap-supersession-and-next-step.md#2-revised-roadmap) (S-3); O1 (§5) is
+> **amended** — no model is chosen until the suite discriminates (S-4); D9 (harness stack) is **amended** to
+> reflect the Stage 0 stdlib core (S-14). §4's D1–D12, §8's experiments X-1–X-10 and §10's risk register
+> stand. Full list: [supersession register](15-revised-roadmap-supersession-and-next-step.md#1-supersession-register).
+
 ---
 
 ## 0. What this document is, and is not

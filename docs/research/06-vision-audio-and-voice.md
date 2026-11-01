@@ -6,6 +6,11 @@
 - **Related:** [Index](README.md) · [Phase 1 — Workload](01-jarvis-workload-and-requirements.md) (T5) · [Phase 2 — Models](02-model-landscape-and-selection.md) §4.10 · Phase 7 (inference/latency)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — status of this document.** Retained as published, including every latency and
+> quality finding. Only its **sequencing** changed: voice is no longer an early roadmap stage (S-15) — it is
+> an interface attached after capability families and skills are measured
+> ([Phase 15 §2](15-revised-roadmap-supersession-and-next-step.md#2-revised-roadmap)).
+
 ---
 
 ## 0. The requirement

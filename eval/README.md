@@ -6,6 +6,17 @@ mutation with read-back verification) reproducibly, records every attempt, compa
 runs against a frozen baseline, and demonstrates that a deliberately planted
 regression is caught (experiment **X-10**).
 
+## Where this sits (revision R1, 2026-11-01)
+
+Stage 0 is complete and its evidence is frozen (M1–M3 notes in `docs/research/`). Revision R1 changed the
+project direction to a brain-inspired, broadly capable, evolving system; it does **not** change this
+harness or any recorded result. Under the
+[revised roadmap](../docs/research/15-revised-roadmap-supersession-and-next-step.md#2-revised-roadmap)
+this harness is the evaluator for Stage 1 (capability families, registry, solver ladder), Stage 2 (skills)
+and Stage 4 (self-proposed updates). Its limits are listed in
+[Phase 15 §7](../docs/research/15-revised-roadmap-supersession-and-next-step.md#7-what-the-current-harness-cannot-measure)
+and should be read before quoting any number from `results/`.
+
 Design background: [`docs/research/08-evaluation-and-improvement.md`](../docs/research/08-evaluation-and-improvement.md),
 [`docs/research/10-proposed-architecture-and-experiments.md`](../docs/research/10-proposed-architecture-and-experiments.md),
 and the plan in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan.md).

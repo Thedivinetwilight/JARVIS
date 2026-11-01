@@ -6,6 +6,11 @@
 - **Related:** [Index](README.md) · [Phase 1 — Workload](01-jarvis-workload-and-requirements.md) · [Phase 2 — Models](02-model-landscape-and-selection.md) · Phase 8 (evaluation), Phase 9 (security)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — status of this document.** Retained as published. §9 (minimal architecture
+> v0) remains the **control plane** of the revised design (S-2, S-7); planning, coordination and routing are
+> now placed inside a five-layer architecture with a capability registry
+> ([Phase 12](12-capability-integration-architecture.md)). Coordination stays opt-in and measured (S-9).
+
 ---
 
 ## 0. The question this phase answers

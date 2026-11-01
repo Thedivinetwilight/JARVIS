@@ -6,6 +6,12 @@
 - **Related:** [Index](README.md) · [Phase 2 — Model landscape](02-model-landscape-and-selection.md) · Phase 7 (serving), Phase 8 (evaluation)
 - **Evidence labels:** **Established** · **Plausible** · **Unproven** · **`[V]` vendor** · **`[I]` independent** · **`[U]` unverified**
 
+> **Revision R1 (2026-11-01) — status of this document.** Retained as published. §2–§4 (architecture
+> families) are now framed by [Phase 11](11-brain-inspired-cognitive-architecture.md), which decides which
+> brain analogies enter the design; §8–§9 (adaptation, no foundation training) are **retained and
+> constrained** by [Phase 13 §1.1](13-evolving-intelligence-update-pipeline.md) (S-10). Nothing here is
+> withdrawn; see the [supersession register](15-revised-roadmap-supersession-and-next-step.md#1-supersession-register).
+
 ---
 
 ## 0. Purpose and the one distinction that matters
