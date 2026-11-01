@@ -1,8 +1,15 @@
 # `eval/registry/` — capability registry (evaluator-owned)
 
+> **This is a test-harness inventory, not product features.** No entry here is implemented in a product:
+> each one is an in-memory simulator the evaluator can call. The product requirements are C-01…C-10 in the
+> [capability specification](../../docs/product/capability-specification.md); a registry entry means "the
+> harness can simulate this capability for a fixture", and nothing more. See
+> [`docs/product/README.md`](../../docs/product/README.md) for the boundary between product, research and
+> evaluation.
+
 This directory is **owned by the evaluator, not by the system under test**. It is one of the first
 artefacts of Stage 1 of the
-[revised roadmap](../docs/research/15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry):
+[revised roadmap](../../docs/research/15-revised-roadmap-supersession-and-next-step.md#5-the-recommended-next-step-stage-1--discriminative-multi-family-evaluation--capability-registry):
 breadth becomes an inventory instead of a claim.
 
 ## What is here
