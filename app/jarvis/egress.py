@@ -74,9 +74,15 @@ class EgressEvent:
 
 
 class EgressGuard:
-    """Refuses outbound connections unless a declaration is active for that destination."""
+    """Refuses outbound connections unless a declaration is active for that destination.
 
-    def __init__(self) -> None:
+    ``allow_loopback`` exists for one caller: the benchmark harness, which runs an
+    operator-supplied adapter and must deny *every* socket attempt (a local daemon can be a
+    network hop too). The server always uses the default, where loopback is not egress.
+    """
+
+    def __init__(self, *, allow_loopback: bool = True) -> None:
+        self.allow_loopback = allow_loopback
         self._local = threading.local()
         self._lock = threading.Lock()
         self._installed = False
@@ -108,7 +114,7 @@ class EgressGuard:
 
     def allows(self, host: str, port: int) -> tuple[bool, str | None, str]:
         host = (host or "").strip().lower()
-        if host in LOOPBACK_HOSTS or host.startswith("127.") or host == "::1":
+        if self.allow_loopback and (host in LOOPBACK_HOSTS or host.startswith("127.") or host == "::1"):
             return True, None, "loopback is not egress"
         for service, declared_host, declared_port in self._declarations():
             if declared_host.lower() == host and int(declared_port) == int(port):
@@ -171,7 +177,7 @@ class EgressGuard:
     def policy(self) -> dict:
         return {
             "default": "deny",
-            "loopback_allowed": True,
+            "loopback_allowed": self.allow_loopback,
             "loopback_reason": "a loopback connection never leaves the host",
             "guard_installed": self._installed,
             "declared_external_services": [

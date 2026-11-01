@@ -8,6 +8,8 @@ specification, capability registers and research notes live elsewhere and are no
 | [`threat-boundaries.md`](threat-boundaries.md) | What the local server protects, from whom, and what it explicitly does not protect |
 | [`../adr/0001-local-first-server-architecture.md`](../adr/0001-local-first-server-architecture.md) | Why `app/` is a Python-stdlib, single-process, local-only service, and what that costs |
 | [`../../app/README.md`](../../app/README.md) | How to configure, run and test the server; the endpoint and limitation surface |
+| [`../benchmarks/voice-workload-benchmark.md`](../benchmarks/voice-workload-benchmark.md) | The pre-registered methodology of the local measurement tool: what it measures, what it refuses, and why a result is not a decision |
+| [`../../app/bench/README.md`](../../app/bench/README.md) | How to run the benchmark: flags, exit codes, adapter contract, fixture pack format |
 
 Adjacent, unchanged material:
 
@@ -15,5 +17,7 @@ Adjacent, unchanged material:
   matrix. These describe intent and limits; they do not describe this server's internals.
 - `docs/research/` — the research notes, including `09-security-and-permissions.md`, which this
   build implements only where it has code to show for it.
+- `docs/benchmarks/` — the benchmark methodology. It documents a measurement tool that is not part
+  of the server process and does not change any capability, gate or processing boundary.
 - `docs/runtime-state/` — historical evaluator evidence. Not produced or modified by the server work.
 - `eval/` — the measurement harness over those documents. It never imports `app/`.

@@ -206,7 +206,7 @@ decision record.
 ## 10. Tests
 
 ```bash
-# this application area (150 tests)
+# this application area, including the benchmark (241 tests)
 PYTHONPATH=/home/user/JARVIS python3 -m unittest discover -s app/tests -t .
 
 # the existing evaluator harness (456 tests) — must stay green, and is never modified by this work
@@ -228,12 +228,51 @@ Coverage of the required areas, by module:
 | the HTTP adapter over real sockets | `test_http.py` |
 | the operator CLI, including a real `serve`/SIGTERM cycle | `test_cli.py` |
 | the static boundaries (no vendor names, no outbound client, no UI assets) | `test_boundaries.py` |
+| the benchmark's building blocks (gates, matrix, fixtures, hashes, decisions) | `test_bench_units.py` |
+| the benchmark command end to end, including denials and failures | `test_bench_run.py` |
 
 The tests are deterministic (`FixedClock`, temporary data directories, port 0) and prove behaviour
 on the inputs they use. They establish **no statistical rate** for anything — not for
 authentication guessing, not for false accepts in speech, because there is no speech system.
 
-## 11. What is deliberately absent, and why
+## 11. Benchmark: measurement tooling, not a capability
+
+`app/bench/` runs an operator-supplied local speech adapter on a fixed workload and records what it
+observed. It is deliberately separate from the server: it is not wired into `app/jarvis`, no route
+uses it, and running it changes nothing about what the product can do. Voice input and output remain
+unavailable.
+
+```bash
+# write the plan only: no adapter needed, nothing measured
+PYTHONPATH=/home/user/JARVIS python3 -m app.bench --plan-only --languages en --out bench-out
+
+# a real run: latency, throughput, memory, failures (synthetic audio, no speech to recognise)
+PYTHONPATH=/home/user/JARVIS python3 -m app.bench \
+    --asr-adapter /path/to/local/asr_adapter.py --asr-model /path/to/local/model.bin \
+    --repeat 3 --warmup 1 --out bench-out
+
+# a run that measures word error rate: needs a licensed fixture pack, per language
+PYTHONPATH=/home/user/JARVIS python3 -m app.bench \
+    --asr-adapter /path/to/local/asr_adapter.py --fixtures /path/to/licensed-pack \
+    --languages en,hi --repeat 25 --warmup 1 --out bench-out
+```
+
+It refuses, by construction: a default model or any download (an adapter and model path must be
+named), network access of any kind — including loopback unless explicitly allowed and recorded — a
+language outside the PR-1 proposal, personal or unlicensed audio, and any wording that a model,
+vendor, server or language tier has been chosen. An adapter that attempts a connection ends the run
+with exit code 5, a `violated` result and a `rejected` decision.
+
+Output per run: `plan.json` (hashed plan and the exact command), `fixtures/`, `logs/`,
+`result.json` (`jarvis.voice-bench/1`) and `report.md`. Every metric the benchmark knows about
+appears in `not_measured` holding either `null` or a reason; percentiles below their sample gate are
+withheld rather than printed. A development-host run says so and is never decision-eligible.
+
+Full detail: `app/bench/README.md` (usage, exit codes, adapter contract) and
+`docs/benchmarks/voice-workload-benchmark.md` (the pre-registered methodology). Gate **G-O1**
+stays blocked; Q19 and Q20 stay open.
+
+## 12. What is deliberately absent, and why
 
 - **No text chat endpoint, no chat UI, no `POST /v1/chat`.** The product is voice-first; a text
   conversation surface would contradict the specification (R-6, gate G-UX). Requests to such paths
@@ -242,7 +281,8 @@ authentication guessing, not for false accepts in speech, because there is no sp
 - **No model, no vendor, no accelerator, no purchase.** Gate G-O1 is blocked; the owner has not
   supplied the workload baseline, budget or language priorities. Nothing here recommends one.
 - **No speech.** The adapter contracts exist (`speech.py`: `Protocol` for recognition and
-  synthesis) and the only implementation refuses. A configured adapter name other than
+  synthesis) and the only implementation refuses. The benchmark in `app/bench/` measures a candidate
+  adapter on its own; it does not install one, and a completed benchmark is not a voice capability. A configured adapter name other than
   `unavailable` is refused at startup, so a future adapter must arrive with a decision, not a
   config edit.
 - **No holographic, VR, Ray-Ban or EDITH implementation.** EDITH Glass is `not-a-target`; surfaces
@@ -250,7 +290,7 @@ authentication guessing, not for false accepts in speech, because there is no sp
 - **No natural-language task entry claim.** Tasks take an explicit title, note and due time. Turning
   a spoken sentence into that structure needs the speech adapters and a model; both are absent.
 
-## 12. Owner inputs still required
+## 13. Owner inputs still required
 
 Nothing here decides these, and the server keeps reporting them as open:
 

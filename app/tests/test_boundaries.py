@@ -6,6 +6,7 @@ a boundary that erodes.
 
 from __future__ import annotations
 
+import json
 import pathlib
 import re
 import unittest
@@ -13,6 +14,7 @@ import unittest
 REPO = pathlib.Path(__file__).resolve().parents[2]
 APP = REPO / "app"
 PACKAGE = APP / "jarvis"
+BENCH = APP / "bench"
 
 #: Vendor and model names that must not appear in this application area or its documents. The
 #: owner has made no selection, and naming a candidate would read as a recommendation.
@@ -28,9 +30,11 @@ OUTBOUND_CLIENTS = ("urllib.request", "http.client", "requests", "httpx", "aioht
 
 DOCUMENTS = (
     APP / "README.md",
+    APP / "bench" / "README.md",
     REPO / "docs" / "architecture" / "threat-boundaries.md",
     REPO / "docs" / "architecture" / "README.md",
     REPO / "docs" / "adr" / "0001-local-first-server-architecture.md",
+    REPO / "docs" / "benchmarks" / "voice-workload-benchmark.md",
 )
 
 
@@ -47,9 +51,9 @@ class BoundaryTests(unittest.TestCase):
 
     def test_no_model_or_vendor_is_named_in_the_application(self):
         offenders = []
-        for path in python_files(PACKAGE) + list(DOCUMENTS) + list(
+        for path in python_files(PACKAGE) + python_files(BENCH) + list(DOCUMENTS) + list(
             (APP / "deploy").glob("*.toml")
-        ):
+        ) + list(BENCH.glob("*.json")):
             text = path.read_text(encoding="utf-8")
             for match in BANNED_TOKENS.finditer(text):
                 offenders.append(f"{path.relative_to(REPO)}: {match.group(0)}")
@@ -70,9 +74,13 @@ class BoundaryTests(unittest.TestCase):
             "http.server", "json", "logging", "os", "pathlib", "re", "secrets", "shutil",
             "signal", "socket", "sqlite3", "ssl", "stat", "sys", "threading", "time", "tomllib",
             "typing", "urllib.parse", "uuid",
+            # the benchmark adds only standard-library modules; it has no dependencies either
+            "glob", "importlib", "importlib.util", "math", "platform", "random", "resource",
+            "select", "shlex",
+            "struct", "subprocess", "traceback", "unicodedata", "wave",
         }
         offenders = []
-        for path in python_files(PACKAGE):
+        for path in python_files(PACKAGE) + python_files(BENCH):
             for line in path.read_text(encoding="utf-8").splitlines():
                 match = re.match(r"\s*(?:from|import)\s+([A-Za-z_][\w.]*)", line)
                 if not match:
@@ -86,8 +94,41 @@ class BoundaryTests(unittest.TestCase):
 
     def test_the_application_does_not_reach_into_the_evaluator(self):
         pattern = re.compile(r"^\s*(?:from|import)\s+eval\b", re.MULTILINE)
-        for path in python_files(PACKAGE):
+        for path in python_files(PACKAGE) + python_files(BENCH):
             self.assertIsNone(pattern.search(path.read_text(encoding="utf-8")), path)
+
+    def test_the_benchmark_only_touches_the_server_where_it_must(self):
+        # The adapter sandbox reuses the server's egress guard on purpose: that is one boundary, not
+        # a second implementation. Nothing else in the benchmark may import the server, so a
+        # measurement can never reach the routes, the store or the audio path.
+        offenders = []
+        for path in python_files(BENCH):
+            text = path.read_text(encoding="utf-8")
+            if "app.jarvis" in text and path.name != "isolation.py":
+                offenders.append(path.name)
+            if path.name == "isolation.py":
+                self.assertIn("from app.jarvis.egress import EgressGuard", text)
+        self.assertEqual(offenders, [])
+
+    def test_the_benchmark_never_writes_inside_docs_or_eval(self):
+        writes = re.compile(r"(?:write_text|write_bytes|rmtree|mkdir|open)\(([^)\n]*)")
+        for path in python_files(BENCH):
+            for match in writes.finditer(path.read_text(encoding="utf-8")):
+                self.assertNotRegex(match.group(1), r"\bdocs/|\beval/", path.name)
+
+    def test_no_server_module_invokes_the_benchmark(self):
+        # Measurement is operator-invoked only. If the server ever imports the benchmark, an adapter
+        # could run inside the process that holds tokens and audio.
+        for path in python_files(PACKAGE):
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("app.bench", text, path.name)
+            self.assertNotIn("from .bench", text, path.name)
+
+    def test_the_benchmark_example_bar_is_labelled_as_an_example(self):
+        document = json.loads((BENCH / "criteria.example.json").read_text(encoding="utf-8"))
+        self.assertTrue(document["criteria_id"].startswith("example-"))
+        self.assertIn("not a bar", document["notes"])
+        self.assertIn("not an owner decision", document["notes"])
 
     def test_the_evaluator_does_not_know_about_the_application(self):
         for path in python_files(REPO / "eval"):

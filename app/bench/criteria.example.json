@@ -1,0 +1,13 @@
+{
+  "schema": "jarvis.voice-bench-criteria/1",
+  "criteria_id": "example-format-only",
+  "min_samples_per_language": 20,
+  "languages_required": ["en"],
+  "thresholds": {
+    "wer_mean_max": 0.08,
+    "latency_p50_ms_max": 1500,
+    "latency_p95_ms_max": 3000,
+    "task_success_min": 0.9
+  },
+  "notes": "EXAMPLE OF THE FILE FORMAT ONLY. Every number here is a placeholder copied from the provisional C-03 thresholds in the specification so the file parses. This is not a bar, not an owner decision, and not a recommendation: the owner writes the real criteria file, states why each number is what it is, and only then can a run be eligible for review."
+}

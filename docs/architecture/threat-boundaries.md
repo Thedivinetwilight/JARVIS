@@ -114,7 +114,26 @@ An audit write failure (for example, readiness probed before the first migration
 process log rather than turned into a 500, so an audit problem cannot become an outage — with the
 consequence, stated plainly, that such a record exists only in the log.
 
-## 6. Residual risks this build accepts
+## 6. The measurement boundary (`app/bench/`)
+
+The benchmark is not part of the server process and has no route, configuration key or startup path
+that can reach it. Its boundary is what it protects *the server* from:
+
+| Rule | Enforced by | Test |
+| --- | --- | --- |
+| An adapter never runs inside the server process | `app/bench/worker.py` runs one adapter per subprocess; the server imports nothing from `app.bench` | `test_no_server_module_invokes_the_benchmark` |
+| No egress from an adapter, including name lookups and loopback | `AdapterSandbox` installs the egress guard with `allow_loopback=False` before the adapter is imported | `test_a_request_time_network_attempt_ends_the_run`, `test_an_import_time_network_attempt_is_caught_too` |
+| One attempt ends the run and is recorded | attempt counters live outside the adapter; result `violated`, decision `rejected`, exit code 5 | `test_the_sandbox_is_deny_by_default` |
+| No personal data leaves in a result | `results.validate_result` refuses `/home/<user>/…`, credential-shaped strings; only `<repo>/…` and `~/…` paths are published | `test_the_result_contains_no_personal_path_and_no_secret` |
+| No private audio is measured | the fixture pack loader refuses `personal: true` and any item without an acceptable licence | `test_personal_audio_is_refused` |
+| No model or vendor is named, and no model is selected | static scan over `app/bench` and the benchmark documents; results carry fixed `claims` booleans | `test_no_model_or_vendor_is_named_in_the_application` |
+
+What this boundary does **not** protect: the adapter process can still read any file the operator's
+user can read (it needs the model and the audio); a native extension inside an adapter could bypass
+Python's socket layer; and the benchmark cannot verify that a host really is the owner's dedicated
+server, so `host_role` is recorded as an operator declaration.
+
+## 7. Residual risks this build accepts
 
 1. Loopback HTTP in the default configuration is unencrypted. Any local process that can read a
    token can use it until it expires or is revoked.
@@ -123,5 +142,7 @@ consequence, stated plainly, that such a record exists only in the log.
 4. `socket` patching is a Python-level control; a native library would bypass it.
 5. The reminder path reports due reminders and never delivers them, so "the owner was reminded" is
    never true — a limitation, not a risk, but it must not be papered over.
-6. Deterministic tests establish no statistical rate for anything. They prove behaviour on the
+6. A benchmark run measures a candidate adapter on one host; its numbers are descriptive over a
+   fixed fixture set and are never evidence that a voice capability exists or that a language works.
+7. Deterministic tests establish no statistical rate for anything. They prove behaviour on the
    inputs they use, and nothing about an adversary's success probability.

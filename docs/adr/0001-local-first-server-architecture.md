@@ -100,7 +100,33 @@ top-level application area `app/`, with the following shape:
 - Python's standard library has no streaming TLS story for large uploads beyond what `ssl` provides;
   audio chunks are bounded (default 1 MiB) instead.
 
-## 5. What this decision deliberately does not settle
+## 5. Benchmark tooling is a separate process, not a server feature
+
+**Decision.** A candidate speech adapter is measured by `app/bench/`, invoked by an operator as
+`python3 -m app.bench`, never by the server. The adapter runs in its **own** process, with the
+sandbox installed before the adapter file is imported: socket connections and name lookups are
+refused, one attempt ends the run, and the result is marked `violated` with a `rejected` decision.
+No route, no configuration key and no startup path in `app/jarvis` can invoke the benchmark, load an
+adapter or read a benchmark result.
+
+**Reason.** Measurement is how a later decision gets evidence, and it must not become a back door
+into the product. Keeping it outside the server means: (a) an adapter cannot run inside the process
+that holds the owner's tasks, tokens and audio; (b) the server's honest refusal of speech stays
+true regardless of what was benchmarked; (c) a result document can be published without redaction,
+because the harness validates it and refuses personal paths and credential-shaped strings.
+
+**Consequences.** The benchmark duplicates a few primitives rather than importing `eval/` (it must
+not depend on the evaluator) and rather than importing server modules it cannot safely reuse. Host
+facts, adapter and model hashes, sample counts and `not_measured` reasons are part of every result;
+percentiles below their pre-registered sample gate are withheld. A development-host run is flagged
+and is never decision-eligible.
+
+**Negative / accepted costs.** Two processes per phase, so the end-to-end number includes local IPC;
+the sandbox cannot stop a native extension that bypasses Python's socket layer (none is present, and
+adding one would need a new decision); and the tool cannot verify that a host really is the owner's
+dedicated server, so the role is recorded as an operator declaration.
+
+## 6. What this decision deliberately does not settle
 
 - The model, the accelerator, the budget, the language list, the server host and the device
   inventory — all remain owner decisions (Q13, Q15, Q17–Q26; PR-1/PR-2 pending). Gate **G-O1**
@@ -108,4 +134,6 @@ top-level application area `app/`, with the following shape:
 - The home holographic display technology (C-13) — only the protocol boundary exists.
 - EDITH Glass, VR and Ray-Ban retail glasses — distinct targets, none of them a target of this
   server (EDITH is `not-a-target`).
+- The benchmark's outcome. It measures; it never selects. Gate G-O1, the language list (Q19) and the
+  server specification (Q20) are unaffected by any run.
 - AETHERION — untouched.
