@@ -1,0 +1,285 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B3",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "Synthetic multi-step state-mutation fixtures with independent read-back verification.",
+  "tasks": [
+    {
+      "id": "b3-001",
+      "goal": "Write the week 45 plan to notes/week.txt.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "notes/week.txt",
+            "content": "week 45 plan"
+          }
+        }
+      ],
+      "budget": 5,
+      "verify": {
+        "files": [
+          {
+            "path": "notes/week.txt",
+            "equals": "week 45 plan"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b3-002",
+      "goal": "Write two data files whose values agree.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "data/values.txt",
+            "content": "3,4,5"
+          }
+        },
+        {
+          "id": "s2",
+          "tool": "files.write",
+          "args": {
+            "path": "data/summary.txt",
+            "content": "12"
+          }
+        }
+      ],
+      "budget": 6,
+      "verify": {
+        "files": [
+          {
+            "path": "data/values.txt",
+            "equals": "3,4,5"
+          },
+          {
+            "path": "data/summary.txt",
+            "equals": "12"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b3-003",
+      "goal": "Start a log file and append the completion line.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "log/run.txt",
+            "content": "started"
+          }
+        },
+        {
+          "id": "s2",
+          "tool": "files.append",
+          "args": {
+            "path": "log/run.txt",
+            "content": "done"
+          }
+        }
+      ],
+      "budget": 6,
+      "verify": {
+        "files": [
+          {
+            "path": "log/run.txt",
+            "equals": "starteddone"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b3-004",
+      "goal": "Write a three line report.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "report.md",
+            "content": "Status: green\nOwner: platform\nNext: review\n"
+          }
+        }
+      ],
+      "budget": 4,
+      "verify": {
+        "files": [
+          {
+            "path": "report.md",
+            "contains": [
+              "Status: green",
+              "Owner: platform"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "b3-005",
+      "goal": "Create a scratch file, then delete it.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "temp/scratch.txt",
+            "content": "temporary"
+          }
+        },
+        {
+          "id": "s2",
+          "tool": "files.delete",
+          "args": {
+            "path": "temp/scratch.txt"
+          }
+        }
+      ],
+      "budget": 5,
+      "verify": {
+        "absent": [
+          "temp/scratch.txt"
+        ]
+      }
+    },
+    {
+      "id": "b3-006",
+      "goal": "Write eight files with a tool budget of four; stop honestly at the limit.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part1.txt",
+            "content": "part 1"
+          }
+        },
+        {
+          "id": "s2",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part2.txt",
+            "content": "part 2"
+          }
+        },
+        {
+          "id": "s3",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part3.txt",
+            "content": "part 3"
+          }
+        },
+        {
+          "id": "s4",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part4.txt",
+            "content": "part 4"
+          }
+        },
+        {
+          "id": "s5",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part5.txt",
+            "content": "part 5"
+          }
+        },
+        {
+          "id": "s6",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part6.txt",
+            "content": "part 6"
+          }
+        },
+        {
+          "id": "s7",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part7.txt",
+            "content": "part 7"
+          }
+        },
+        {
+          "id": "s8",
+          "tool": "files.write",
+          "args": {
+            "path": "chunks/part8.txt",
+            "content": "part 8"
+          }
+        }
+      ],
+      "budget": 4,
+      "expected_status": "partial",
+      "verify": {
+        "files": [
+          {
+            "path": "chunks/part1.txt",
+            "equals": "part 1"
+          },
+          {
+            "path": "chunks/part2.txt",
+            "equals": "part 2"
+          },
+          {
+            "path": "chunks/part3.txt",
+            "equals": "part 3"
+          },
+          {
+            "path": "chunks/part4.txt",
+            "equals": "part 4"
+          }
+        ],
+        "absent": [
+          "chunks/part5.txt",
+          "chunks/part6.txt",
+          "chunks/part7.txt",
+          "chunks/part8.txt"
+        ]
+      }
+    },
+    {
+      "id": "b3-007",
+      "goal": "Write the weekly note and make sure it records the owning team.",
+      "plan": [
+        {
+          "id": "s1",
+          "tool": "files.write",
+          "args": {
+            "path": "notes/weekly.md",
+            "content": "week 45 plan"
+          }
+        }
+      ],
+      "repair": [
+        {
+          "id": "r1",
+          "tool": "files.append",
+          "args": {
+            "path": "notes/weekly.md",
+            "content": "\nowner: platform"
+          }
+        }
+      ],
+      "budget": 6,
+      "verify": {
+        "files": [
+          {
+            "path": "notes/weekly.md",
+            "contains": [
+              "week 45 plan",
+              "owner: platform"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,209 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B2",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "Synthetic single-tool execution fixtures. Addresses use example.test.",
+  "tasks": [
+    {
+      "id": "b2-001",
+      "instruction": "Put a 30 minute release sync on 2026-11-05 at 10:00 Asia/Kolkata.",
+      "intent": {
+        "tool": "calendar.create_event",
+        "args": {
+          "title": "Release sync",
+          "date": "2026-11-05",
+          "start": "10:00",
+          "duration_min": 30,
+          "tz": "Asia/Kolkata"
+        }
+      },
+      "policy": {},
+      "faults": [],
+      "expected": {
+        "world": {
+          "calendar": [
+            {
+              "title": "Release sync",
+              "date": "2026-11-05",
+              "start": "10:00",
+              "duration_min": 30,
+              "tz": "Asia/Kolkata"
+            }
+          ],
+          "mail": [],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-002",
+      "instruction": "Email ops@example.test that the canary is paused.",
+      "intent": {
+        "tool": "mail.send",
+        "args": {
+          "to": "ops@example.test",
+          "subject": "Canary paused",
+          "body": "Canary promotion is paused pending review."
+        }
+      },
+      "policy": {
+        "requires_approval": true
+      },
+      "faults": [],
+      "expected": {
+        "world": {
+          "calendar": [],
+          "mail": [
+            {
+              "to": "ops@example.test",
+              "subject": "Canary paused",
+              "body": "Canary promotion is paused pending review."
+            }
+          ],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-003",
+      "instruction": "Email ops@example.test that the canary is paused.",
+      "intent": {
+        "tool": "mail.send",
+        "args": {
+          "to": "ops@example.test",
+          "subject": "Canary paused",
+          "body": "Canary promotion is paused pending review."
+        }
+      },
+      "policy": {
+        "requires_approval": true,
+        "auto_deny": true
+      },
+      "faults": [],
+      "expected": {
+        "clarification_expected": false,
+        "blocked_expected": true,
+        "world": {
+          "calendar": [],
+          "mail": [],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-004",
+      "instruction": "Book a 45 minute design review on 2026-11-06 at 14:30 in Europe/Berlin.",
+      "intent": {
+        "tool": "calendar.create_event",
+        "args": {
+          "title": "Design review",
+          "date": "2026-11-06",
+          "start": "14:30",
+          "duration_min": 45,
+          "tz": "Europe/Berlin"
+        }
+      },
+      "policy": {},
+      "faults": [],
+      "expected": {
+        "world": {
+          "calendar": [
+            {
+              "title": "Design review",
+              "date": "2026-11-06",
+              "start": "14:30",
+              "duration_min": 45,
+              "tz": "Europe/Berlin"
+            }
+          ],
+          "mail": [],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-005",
+      "instruction": "Email ops@example.test the pause notice; the mail service may time out.",
+      "intent": {
+        "tool": "mail.send",
+        "args": {
+          "to": "ops@example.test",
+          "subject": "Canary paused",
+          "body": "Canary promotion is paused pending review."
+        }
+      },
+      "policy": {},
+      "faults": [
+        {
+          "tool": "mail.send",
+          "kind": "timeout_once"
+        }
+      ],
+      "expected": {
+        "world": {
+          "calendar": [],
+          "mail": [
+            {
+              "to": "ops@example.test",
+              "subject": "Canary paused",
+              "body": "Canary promotion is paused pending review."
+            }
+          ],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-006",
+      "instruction": "Revoke the finance archive and send the confirmation mail.",
+      "intent": {
+        "tool": "mail.send",
+        "args": {
+          "to": "finance@example.test",
+          "subject": "Archive revoked",
+          "body": "The finance archive has been revoked."
+        }
+      },
+      "policy": {
+        "irreversible": true,
+        "on_irreversible": "block"
+      },
+      "faults": [],
+      "expected": {
+        "blocked_expected": true,
+        "world": {
+          "calendar": [],
+          "mail": [],
+          "files": {}
+        }
+      }
+    },
+    {
+      "id": "b2-007",
+      "instruction": "Move the meeting to a better time.",
+      "intent": {
+        "tool": "calendar.create_event",
+        "args": {
+          "title": "",
+          "date": "",
+          "start": "",
+          "duration_min": 0,
+          "tz": ""
+        }
+      },
+      "policy": {
+        "requires_clarification": true
+      },
+      "faults": [],
+      "expected": {
+        "clarification_expected": true,
+        "world": {
+          "calendar": [],
+          "mail": [],
+          "files": {}
+        }
+      }
+    }
+  ]
+}

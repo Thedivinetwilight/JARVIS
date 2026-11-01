@@ -1,0 +1,251 @@
+"""Harness self-checks.
+
+These prove properties of the *harness*, not of any solver: that runs are
+deterministic and reproducible across processes, that a mutation is caught, that
+each gate actually fails when its invariant is broken, and that the harness
+cannot reach the network.
+"""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Callable
+
+from . import gates as gates_mod
+from .config import Thresholds, git_dirty, git_revision
+from .ledger import read_run, write_run
+from .runner import run_block
+from .taskset import TaskSetError, load_taskset, load_tasksets
+from .tools import Executor, World
+
+FORBIDDEN_IMPORTS = ("urllib", "requests", "httpx", "socket", "http.client",
+                     "openai", "anthropic", "inspect_ai")
+
+MUTATION_BLOCKS = {
+    "drop_timezone": "B2",
+    "retry_without_idempotency": "B2",
+    "attempt_blocked_action": "B2",
+    "cite_top1_only": "B1",
+    "drop_last_step": "B3",
+    "skip_verification": "B3",
+}
+
+
+class Checker:
+    def __init__(self, verbose: bool = True) -> None:
+        self.verbose = verbose
+        self.results: list[tuple[str, bool, str]] = []
+
+    def check(self, name: str, fn: Callable[[], str]) -> None:
+        try:
+            detail = fn()
+            self.results.append((name, True, detail))
+            if self.verbose:
+                print(f"PASS {name}: {detail}")
+        except Exception as exc:  # noqa: BLE001 - a failing check is a reported result
+            self.results.append((name, False, f"{type(exc).__name__}: {exc}"))
+            if self.verbose:
+                print(f"FAIL {name}: {type(exc).__name__}: {exc}")
+
+    @property
+    def ok(self) -> bool:
+        return all(passed for _, passed, _ in self.results)
+
+
+def _hashes(outcome: Any) -> list[str]:
+    return [record.outcome_hash for record in outcome.records]
+
+
+def run_selftest(verbose: bool = True) -> int:
+    checker = Checker(verbose)
+    sha, dirty = git_revision(), git_dirty()
+
+    def check_tasksets() -> str:
+        sets = load_tasksets(Path("eval/tasks"))
+        assert set(sets) == {"B1", "B2", "B3"}, f"unexpected blocks {sorted(sets)}"
+        for block, ts in sets.items():
+            assert ts.tasks, f"{block} has no tasks"
+        return "3 blocks: " + ", ".join(
+            f"{b}={len(ts)} tasks sha {ts.sha[:8]}" for b, ts in sorted(sets.items()))
+
+    check_tasksets_sets: dict[str, Any] = {}
+
+    def check_load() -> str:
+        check_tasksets_sets.update(load_tasksets(Path("eval/tasks")))
+        return check_tasksets()
+
+    checker.check("task_sets_load", check_load)
+
+    def check_deterministic() -> str:
+        detail = []
+        for block in ("B1", "B2", "B3"):
+            first = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
+            second = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
+            assert _hashes(first) == _hashes(second), f"{block} hashes differ between runs"
+            assert first.run_id == second.run_id, f"{block} run ids differ"
+            detail.append(f"{block}={len(first.records)} records")
+        return "identical outcome hashes on rerun (" + ", ".join(detail) + ")"
+
+    checker.check("deterministic_rerun", check_deterministic)
+
+    def check_seed_invariance() -> str:
+        def outcomes(outcome: Any) -> list[tuple[Any, ...]]:
+            return [(r.task_id, r.repeat, r.status, r.success,
+                     tuple(sorted(r.metrics.items()))) for r in outcome.records]
+
+        a = run_block(check_tasksets_sets["B2"], seed=1729, git_sha=sha, git_dirty=dirty)
+        b = run_block(check_tasksets_sets["B2"], seed=7, git_sha=sha, git_dirty=dirty)
+        assert outcomes(a) == outcomes(b), "stub unexpectedly depends on the seed"
+        assert _hashes(a) == _hashes(b), "outcome hash must not depend on the seed"
+        assert a.run_id != b.run_id, "seed must still change the run identity"
+        return ("same observed outcomes and same outcome hashes under seeds 1729 "
+                "and 7; only run identity differs")
+
+    checker.check("seed_invariance", check_seed_invariance)
+
+    def check_cross_process() -> str:
+        with tempfile.TemporaryDirectory() as tmp:
+            digests = []
+            for name in ("a", "b"):
+                out = Path(tmp) / name
+                proc = subprocess.run(
+                    [sys.executable, "-m", "eval.harness", "run", "--block", "B2",
+                     "--results", str(out)],
+                    capture_output=True, text=True, check=False)
+                assert proc.returncode == 0, f"cli failed: {proc.stderr.strip()}"
+                run = read_run(next(out.glob("*.jsonl")))
+                digests.append([r["outcome_hash"] for r in run["records"]])
+            assert digests[0] == digests[1], "two processes produced different hashes"
+            return f"{len(digests[0])} records reproduced identically in two processes"
+
+    checker.check("cross_process_reproducibility", check_cross_process)
+
+    def check_mutations() -> str:
+        caught = []
+        for name, block in MUTATION_BLOCKS.items():
+            mutant = run_block(check_tasksets_sets[block], mutations=(name,),
+                               git_sha=sha, git_dirty=dirty)
+            results = gates_mod.evaluate_block(block, mutant.summary, None, Thresholds())
+            if name in {"drop_timezone", "drop_last_step"}:
+                # Baseline-relative gate: compare against the clean run instead.
+                clean = run_block(check_tasksets_sets[block], git_sha=sha,
+                                  git_dirty=dirty)
+                results = gates_mod.evaluate_block(block, mutant.summary,
+                                                   clean.summary, Thresholds())
+            assert gates_mod.failures(results), f"mutation {name} not detected"
+            caught.append(f"{name}({block})")
+        return "all six regressions detected: " + ", ".join(caught)
+
+    checker.check("mutation_detection", check_mutations)
+
+    def check_gate_negative_controls() -> str:
+        clean = run_block(check_tasksets_sets["B1"], git_sha=sha, git_dirty=dirty)
+        baseline_summary = clean.summary
+        broken = dict(baseline_summary)
+        broken["false_successes"] = 1
+        broken["duplicate_writes"] = 2
+        broken["unauthorized_side_effects"] = 1
+        broken["approval_violations"] = 3
+        broken["success_rate"] = baseline_summary["success_rate"] - 0.5
+        broken["mean_citation_precision"] = 0.5
+        results = gates_mod.evaluate_block("B1", broken, baseline_summary, Thresholds(),
+                                           secret_leaks=2)
+        failed = {r.gate for r in gates_mod.failures(results)}
+        expected = {"false_successes_zero", "duplicate_writes_zero",
+                    "unauthorized_side_effects_zero", "approval_violations_zero",
+                    "success_drop", "citation_precision_drop", "secret_leaks_zero"}
+        assert expected <= failed, f"gates that did not fire: {sorted(expected - failed)}"
+        return f"all {len(expected)} gates fire on planted breakage"
+
+    checker.check("gate_negative_controls", check_gate_negative_controls)
+
+    def check_cost_gate_skip() -> str:
+        clean = run_block(check_tasksets_sets["B1"], git_sha=sha, git_dirty=dirty)
+        results = gates_mod.evaluate_block("B1", clean.summary, clean.summary,
+                                           Thresholds())
+        cost = next(r for r in results if r.gate == "cost_ratio")
+        assert cost.status == "skip", f"cost gate should skip, got {cost.status}"
+        return "cost_ratio skips explicitly when baseline cost is zero"
+
+    checker.check("cost_gate_skip", check_cost_gate_skip)
+
+    def check_ledger_roundtrip() -> str:
+        outcome = run_block(check_tasksets_sets["B3"], git_sha=sha, git_dirty=dirty)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_run(outcome, tmp)
+            run = read_run(path)
+            assert run["meta"]["run_id"] == outcome.run_id
+            assert [r["outcome_hash"] for r in run["records"]] == _hashes(outcome)
+            return f"{len(run['records'])} records round-tripped through {path.name}"
+
+    checker.check("ledger_roundtrip", check_ledger_roundtrip)
+
+    def check_unverified_write_rejected() -> str:
+        payload = {
+            "version": "test", "block": "B3", "synthetic": True,
+            "data_class": "synthetic",
+            "tasks": [{"id": "t1", "goal": "g", "budget": 3,
+                       "plan": [{"id": "s1", "tool": "files.write",
+                                 "args": {"path": "a.txt", "content": "x"}}],
+                       "verify": {"files": []}}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "tasks.json").write_text(json.dumps(payload), encoding="utf-8")
+            try:
+                load_taskset(tmp)
+            except TaskSetError as exc:
+                return f"rejected as designed: {exc}"
+        raise AssertionError("unverified write was accepted")
+
+    checker.check("unverified_write_rejected", check_unverified_write_rejected)
+
+    def check_synthetic_only() -> str:
+        payload = {
+            "version": "test", "block": "B2", "synthetic": False,
+            "data_class": "real", "tasks": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            Path(tmp, "tasks.json").write_text(json.dumps(payload), encoding="utf-8")
+            try:
+                load_taskset(tmp)
+            except TaskSetError as exc:
+                return f"non-synthetic task set refused: {exc}"
+        raise AssertionError("non-synthetic task set was accepted")
+
+    checker.check("synthetic_only", check_synthetic_only)
+
+    def check_redaction() -> str:
+        world = World()
+        executor = Executor(world)
+        executor.call("files.write", {"path": "notes/leak.txt",
+                                      "content": "token=abcdef123456"})
+        text = json.dumps(executor.audit)
+        assert "abcdef123456" not in text, "secret survived redaction"
+        assert "[REDACTED]" in text, "redaction marker missing"
+        return "credential-shaped content redacted in the audit trail"
+
+    checker.check("secret_redaction", check_redaction)
+
+    def check_no_network() -> str:
+        offenders = []
+        root = Path("eval/harness")
+        for path in sorted(root.rglob("*.py")):
+            source = path.read_text(encoding="utf-8")
+            for token in FORBIDDEN_IMPORTS:
+                for line in source.splitlines():
+                    stripped = line.strip()
+                    if stripped.startswith(("import ", "from ")) and \
+                            token in stripped:
+                        offenders.append(f"{path.relative_to(root)}: {stripped}")
+        assert not offenders, f"network-capable imports found: {offenders}"
+        return "no network or model-client imports anywhere in eval/harness"
+
+    checker.check("no_network_imports", check_no_network)
+
+    total = len(checker.results)
+    passed = sum(1 for _, ok, _ in checker.results if ok)
+    print(f"\n{passed}/{total} checks passed")
+    return 0 if checker.ok else 1

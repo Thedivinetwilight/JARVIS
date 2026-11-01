@@ -1,0 +1,86 @@
+{
+  "version": "2026-Q4.1",
+  "block": "B1",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "Synthetic retrieval-with-citations fixtures. Not a measure of any model.",
+  "tasks": [
+    {
+      "id": "b1-001",
+      "question": "What is the rollback window for a failed canary deployment?",
+      "answer_keywords": [
+        "thirty minutes"
+      ],
+      "evidence_span_ids": [
+        "d1s2"
+      ]
+    },
+    {
+      "id": "b1-002",
+      "question": "How many approvals does a production database migration need?",
+      "answer_keywords": [
+        "two approvals"
+      ],
+      "evidence_span_ids": [
+        "d2s1"
+      ]
+    },
+    {
+      "id": "b1-003",
+      "question": "When is the weekly incident review held?",
+      "answer_keywords": [
+        "thursday",
+        "15:00"
+      ],
+      "evidence_span_ids": [
+        "d3s1"
+      ]
+    },
+    {
+      "id": "b1-004",
+      "question": "Which storage bucket holds the raw telemetry exports?",
+      "answer_keywords": [
+        "telemetry-raw"
+      ],
+      "evidence_span_ids": [
+        "d4s1"
+      ]
+    },
+    {
+      "id": "b1-005",
+      "question": "What is the pager target for severity one incidents?",
+      "answer_keywords": [
+        "three minutes"
+      ],
+      "evidence_span_ids": [
+        "d3s2"
+      ]
+    },
+    {
+      "id": "b1-006",
+      "question": "Who owns the quarterly access review?",
+      "answer_keywords": [
+        "platform security"
+      ],
+      "evidence_span_ids": [
+        "d5s1"
+      ]
+    },
+    {
+      "id": "b1-007",
+      "question": "What is the annual budget for the robotics lab?",
+      "answer_keywords": [],
+      "evidence_span_ids": [],
+      "abstain_expected": true,
+      "note": "No supporting span exists in the corpus; correct behaviour is to decline."
+    },
+    {
+      "id": "b1-008",
+      "question": "Which vendor supplies the satellite uplink?",
+      "answer_keywords": [],
+      "evidence_span_ids": [],
+      "abstain_expected": true,
+      "note": "No supporting span exists in the corpus; correct behaviour is to decline."
+    }
+  ]
+}

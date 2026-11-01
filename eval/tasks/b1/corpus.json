@@ -1,0 +1,97 @@
+{
+  "note": "SYNTHETIC. Fictional organisation (Halcyon Systems). No real people, systems, prices or credentials.",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "documents": [
+    {
+      "doc_id": "d1",
+      "title": "Release and rollback policy",
+      "spans": [
+        {
+          "span_id": "d1s1",
+          "text": "Canary deployments must reach five percent of production traffic before promotion."
+        },
+        {
+          "span_id": "d1s2",
+          "text": "The rollback window for a failed canary is thirty minutes from the first alert."
+        },
+        {
+          "span_id": "d1s3",
+          "text": "Rollbacks are executed by the release engineer on duty and never automatically."
+        }
+      ]
+    },
+    {
+      "doc_id": "d2",
+      "title": "Change management",
+      "spans": [
+        {
+          "span_id": "d2s1",
+          "text": "A production database migration requires two approvals: one from the owning team and one from platform reliability."
+        },
+        {
+          "span_id": "d2s2",
+          "text": "Migrations run only inside the Tuesday maintenance window, between 02:00 and 05:00."
+        },
+        {
+          "span_id": "d2s3",
+          "text": "Every migration must be reversible within one hour or it is rejected."
+        }
+      ]
+    },
+    {
+      "doc_id": "d3",
+      "title": "Incident response",
+      "spans": [
+        {
+          "span_id": "d3s1",
+          "text": "The weekly incident review is held on Thursday at 15:00 in the reliability room."
+        },
+        {
+          "span_id": "d3s2",
+          "text": "Severity one incidents escalate to the on-call pager within three minutes."
+        },
+        {
+          "span_id": "d3s3",
+          "text": "Incident timelines are recorded in the postmortem template, not in chat."
+        }
+      ]
+    },
+    {
+      "doc_id": "d4",
+      "title": "Data platform",
+      "spans": [
+        {
+          "span_id": "d4s1",
+          "text": "Raw telemetry exports are written to the telemetry-raw storage bucket each night."
+        },
+        {
+          "span_id": "d4s2",
+          "text": "Curated tables live in the analytics warehouse and are retained for eighteen months."
+        },
+        {
+          "span_id": "d4s3",
+          "text": "Access to telemetry-raw requires a service account, never a personal login."
+        }
+      ]
+    },
+    {
+      "doc_id": "d5",
+      "title": "Access governance",
+      "spans": [
+        {
+          "span_id": "d5s1",
+          "text": "The quarterly access review is owned by Platform Security and completed in the first week of the quarter."
+        },
+        {
+          "span_id": "d5s2",
+          "text": "Findings from the access review are tracked as tickets with a thirty day deadline."
+        },
+        {
+          "span_id": "d5s3",
+          "text": "Any exception to policy needs a written justification approved by the review board."
+        }
+      ]
+    }
+  ]
+}
