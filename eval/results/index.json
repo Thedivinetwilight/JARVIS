@@ -933,6 +933,145 @@
       "records": 11,
       "run_id": "06d60f9cbcb1fb2f",
       "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:08+00:00",
+      "file": "eval/results/2026-11-01-B4D-b1ff8ae3bcd9b863.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "9d1513d9b3833b4db5bcf1039eebd6408442f1accb0bfa9ba3fa5558ff5756b9",
+      "mutations": [],
+      "records": 15,
+      "run_id": "b1ff8ae3bcd9b863",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-4f471ab01bf70c61-delete_primary_only.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "3e079c6dbb30d8b444d2cea8d249606f858da05240f3a7f7b64c163c3cc90a82",
+      "mutations": [
+        "delete_primary_only"
+      ],
+      "records": 15,
+      "run_id": "4f471ab01bf70c61",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-b91b0cd97ef88c9b-keep_derived_copy.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "cd2048e55ea7819071a0547d0f5d6332b23f6662c6088bc7a622c16203ca84c7",
+      "mutations": [
+        "keep_derived_copy"
+      ],
+      "records": 15,
+      "run_id": "b91b0cd97ef88c9b",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-6f4ec6109f4a22c8-resurrect_on_replay.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "63c6366aaa5f4d4515d967be895fcc24f4886fcf1b132190596785e3e0d9e700",
+      "mutations": [
+        "resurrect_on_replay"
+      ],
+      "records": 15,
+      "run_id": "6f4ec6109f4a22c8",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-44eb4e6f01840b3d-restore_without_filter.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "95156bd0bee84614d31af6b31d8b1efb1d29541486d123dc8245983279659d2b",
+      "mutations": [
+        "restore_without_filter"
+      ],
+      "records": 15,
+      "run_id": "44eb4e6f01840b3d",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-59ae9e0267908349-restore_drops_unrelated.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "7e66506b1ff54d91c1af4de280bf9f9ab6d4c70d563df175b69a191f84c5d18e",
+      "mutations": [
+        "restore_drops_unrelated"
+      ],
+      "records": 15,
+      "run_id": "59ae9e0267908349",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-a4b16c8b743b280a-restore_skips_tombstones.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "21df751fe00a7c236a69f1a21d0ae8cfb4959acafe850028e6958f3cc9ed5bd1",
+      "mutations": [
+        "restore_skips_tombstones"
+      ],
+      "records": 15,
+      "run_id": "a4b16c8b743b280a",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-5148c6909ac59e15-retry_from_scratch.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "911665787489531703aa3e86362c9ab3b031c8990913da1e98641e218e60dc7c",
+      "mutations": [
+        "retry_from_scratch"
+      ],
+      "records": 15,
+      "run_id": "5148c6909ac59e15",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-151b72ad03c5930f-retry_without_filter.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "6a78f41f4092901de7582e27ac7f243ce3b41ed8be38cff22a2ce24119ba1cde",
+      "mutations": [
+        "retry_without_filter"
+      ],
+      "records": 15,
+      "run_id": "151b72ad03c5930f",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:12+00:00",
+      "file": "eval/results/2026-11-01-B4D-5a7beba183aac152-abandon_partial_restore.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "a1e7fb9df9cc3c803f31daa24efbe7fa5ae9539d9765d6bd86f06a2c90faa91c",
+      "mutations": [
+        "abandon_partial_restore"
+      ],
+      "records": 15,
+      "run_id": "5a7beba183aac152",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:25:13+00:00",
+      "file": "eval/results/2026-11-01-B4D-303b868fbd1ad2a3.jsonl",
+      "git_sha": "2649a6e8f0d1",
+      "ledger_digest": "9d1513d9b3833b4db5bcf1039eebd6408442f1accb0bfa9ba3fa5558ff5756b9",
+      "mutations": [],
+      "records": 15,
+      "run_id": "303b868fbd1ad2a3",
+      "solver": "stub"
     }
   ]
 }

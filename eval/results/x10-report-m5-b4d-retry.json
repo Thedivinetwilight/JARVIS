@@ -1,0 +1,97 @@
+{
+  "scope": [
+    "B4D"
+  ],
+  "rows": [
+    {
+      "mutation": "delete_primary_only",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "deletion_residue_zero",
+      "gates_failed": "false_successes_zero=15, deletion_residue_zero=40, post_delete_hit_zero=19, restore_recovery_zero=5, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-4f471ab01bf70c61-delete_primary_only.jsonl"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.4667,
+      "expected_gate": "post_delete_hit_zero",
+      "gates_failed": "false_successes_zero=8, deletion_residue_zero=8, post_delete_hit_zero=8, restore_recovery_zero=1, success_drop=0.4667",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-b91b0cd97ef88c9b-keep_derived_copy.jsonl"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "resurrection_zero",
+      "gates_failed": "false_successes_zero=15, resurrection_zero=133, restore_recovery_zero=5, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-6f4ec6109f4a22c8-resurrect_on_replay.jsonl"
+    },
+    {
+      "mutation": "restore_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.5333,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=7, resurrection_zero=37, restore_resurrection_zero=9, restore_residue_zero=18, restore_recovery_zero=5, success_drop=0.5333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-44eb4e6f01840b3d-restore_without_filter.jsonl"
+    },
+    {
+      "mutation": "restore_drops_unrelated",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.5333,
+      "expected_gate": "restore_survivor_zero",
+      "gates_failed": "false_successes_zero=7, overdeletion_zero=7, restore_survivor_zero=7, restore_recovery_zero=7, success_drop=0.5333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-59ae9e0267908349-restore_drops_unrelated.jsonl"
+    },
+    {
+      "mutation": "restore_skips_tombstones",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.5333,
+      "expected_gate": "restore_residue_zero",
+      "gates_failed": "false_successes_zero=7, resurrection_zero=37, restore_residue_zero=18, restore_recovery_zero=5, success_drop=0.5333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-a4b16c8b743b280a-restore_skips_tombstones.jsonl"
+    },
+    {
+      "mutation": "retry_from_scratch",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.7333,
+      "expected_gate": "restore_idempotency_zero",
+      "gates_failed": "false_successes_zero=4, restore_idempotency_zero=15, success_drop=0.7333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-5148c6909ac59e15-retry_from_scratch.jsonl"
+    },
+    {
+      "mutation": "retry_without_filter",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.7333,
+      "expected_gate": "restore_resurrection_zero",
+      "gates_failed": "false_successes_zero=4, resurrection_zero=21, restore_resurrection_zero=5, restore_residue_zero=10, restore_recovery_zero=5, success_drop=0.7333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-151b72ad03c5930f-retry_without_filter.jsonl"
+    },
+    {
+      "mutation": "abandon_partial_restore",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.7333,
+      "expected_gate": "restore_recovery_zero",
+      "gates_failed": "false_successes_zero=4, overdeletion_zero=2, restore_recovery_zero=4, restore_attempt_count_zero=4, success_drop=0.7333",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-5a7beba183aac152-abandon_partial_restore.jsonl"
+    }
+  ]
+}
