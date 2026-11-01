@@ -103,10 +103,18 @@ def task_hashes(records: list[dict[str, Any]]) -> dict[str, list[str]]:
 def freeze_baseline(outcomes: dict[str, RunOutcome], *,
                     root: Path | str = "eval/baselines",
                     name: str = "baseline-a-stub.json",
-                    note: str = "") -> Path:
+                    note: str = "",
+                    required_blocks: set[str] | frozenset[str] = frozenset({"B1", "B2", "B3"}),
+                    ) -> Path:
+    """Freeze summaries and per-task hashes.
+
+    `required_blocks` defaults to the Stage 0 core. A slice baseline passes its own
+    family set so that freezing B4/B16 evidence does not require re-freezing B1-B3,
+    which would silently restate older evidence under a new run identity.
+    """
     root = Path(root)
     root.mkdir(parents=True, exist_ok=True)
-    missing = {"B1", "B2", "B3"} - outcomes.keys()
+    missing = set(required_blocks) - outcomes.keys()
     if missing:
         raise LedgerError(f"cannot freeze a baseline without blocks {sorted(missing)}")
     blocks: dict[str, Any] = {}

@@ -1,0 +1,783 @@
+{
+  "version": "2026-Q4.1-m5.1",
+  "block": "B4",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "note": "SYNTHETIC memory-metadata fixtures. Records are invented; the five metadata fields are source, observed_at, sensitivity, permitted_uses and review_state, taken verbatim from C-02-AC1. Every record is a fictional store entry: no person, account or device is real. The suite measures whether a store rejects incomplete writes and whether expired facts are excluded from, or labelled stale in, retrieval. It does not measure supersession (B10) or deletion (not built).",
+  "preregistration": {
+    "spec": "1.1.0",
+    "derived_from": [
+      {
+        "criterion": "C-02-AC1",
+        "metric": "100% of writes carry the five metadata fields; the store rejects writes missing any field",
+        "slice": "6 metadata tasks, one rejection each, including an empty permitted_uses list"
+      },
+      {
+        "criterion": "C-02-AC2",
+        "metric": ">=95% of facts with an expiry policy are excluded from or labelled 'stale' at query time",
+        "slice": "6 expiry tasks: excluded, labelled, and mid-scenario expiry"
+      },
+      {
+        "criterion": "C-01-AC2",
+        "metric": "100% of stored preferences expose source, observed_at and confidence",
+        "slice": "partial only: source and observed_at are required by every write; confidence and deletion are not exercised"
+      }
+    ],
+    "task_counts": {
+      "total": 12,
+      "metadata_enforcement": 6,
+      "expiry": 6,
+      "expiry_excluded": 3,
+      "expiry_labelled": 5,
+      "mixed": 3
+    },
+    "scoring": {
+      "per_task": [
+        "incomplete_accepts",
+        "rejection_exact",
+        "expired_served",
+        "unlabelled_stale",
+        "stale_required",
+        "stale_correct",
+        "answer_ok",
+        "forbidden_hits"
+      ],
+      "success": "status=done and answer matches and no forbidden claim appears and zero incomplete accepts and rejections exact and zero expired served and zero unlabelled stale",
+      "gates": [
+        "metadata_completeness_zero",
+        "stale_assertion_zero",
+        "stale_label_zero",
+        "stale_handling_threshold",
+        "success_drop"
+      ]
+    },
+    "thresholds": {
+      "metadata_completeness_zero": {
+        "metric": "incomplete_accepts",
+        "limit": 0,
+        "criterion": "C-02-AC1 (100%)"
+      },
+      "stale_assertion_zero": {
+        "metric": "expired_served",
+        "limit": 0,
+        "criterion": "C-02-AC2 (excluded or labelled, never served as current)"
+      },
+      "stale_label_zero": {
+        "metric": "unlabelled_stale",
+        "limit": 0,
+        "criterion": "C-02-AC2 (a labelled record must carry the label)"
+      },
+      "stale_handling_threshold": {
+        "metric": "stale_handling_rate",
+        "minimum": 0.95,
+        "criterion": "C-02-AC2",
+        "note": ">=95% of 12 tasks is only satisfiable at 12/12, so this suite applies the published bound without rounding it down"
+      }
+    },
+    "mutations": {
+      "accept_incomplete_record": "metadata_completeness_zero",
+      "serve_expired_fact": "stale_assertion_zero",
+      "drop_stale_label": "stale_label_zero"
+    },
+    "provenance": {
+      "author": "evaluator (M5 slice)",
+      "created": "2026-11-01",
+      "synthetic": true,
+      "model_calls": 0,
+      "network": false,
+      "spec_file": "docs/product/capability-specification.md",
+      "backlog": "docs/product/family-backlog.md#b4--memory-and-knowledge-stores-planned"
+    }
+  },
+  "tasks": [
+    {
+      "id": "b4-001",
+      "now": "2026-11-01",
+      "question": "Which delivery window is current for vendor Acme?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "delivery window: 7 days",
+          "metadata": {
+            "source": "po-4471",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2026-12-31"
+        },
+        {
+          "record_id": "r2",
+          "claim": "delivery window: 5 days",
+          "metadata": {
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-01-05",
+          "valid_until": "2026-06-30"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "source"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "7 days"
+        ],
+        "forbidden": [
+          "5 days"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-002",
+      "now": "2026-11-01",
+      "question": "Which support tier applies to the workshop contract?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "support tier: gold",
+          "metadata": {
+            "source": "contract-881",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2027-03-31"
+        },
+        {
+          "record_id": "r2",
+          "claim": "support tier: bronze",
+          "metadata": {
+            "source": "contract-880",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "observed_at"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "gold"
+        ],
+        "forbidden": [
+          "bronze"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-003",
+      "now": "2026-11-01",
+      "question": "What is the delivery address for the November parts order?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "delivery address: unit 4, sample yard",
+          "metadata": {
+            "source": "order-2210",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2026-12-15"
+        },
+        {
+          "record_id": "r2",
+          "claim": "delivery address: unit 9, sample depot",
+          "metadata": {
+            "source": "order-2209",
+            "observed_at": "2026-09-01",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "sensitivity"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "unit 4"
+        ],
+        "forbidden": [
+          "unit 9"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-004",
+      "now": "2026-11-01",
+      "question": "Which meeting room is booked for the Tuesday review?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "review room: room b",
+          "metadata": {
+            "source": "booking-4412",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2026-11-05"
+        },
+        {
+          "record_id": "r2",
+          "claim": "review room: room c",
+          "metadata": {
+            "source": "booking-4411",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "permitted_uses"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "room b"
+        ],
+        "forbidden": [
+          "room c"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-005",
+      "now": "2026-11-01",
+      "question": "Which courier holds the parts consignment?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "courier: sample freight",
+          "metadata": {
+            "source": "consignment-77",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2026-12-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "courier: sample haulage",
+          "metadata": {
+            "source": "consignment-76",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ]
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "review_state"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "sample freight"
+        ],
+        "forbidden": [
+          "sample haulage"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-006",
+      "now": "2026-11-01",
+      "question": "Which invoice total is on record for vendor Acme?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "invoice total: 412.00",
+          "metadata": {
+            "source": "inv-9001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2027-01-31"
+        },
+        {
+          "record_id": "r2",
+          "claim": "invoice total: 398.00",
+          "metadata": {
+            "source": "inv-9000",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1"
+        ],
+        "rejected": [
+          {
+            "record_id": "r2",
+            "missing": [
+              "permitted_uses"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "412.00"
+        ],
+        "forbidden": [
+          "398.00"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-007",
+      "now": "2026-11-01",
+      "question": "Which delivery window is current for vendor Acme?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "delivery window: 5 days",
+          "metadata": {
+            "source": "po-4470",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-03-01",
+          "valid_until": "2026-10-25"
+        },
+        {
+          "record_id": "r2",
+          "claim": "delivery window: 7 days",
+          "metadata": {
+            "source": "po-4471",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2027-01-31"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1",
+          "r2"
+        ],
+        "rejected": [],
+        "answer_keywords": [
+          "7 days"
+        ],
+        "forbidden": [
+          "5 days"
+        ],
+        "stale": {
+          "r1": "excluded"
+        }
+      }
+    },
+    {
+      "id": "b4-008",
+      "now": "2026-11-01",
+      "question": "Which support tier applies to the workshop contract?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "support tier: silver",
+          "metadata": {
+            "source": "contract-879",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-02-01",
+          "valid_until": "2026-09-30"
+        },
+        {
+          "record_id": "r2",
+          "claim": "support tier: gold",
+          "metadata": {
+            "source": "contract-881",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-08-01",
+          "valid_until": "2027-03-31"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1",
+          "r2"
+        ],
+        "rejected": [],
+        "answer_keywords": [
+          "gold"
+        ],
+        "forbidden": [
+          "silver"
+        ],
+        "stale": {
+          "r1": "labelled"
+        }
+      }
+    },
+    {
+      "id": "b4-009",
+      "now": "2026-11-01",
+      "question": "Which review room is booked for this week?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "review room: room a",
+          "metadata": {
+            "source": "booking-4390",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-10-20",
+          "valid_until": "2026-10-31"
+        },
+        {
+          "record_id": "r2",
+          "claim": "review room: room b",
+          "metadata": {
+            "source": "booking-4412",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-11-01",
+          "valid_until": "2026-11-08"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1",
+          "r2"
+        ],
+        "rejected": [],
+        "answer_keywords": [
+          "room b"
+        ],
+        "forbidden": [
+          "room a"
+        ],
+        "stale": {
+          "r1": "labelled"
+        }
+      }
+    },
+    {
+      "id": "b4-010",
+      "now": "2026-11-01",
+      "question": "Which courier holds the parts consignment?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "courier: sample haulage",
+          "metadata": {
+            "source": "consignment-74",
+            "observed_at": "2026-09-01",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "courier: sample parcel co",
+          "metadata": {
+            "source": "consignment-75",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-05-01",
+          "valid_until": "2026-10-15"
+        },
+        {
+          "record_id": "r3",
+          "claim": "courier: sample freight",
+          "metadata": {
+            "source": "consignment-77",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-20",
+          "valid_until": "2026-12-01"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r2",
+          "r3"
+        ],
+        "rejected": [
+          {
+            "record_id": "r1",
+            "missing": [
+              "sensitivity"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "sample freight"
+        ],
+        "forbidden": [
+          "sample parcel co",
+          "sample haulage"
+        ],
+        "stale": {
+          "r2": "labelled"
+        }
+      }
+    },
+    {
+      "id": "b4-011",
+      "now": "2026-11-01",
+      "question": "Which delivery window applies to the sample yard order?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "delivery window: 9 days",
+          "metadata": {
+            "source": "",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01",
+          "valid_until": "2026-12-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "delivery window: 4 days",
+          "metadata": {
+            "source": "po-4475",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-08-01",
+          "valid_until": "2027-02-28"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r2"
+        ],
+        "rejected": [
+          {
+            "record_id": "r1",
+            "missing": [
+              "source"
+            ]
+          }
+        ],
+        "answer_keywords": [
+          "4 days"
+        ],
+        "forbidden": [
+          "9 days"
+        ],
+        "stale": {}
+      }
+    },
+    {
+      "id": "b4-012",
+      "now": "2026-11-01",
+      "question": "Which invoice total is on record for vendor Acme?",
+      "proposed_writes": [
+        {
+          "record_id": "r1",
+          "claim": "invoice total: 376.00",
+          "metadata": {
+            "source": "inv-8990",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-01-05",
+          "valid_until": "2026-07-31"
+        },
+        {
+          "record_id": "r2",
+          "claim": "invoice total: 364.00",
+          "metadata": {
+            "source": "inv-8995",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-04-05",
+          "valid_until": "2026-09-30"
+        },
+        {
+          "record_id": "r3",
+          "claim": "invoice total: 412.00",
+          "metadata": {
+            "source": "inv-9001",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-10-02",
+          "valid_until": "2027-01-31"
+        }
+      ],
+      "expected": {
+        "accepted": [
+          "r1",
+          "r2",
+          "r3"
+        ],
+        "rejected": [],
+        "answer_keywords": [
+          "412.00"
+        ],
+        "forbidden": [
+          "376.00",
+          "364.00"
+        ],
+        "stale": {
+          "r1": "labelled",
+          "r2": "excluded"
+        }
+      }
+    }
+  ]
+}

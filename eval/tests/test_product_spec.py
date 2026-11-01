@@ -231,8 +231,15 @@ class FamilyRealityTests(unittest.TestCase):
     def test_existing_families_are_built_and_planned_ones_are_not(self):
         spec = _index()
         built = set(load_tasksets(REPO / "eval" / "tasks"))
-        self.assertEqual(set(spec["existing_families"]), built)
-        self.assertFalse(set(spec["planned_families"]) & built)
+        slices = set(spec["partial_slice_families"])
+        existing = set(spec["existing_families"])
+        self.assertEqual(existing | slices, built,
+                         "a task set exists that the index calls neither existing nor a slice")
+        self.assertFalse(existing & slices)
+        self.assertFalse(slices & set(spec["existing_families"]))
+        for fid in slices:
+            self.assertIn(fid, spec["planned_families"],
+                          "a sliced family must still be a planned family")
 
     def test_harness_only_capabilities_point_at_built_families(self):
         spec = _index()
@@ -398,7 +405,8 @@ AC_COVERAGE = PRODUCT / "ac-coverage.json"
 CROSSWALK_MD = PRODUCT / "family-crosswalk.md"
 MATRIX_MD = PRODUCT / "coverage-matrix.md"
 
-COVERAGE_STATUSES = {"planned_suite", "named_audit", "human_review", "blocked_owner_input"}
+COVERAGE_STATUSES = {"planned_suite", "named_audit", "human_review", "blocked_owner_input",
+                     "slice_built"}
 CROSSWALK_STATUSES = {"retained", "amended", "superseded"}
 FIXTURE_KINDS = {"synthetic", "manual"}
 
@@ -451,8 +459,12 @@ class EvaluationBacklogTests(unittest.TestCase):
                                      "only blocked_owner_input may name a blocker")
                 if entry["status"] == "named_audit":
                     self.assertEqual(entry["suite_kind"], "audit")
-                if entry["status"] == "planned_suite":
+                if entry["status"] in {"planned_suite", "slice_built"}:
                     self.assertEqual(entry["suite_kind"], "family")
+                if entry["status"] == "slice_built":
+                    self.assertIn("slice", entry,
+                                  "a built slice must say what it covers and what it does not")
+                    self.assertTrue(entry["slice"]["not_covered"].strip())
 
     def test_coverage_summary_matches_the_entries(self):
         summary = self.coverage["summary"]
@@ -467,14 +479,18 @@ class EvaluationBacklogTests(unittest.TestCase):
         blocked = {b for e in self.entries for b in e["blocked_by"]}
         self.assertEqual(set(summary["blocked_by_owner_input"]), blocked)
 
-    def test_backlog_covers_every_planned_family_and_claims_nothing_built(self):
+    def test_backlog_covers_every_planned_family_and_claims_nothing_finished(self):
         self.assertEqual(set(self.families), set(self.spec["planned_families"]))
         built = set(load_tasksets(REPO / "eval" / "tasks"))
+        sliced = {fid for fid, family in self.families.items() if family.get("implemented_slice")}
+        self.assertEqual(sliced, set(self.spec.get("partial_slice_families", [])))
+        self.assertEqual(sliced, set(built) - set(self.spec["existing_families"]))
         for fid, family in self.families.items():
             with self.subTest(family=fid):
                 self.assertEqual(family["status"], "planned",
                                  "a backlog family may only be 'planned'")
-                self.assertNotIn(fid, built, "a planned family exists on disk")
+                if fid not in sliced:
+                    self.assertNotIn(fid, built, "a planned family exists on disk")
                 self.assertGreaterEqual(len(family["task_types"]), 2)
                 for task in family["task_types"]:
                     self.assertGreater(task["count"], 0)
@@ -528,14 +544,24 @@ class EvaluationBacklogTests(unittest.TestCase):
                         self.assertIn(re.sub(r"\s+", "", value), spec_values,
                                       "threshold value does not appear in the specification text")
 
-    def test_planned_gates_do_not_exist_in_the_harness(self):
+    def test_gate_bookkeeping_matches_the_harness(self):
+        """A gate may only be described as live if it exists, and only as planned if it does not."""
         gates_source = (REPO / "eval" / "harness" / "gates.py").read_text(encoding="utf-8")
-        planned = {g for f in self.families.values() for g in f["scoring"]["gates"]}
-        self.assertTrue(planned)
-        for gate in planned:
-            with self.subTest(gate=gate):
+        live = {gate for family in self.families.values()
+                for gate in family.get("implemented_slice", {}).get("gates", [])}
+        planned = {gate for family in self.families.values()
+                   for gate in family["scoring"]["gates"]}
+        self.assertTrue(live, "no slice gate is declared")
+        self.assertTrue(live <= planned,
+                        f"live gates not in the family plan: {sorted(live - planned)}")
+        for gate in sorted(live):
+            with self.subTest(gate=gate, state="live"):
+                self.assertIn(gate, gates_source,
+                              "a slice claims a gate the harness does not implement")
+        for gate in sorted(planned - live):
+            with self.subTest(gate=gate, state="planned"):
                 self.assertNotIn(gate, gates_source,
-                                 "a backlog gate already exists; the backlog is out of date")
+                                 "the harness implements a gate the backlog still calls planned")
 
     def test_index_summary_matches_the_backlog_files(self):
         summary = self.spec["evaluation_backlog"]
@@ -548,6 +574,51 @@ class EvaluationBacklogTests(unittest.TestCase):
                          sum(len(f["planted_regressions"]) for f in self.families.values()))
         self.assertEqual(summary["acceptance_criteria"]["total"], len(self.entries))
         self.assertEqual(summary["acceptance_criteria"]["validated"], 0)
+
+    def test_slices_are_backed_by_real_files_and_gates(self):
+        summary = self.spec["evaluation_backlog"]
+        slices = summary["slices"]
+        self.assertEqual(len(slices), summary["families"]["with_partial_slice"])
+        self.assertEqual({item["family"] for item in slices},
+                         set(self.spec["partial_slice_families"]))
+        built = load_tasksets(REPO / "eval" / "tasks")
+        for item in slices:
+            with self.subTest(slice=item["family"]):
+                self.assertIn(item["family"], built, "slice has no task set on disk")
+                self.assertEqual(len(built[item["family"]]), item["tasks"])
+                self.assertFalse(item["family_complete"],
+                                 "a slice may not claim a finished family")
+                self.assertTrue((REPO / item["tests"].split("::")[0]).is_file())
+                for criterion in item["covers"] + item["partial_coverage"]:
+                    entry = next(e for e in self.entries if e["ac"] == criterion)
+                    self.assertIn(entry["status"], {"slice_built", "planned_suite", "named_audit",
+                                                    "human_review", "blocked_owner_input"})
+                for criterion in item["covers"]:
+                    entry = next(e for e in self.entries if e["ac"] == criterion)
+                    self.assertEqual(entry["status"], "slice_built",
+                                     f"{criterion} is covered by a slice but not marked built")
+        # the backlog family entries must agree with the index
+        for fid in self.spec["partial_slice_families"]:
+            self.assertEqual(self.families[fid]["implemented_slice"]["tasks"],
+                             next(s for s in slices if s["family"] == fid)["tasks"])
+
+    def test_slice_documentation_is_linked(self):
+        matrix = MATRIX_MD.read_text(encoding="utf-8")
+        backlog = (PRODUCT / "family-backlog.md").read_text(encoding="utf-8")
+        self.assertIn("## 9. Implemented evaluator slices", matrix)
+        for fid in self.spec["partial_slice_families"]:
+            slice_id = self.families[fid]["implemented_slice"]["slice_id"]
+            self.assertIn(slice_id, matrix)
+            self.assertIn(slice_id, backlog)
+        for needle in ("eval/tasks/b4", "eval/tasks/b16"):
+            self.assertIn(needle, matrix)
+            self.assertIn(needle, backlog)
+
+    def test_slice_capabilities_keep_their_product_status(self):
+        for capability in self.caps.values():
+            with self.subTest(capability=capability["id"]):
+                self.assertIn(capability["status"], ALLOWED_STATUSES)
+                self.assertNotEqual(capability["status"], "implemented")
 
     def test_crosswalk_resolves_the_legacy_numbering(self):
         text = CROSSWALK_MD.read_text(encoding="utf-8")

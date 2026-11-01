@@ -1,6 +1,6 @@
 # `eval/` — evaluation harness (Stage 0 core, Stage 1 breadth)
 
-A small, standard-library-only harness that runs six task families reproducibly, records every attempt,
+A small, standard-library-only harness that runs eight task families reproducibly, records every attempt,
 compares runs against a frozen baseline, and checks that a deliberately planted regression is caught by
 the gate that protects the invariant it breaks:
 
@@ -12,6 +12,8 @@ the gate that protects the invariant it breaks:
 | **B8** | breadth: field extraction, source reconciliation, constraint planning | 18 | 1 |
 | **B9** | skill reuse (applying a stored, under-specified skill) | 6 | 1 |
 | **B10** | memory evolution (trust, supersession, expiry) | 6 | 1 |
+| **B4** | memory metadata and expiry: required fields, rejection, stale exclusion/labelling | 12 | M5 slice |
+| **B16** | limitation explanation: nine cause classes, no silent failure, safe next step | 12 | M5 slice |
 
 ## Where this sits (revision R1, 2026-11-01)
 
@@ -51,6 +53,30 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
   than stronger behaviour, and the `family_regression` gate fails when one family collapses while the
   aggregate improves.
 
+## M5 slices (B4, B16)
+
+Two product families now have a first, deliberately small evaluator suite. They are **slices**, not the
+families and not product features: `B4` (memory metadata and expiry) and `B16` (limitation explanation),
+12 synthetic tasks each, pre-registered inside their own `tasks.json`.
+
+| Slice | Gates that must pass | Planted regressions (each caught by its own gate) |
+|---|---|---|
+| B4 `eval/tasks/b4` | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (>=0.95, C-02-AC2) | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` |
+| B16 `eval/tasks/b16` | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (>=0.95, C-09-AC1) | `suppress_explanation`, `misattribute_cause` |
+
+Three properties are worth knowing before quoting a number:
+
+- **The bound is not rounded down.** With 12 tasks, a >=95% bound is only satisfiable at 12/12. The gate applies
+  the published number, so a single failure fails the slice; a larger suite is what would make 95% meaningful.
+- **The fixtures police themselves.** The loader refuses a B4 record that invents a metadata field, a fixture
+  that accepts an incomplete record, an expired record with no declared stale handling, and a B16 task whose
+  gold cause contradicts its own conditions or whose "valid" next step would violate permissions.
+- **A slice is not a capability.** The solver is a deterministic hand-written program, the fixtures are
+  invented, and no model, server, personal record or network call is involved.
+
+Evidence: `results/m5-slices-report.json` plus the `*-B4-*.jsonl` and `*-B16-*.jsonl` ledgers;
+`baselines/baseline-m5-slices.json` freezes the clean B4/B16 summaries.
+
 ## What this harness does **not** measure
 
 - **It does not measure a model.** Every solver in `harness/solvers/` is a deterministic hand-written
@@ -58,8 +84,10 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
   result. The `oracle_ceiling` rung is worse still: it reads the fixtures' gold fields to bound what the
   suite can award, and it ties the reference rung on all six families — the suite therefore shows no
   demonstrated headroom above the reference program.
-- It does not evaluate B4–B7 (voice, memory stores, latency, cost sweep), long-horizon tasks, or real user
-  data. Every fixture is synthetic and the loader refuses anything else.
+- It does not evaluate the unfinished families B5–B7, B11–B15 or B17–B20 (multimodal, voice, adversarial,
+  speaker verification, telephony, preferences, self-evolution, invention, canon parity, smart home,
+  connectors), long-horizon tasks, or real user data. B4 and B16 exist only as the slices described above.
+  Every fixture is synthetic and the loader refuses anything else.
 - It does not call any model, network service or real calendar/mail/filesystem. There is no
   network-capable import anywhere under `eval/harness` and a self-check enforces that.
 - It does not produce confidence intervals: the solvers are deterministic, so run-to-run variance is zero
@@ -81,28 +109,29 @@ eval/
   harness/
     config.py        run identity, frozen thresholds, seeding, git provenance
     stats.py         Wilson interval, nearest-rank percentile, mean
-    taskset.py       task-set loading + schema and synthetic-data validation (all six families)
+    taskset.py       task-set loading + schema, synthetic-data and pre-registration validation
     registry.py      capability registry loader/validator, coverage checks, evaluator digest
     planning.py      constraint checker shared by the planner solver and its scorer
     tools.py         in-memory calendar/mail/filesystem with validation, policy,
                      idempotency, fault injection and credential redaction
     solvers/
       base.py        Solver protocol, ToolContext, single idempotent retry
-      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10)
+      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10, B4, B16)
       ladder.py      the X-13 rungs, including the gold-reading oracle probe
-      mutations.py   the nine planted regressions used by X-10
+      mutations.py   the fourteen planted regressions used by X-10
     scorers.py       per-family scoring; pure functions of fixture + result + world
     runner.py        task x repeat execution, budgets, record hashing, per-subfamily summary
     ledger.py        JSONL result ledger, index, frozen baseline
     scorecard.py     Markdown + JSON scorecard
     gates.py         zero-tolerance invariants, regression thresholds, family_regression
-    selftest.py      16 self-checks of the harness itself
+    selftest.py      17 self-checks of the harness itself
     cli.py           command line entry point
-  tasks/             synthetic fixtures: b1/{corpus,tasks}.json, b2/, b3/, b8/, b9/, b10/
+  tasks/             synthetic fixtures: b1/{corpus,tasks}.json, b2/, b3/, b4/, b8/, b9/, b10/, b16/
   registry/          capabilities.json (evaluator-owned) + README
-  baselines/         baseline-a-stub.json (Stage 0), baseline-b-stage1.json (six families)
+  baselines/         baseline-a-stub.json (Stage 0), baseline-b-stage1.json (six families),
+                     baseline-m5-slices.json (B4/B16)
   results/           committed evidence: *.jsonl runs, index.json, scorecards, x10/x13 reports
-  tests/             76 unittest cases
+  tests/             161 unittest cases
   scripts/           x10_demo.sh — end-to-end Stage 0 demonstration
 ```
 

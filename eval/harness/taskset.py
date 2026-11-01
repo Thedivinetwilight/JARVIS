@@ -15,6 +15,9 @@ from .config import sha256_obj
 
 REQUIRED_BLOCK_FIELDS = {"version", "block", "synthetic", "data_class", "tasks"}
 
+#: Families added at M5 must ship a pre-registration with their fixtures.
+NEW_FAMILY_BLOCKS = {"B4", "B16"}
+
 
 class TaskSetError(ValueError):
     """Raised when a task set is malformed or violates the synthetic-data policy."""
@@ -69,6 +72,8 @@ def load_taskset(directory: Path | str) -> TaskSet:
         corpus = corpus_payload.get("documents", [])
         if not corpus:
             raise TaskSetError(f"{directory}: B1 requires corpus.json with documents")
+    if block in NEW_FAMILY_BLOCKS:
+        _validate_preregistration(directory, payload, tasks, block)
     _validate(block, tasks, corpus, directory)
     return TaskSet(block=block, version=str(payload["version"]), path=directory,
                    tasks=tuple(tasks), corpus=tuple(corpus))
@@ -85,6 +90,7 @@ def _validate(block: str, tasks: list[dict[str, Any]], corpus: list[dict[str, An
         if tid in ids:
             raise TaskSetError(f"{directory}: duplicate task id {tid}")
         ids.add(tid)
+        now = task.get("now") if block == "B4" else None
         if block == "B1":
             for key in ("question", "answer_keywords", "evidence_span_ids"):
                 if key not in task:
@@ -122,6 +128,12 @@ def _validate(block: str, tasks: list[dict[str, Any]], corpus: list[dict[str, An
             _validate_b9(directory, task)
         elif block == "B10":
             _validate_b10(directory, task)
+        elif block == "B4":
+            if not isinstance(now, str) or not now:
+                raise TaskSetError(f"{directory}: B4 task {tid} needs an ISO 'now'")
+            _validate_b4(directory, task, now)
+        elif block == "B16":
+            _validate_b16(directory, task)
         else:
             raise TaskSetError(f"{directory}: unsupported block {block}")
 
@@ -245,6 +257,287 @@ def _validate_b10(directory: Path, task: dict[str, Any]) -> None:
     if sum(len(s) for s in sets) != len(set().union(*sets)):
         raise TaskSetError(f"{directory}: B10 task {task['id']} reuses a fact across "
                            "surviving/superseded/expired")
+
+
+#: The five metadata fields required by C-02-AC1, verbatim. A record missing any
+#: one of them must be rejected by the store; the fixture cannot waive this.
+METADATA_FIELDS = ("source", "observed_at", "sensitivity", "permitted_uses",
+                   "review_state")
+
+#: Data classes the product spec defines. Synthetic fixtures may only label a
+#: record with one of these, so a fixture cannot invent a classification.
+SENSITIVITY_CLASSES = {"D1", "D2", "D3"}
+
+#: The nine limitation cause classes named in the C-09 requirement, in spec order.
+CAUSE_CLASSES = ("missing_access", "missing_information", "missing_tool",
+                 "hardware_or_local_capacity", "model_capability", "uncertainty",
+                 "failure", "unsupported_language", "unavailable_external_service")
+
+#: Cause class -> (condition key, limiting value, outcome). The mapping is normative:
+#: a fixture may not declare a cause its scenario does not actually exhibit.
+CAUSE_CONDITIONS = {
+    "missing_access": ("access", "missing", "blocked"),
+    "missing_information": ("information", "missing", "blocked"),
+    "missing_tool": ("tool", "missing", "blocked"),
+    "hardware_or_local_capacity": ("capacity", "insufficient", "partial"),
+    "model_capability": ("model", "insufficient", "partial"),
+    "uncertainty": ("uncertainty", "high", "partial"),
+    "failure": ("failure", "present", "blocked"),
+    "unsupported_language": ("language", "unsupported", "partial"),
+    "unavailable_external_service": ("external_service", "unavailable", "blocked"),
+}
+
+#: Every condition key and its non-limiting ("ok") value.
+CONDITION_BASELINE = {"access": "present", "information": "present", "tool": "present",
+                      "capacity": "sufficient", "model": "sufficient",
+                      "uncertainty": "low", "failure": "none",
+                      "language": "supported", "external_service": "available"}
+
+#: Next steps an explanation may recommend. Anything outside this set is unsafe.
+NEXT_STEP_VOCABULARY = frozenset({"grant_scope", "supply_information", "enable_tool",
+                                  "add_capacity", "accept_lower_confidence",
+                                  "retry_later", "switch_language"})
+
+#: Steps that would violate permissions. A fixture names the ones it forbids.
+FORBIDDEN_NEXT_STEPS = frozenset({"share_credentials", "disable_verification",
+                                  "bypass_approval", "store_plaintext_secret",
+                                  "grant_blanket_scope"})
+
+PREREGISTRATION_FIELDS = ("spec", "derived_from", "task_counts", "scoring",
+                          "thresholds", "mutations", "provenance")
+
+
+def record_is_complete(record: dict[str, Any]) -> bool:
+    """A record carries the five metadata fields with non-empty values."""
+    metadata = record.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+    for field in METADATA_FIELDS:
+        value = metadata.get(field)
+        if isinstance(value, list):
+            if not value:
+                return False
+        elif not isinstance(value, str) or not value.strip():
+            return False
+    return True
+
+
+def record_is_expired(record: dict[str, Any], now: str) -> bool:
+    until = record.get("valid_until")
+    return bool(until) and str(until) < str(now)
+
+
+def _validate_preregistration(directory: Path, payload: dict[str, Any],
+                              tasks: list[dict[str, Any]], block: str) -> None:
+    """A new-family task set must ship its pre-registration with the fixtures."""
+    prereg = payload.get("preregistration")
+    if not isinstance(prereg, dict):
+        raise TaskSetError(f"{directory}: {block} requires a 'preregistration' block")
+    missing = [field for field in PREREGISTRATION_FIELDS if field not in prereg]
+    if missing:
+        raise TaskSetError(f"{directory}: {block} preregistration missing {missing}")
+    counts = prereg["task_counts"]
+    if counts.get("total") != len(tasks):
+        raise TaskSetError(
+            f"{directory}: {block} preregistration claims {counts.get('total')} tasks, "
+            f"fixture has {len(tasks)}")
+    provenance = prereg["provenance"]
+    if provenance.get("synthetic") is not True:
+        raise TaskSetError(f"{directory}: {block} provenance must be synthetic")
+    if provenance.get("model_calls") != 0 or provenance.get("network") is not False:
+        raise TaskSetError(
+            f"{directory}: {block} provenance must declare zero model calls and no network")
+
+
+def _validate_b4(directory: Path, task: dict[str, Any], now: str) -> None:
+    _require(directory, task, ("id", "question", "proposed_writes", "expected"))
+    writes = task["proposed_writes"]
+    if not isinstance(writes, list) or not writes:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} has no proposed writes")
+    by_id: dict[str, dict[str, Any]] = {}
+    for record in writes:
+        rid = record.get("record_id")
+        if not rid or not isinstance(rid, str):
+            raise TaskSetError(f"{directory}: B4 task {task['id']} record without id")
+        if rid in by_id:
+            raise TaskSetError(f"{directory}: B4 task {task['id']} duplicate record {rid}")
+        if not str(record.get("claim", "")).strip():
+            raise TaskSetError(f"{directory}: B4 task {task['id']} record {rid} has no claim")
+        if not record.get("valid_from"):
+            raise TaskSetError(f"{directory}: B4 task {task['id']} record {rid} "
+                               "needs valid_from")
+        metadata = record.get("metadata")
+        if not isinstance(metadata, dict):
+            raise TaskSetError(f"{directory}: B4 task {task['id']} record {rid} "
+                               "has no metadata object")
+        unknown = set(metadata) - set(METADATA_FIELDS)
+        if unknown:
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} record {rid} invents metadata "
+                f"field(s) {sorted(unknown)}; only {list(METADATA_FIELDS)} are defined")
+        sensitivity = metadata.get("sensitivity")
+        if sensitivity is not None and sensitivity not in SENSITIVITY_CLASSES:
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} record {rid} sensitivity "
+                f"{sensitivity!r} is not one of {sorted(SENSITIVITY_CLASSES)}")
+        if metadata.get("permitted_uses") is not None and not isinstance(
+                metadata["permitted_uses"], list):
+            raise TaskSetError(f"{directory}: B4 task {task['id']} record {rid} "
+                               "permitted_uses must be a list")
+        until = record.get("valid_until")
+        if until is not None and str(until) <= str(record["valid_from"]):
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} record {rid} expires before it starts")
+        by_id[rid] = record
+
+    expected = task["expected"]
+    for key in ("accepted", "rejected", "answer_keywords", "forbidden", "stale"):
+        if key not in expected:
+            raise TaskSetError(f"{directory}: B4 task {task['id']} expected missing {key!r}")
+    accepted = list(expected["accepted"])
+    rejected = list(expected["rejected"])
+    stale = expected["stale"]
+
+    if not expected["answer_keywords"]:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} has no answer keywords")
+
+    rejected_ids = [entry.get("record_id") for entry in rejected]
+    if len(set(rejected_ids)) != len(rejected_ids):
+        raise TaskSetError(f"{directory}: B4 task {task['id']} rejects a record twice")
+    overlap = set(accepted) & set(rejected_ids)
+    if overlap:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} both accepts and rejects "
+                           f"{sorted(overlap)}")
+    unknown = (set(accepted) | set(rejected_ids)) - set(by_id)
+    if unknown:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} names unknown records "
+                           f"{sorted(unknown)}")
+    unclassified = set(by_id) - set(accepted) - set(rejected_ids)
+    if unclassified:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} leaves records "
+                           f"{sorted(unclassified)} neither accepted nor rejected")
+
+    # The fixture must agree with the rule it is testing: an incomplete record is
+    # rejected and names exactly the fields it lacks; a complete one is accepted.
+    for entry in rejected:
+        rid = entry["record_id"]
+        missing = entry.get("missing")
+        if not isinstance(missing, list) or not missing:
+            raise TaskSetError(f"{directory}: B4 task {task['id']} rejection {rid} "
+                               "names no missing field")
+        if set(missing) - set(METADATA_FIELDS):
+            raise TaskSetError(f"{directory}: B4 task {task['id']} rejection {rid} names "
+                               f"unknown field(s) {sorted(set(missing) - set(METADATA_FIELDS))}")
+        if record_is_complete(by_id[rid]):
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} rejects complete record {rid}; "
+                "the fixture contradicts the metadata rule it is testing")
+        actual_missing = sorted(field for field in METADATA_FIELDS
+                                if not _field_present(by_id[rid], field))
+        if sorted(missing) != actual_missing:
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} rejection {rid} declares "
+                f"{sorted(missing)} but the record lacks {actual_missing}")
+    for rid in accepted:
+        if not record_is_complete(by_id[rid]):
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} accepts incomplete record {rid}; "
+                "an incomplete write must be rejected")
+
+    unknown = set(stale) - set(accepted)
+    if unknown:
+        raise TaskSetError(f"{directory}: B4 task {task['id']} marks unstored records "
+                           f"{sorted(unknown)} as stale")
+    for rid, mode in stale.items():
+        if mode not in {"excluded", "labelled"}:
+            raise TaskSetError(f"{directory}: B4 task {task['id']} stale mode {mode!r} "
+                               "must be 'excluded' or 'labelled'")
+        if not record_is_expired(by_id[rid], now):
+            raise TaskSetError(
+                f"{directory}: B4 task {task['id']} marks {rid} stale but it has not "
+                f"expired at {now}")
+    expired = sorted(rid for rid in accepted if record_is_expired(by_id[rid], now))
+    if sorted(stale) != expired:
+        raise TaskSetError(
+            f"{directory}: B4 task {task['id']} must declare stale handling for every "
+            f"expired accepted record; expired={expired} declared={sorted(stale)}")
+
+
+def _field_present(record: dict[str, Any], field: str) -> bool:
+    value = record.get("metadata", {}).get(field)
+    if isinstance(value, list):
+        return bool(value)
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _validate_b16(directory: Path, task: dict[str, Any]) -> None:
+    _require(directory, task, ("id", "request", "conditions", "gold_outcome",
+                               "gold_cause", "next_step_required",
+                               "valid_next_steps", "forbidden_next_steps"))
+    tid = task["id"]
+    if not str(task["request"]).strip():
+        raise TaskSetError(f"{directory}: B16 task {tid} has no request")
+    conditions = task["conditions"]
+    if not isinstance(conditions, dict):
+        raise TaskSetError(f"{directory}: B16 task {tid} conditions must be an object")
+    unknown = set(conditions) - set(CONDITION_BASELINE)
+    if unknown:
+        raise TaskSetError(f"{directory}: B16 task {tid} has unknown condition(s) "
+                           f"{sorted(unknown)}")
+    missing = set(CONDITION_BASELINE) - set(conditions)
+    if missing:
+        raise TaskSetError(f"{directory}: B16 task {tid} omits condition(s) "
+                           f"{sorted(missing)}")
+
+    outcome = task["gold_outcome"]
+    cause = task["gold_cause"]
+    if outcome not in {"done", "blocked", "partial"}:
+        raise TaskSetError(f"{directory}: B16 task {tid} outcome {outcome!r} invalid")
+    if outcome == "done":
+        if cause is not None:
+            raise TaskSetError(f"{directory}: B16 task {tid} is done but names a cause")
+        if any(conditions[key] != value for key, value in CONDITION_BASELINE.items()):
+            raise TaskSetError(
+                f"{directory}: B16 task {tid} is done but a condition is limiting")
+    else:
+        if cause not in CAUSE_CLASSES:
+            raise TaskSetError(f"{directory}: B16 task {tid} cause {cause!r} is not one of "
+                               f"the nine C-09 classes")
+        key, value, mapped_outcome = CAUSE_CONDITIONS[cause]
+        if conditions[key] != value:
+            raise TaskSetError(
+                f"{directory}: B16 task {tid} declares cause {cause} but condition "
+                f"{key}={conditions[key]!r} (expected {value!r})")
+        if mapped_outcome != outcome:
+            raise TaskSetError(
+                f"{directory}: B16 task {tid} declares outcome {outcome!r} but cause "
+                f"{cause} maps to {mapped_outcome!r}")
+        other = {k: v for k, v in conditions.items() if k != key}
+        if any(other[k] != CONDITION_BASELINE[k] for k in other):
+            raise TaskSetError(
+                f"{directory}: B16 task {tid} has more than one limiting condition; "
+                "the gold cause would be ambiguous")
+
+    required = bool(task["next_step_required"])
+    if required != (outcome != "done"):
+        raise TaskSetError(f"{directory}: B16 task {tid} next_step_required must match "
+                           "the outcome")
+    valid = task["valid_next_steps"]
+    forbidden = task["forbidden_next_steps"]
+    if not isinstance(valid, list) or not isinstance(forbidden, list):
+        raise TaskSetError(f"{directory}: B16 task {tid} next steps must be lists")
+    if required and not valid:
+        raise TaskSetError(f"{directory}: B16 task {tid} needs a valid next step")
+    if not required and valid:
+        raise TaskSetError(f"{directory}: B16 task {tid} is done but offers a next step")
+    unknown = (set(valid) | set(forbidden)) - NEXT_STEP_VOCABULARY - FORBIDDEN_NEXT_STEPS
+    if unknown:
+        raise TaskSetError(f"{directory}: B16 task {tid} uses unknown next step(s) "
+                           f"{sorted(unknown)}")
+    overlap = set(valid) & set(forbidden)
+    if overlap:
+        raise TaskSetError(f"{directory}: B16 task {tid} both allows and forbids "
+                           f"{sorted(overlap)}")
 
 
 def load_tasksets(root: Path | str = "eval/tasks") -> dict[str, TaskSet]:

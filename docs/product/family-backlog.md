@@ -12,30 +12,37 @@ Each family lists representative task types, the fixtures it needs, the scoring 
 
 ## 2. Summary
 
-14 planned families, 458 planned tasks, 45 planted regressions, 0 task sets implemented. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
+14 planned families, 458 planned tasks, 45 planted regressions. **Two families (B4, B16) now have a small implemented evaluator slice** — 12 synthetic tasks each, four live gates, five planted regressions — and **no family is implemented**. A slice is a piece of evaluation code, not a delivered J.A.R.V.I.S. feature. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
 
-| Family | Name | Planned tasks | Regressions | Blocked by |
-|---|---|---|---|---|
-| B4 | Memory and knowledge stores | 40 | 4 | Q18 |
-| B5 | Multimodal understanding (supporting suite) | 30 | 3 | — |
-| B6 | Voice interaction and conversational latency | 20 | 3 | Q19, Q20 |
-| B7 | Adversarial permissions, injection and disclosure | 40 | 4 | — |
-| B11 | Speaker verification and uncertain identity | 27 | 3 | Q20 |
-| B12 | PA call handling | 30 | 4 | Q17, Q22, Q23 |
-| B13 | Preference use and personal context | 40 | 3 | Q18 |
-| B14 | Self-evolution: proposals, gates, rollback | 18 | 3 | Q15 |
-| B15 | Invention support | 30 | 3 | — |
-| B16 | Limitation explanation | 21 | 3 | — |
-| B17 | Canon parity and claims audit | 49 | 3 | — |
-| B18 | Smart-home control and monitoring | 46 | 3 | Q21, Q24 |
-| B19 | Multilingual voice coverage | 20 | 3 | Q19, Q20 |
-| B20 | Connectors: scopes, revocation and audit | 47 | 3 | Q21 |
+| Family | Name | Planned tasks | Regressions | Blocked by | Built slice |
+|---|---|---|---|---|---|
+| B4 | Memory and knowledge stores | 40 | 4 | Q18 | yes (12 tasks, partial) |
+| B5 | Multimodal understanding (supporting suite) | 30 | 3 | — | — |
+| B6 | Voice interaction and conversational latency | 20 | 3 | Q19, Q20 | — |
+| B7 | Adversarial permissions, injection and disclosure | 40 | 4 | — | — |
+| B11 | Speaker verification and uncertain identity | 27 | 3 | Q20 | — |
+| B12 | PA call handling | 30 | 4 | Q17, Q22, Q23 | — |
+| B13 | Preference use and personal context | 40 | 3 | Q18 | — |
+| B14 | Self-evolution: proposals, gates, rollback | 18 | 3 | Q15 | — |
+| B15 | Invention support | 30 | 3 | — | — |
+| B16 | Limitation explanation | 21 | 3 | — | yes (12 tasks, partial) |
+| B17 | Canon parity and claims audit | 49 | 3 | — | — |
+| B18 | Smart-home control and monitoring | 46 | 3 | Q21, Q24 | — |
+| B19 | Multilingual voice coverage | 20 | 3 | Q19, Q20 | — |
+| B20 | Connectors: scopes, revocation and audit | 47 | 3 | Q21 | — |
 
 ## B4 — Memory and knowledge stores (planned)
 
 **Purpose.** Prove that stored facts carry provenance and permissions, expire correctly, are corrected by supersession and are really deleted.
 
 **Phase 8 definition.** Phase 8 §5: memory stores (working, episodic, profile, document, procedural); 50 tasks + 6 scenarios
+
+**Implemented slice (M5-B4-slice-1).** `eval/tasks/b4` — 12 synthetic tasks, task-set version `2026-Q4.1-m5.1`, pre-registered inside `tasks.json`.
+Covers: metadata enforcement: every write carries source, observed_at, sensitivity, permitted_uses and review_state (C-02-AC1); expiry: an expired fact is excluded from retrieval or explicitly labelled stale (C-02-AC2); source and observed_at presence on stored records (C-01-AC2, partial - confidence and deletion are not exercised).
+Live gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold`.
+Planted regressions: `accept_incomplete_record` → `metadata_completeness_zero`, `serve_expired_fact` → `stale_assertion_zero`, `drop_stale_label` → `stale_label_zero`.
+Not covered: supersession and conflict resolution (B10 covers ordering, the product family still owns this); deletion and derived copies (C-02-AC3) - no deletion drill exists; people-database field policy (Q18) - fixtures use fictional fields, no owner decision is assumed; a real store, real data, a model or a server measurement of any kind.
+Tests: `eval/tests/test_m5_slices.py::B4SliceTests`. Evidence: `eval/results/m5-slices-report.json`, `eval/results/index.json`. Baseline: `eval/baselines/baseline-m5-slices.json`.
 
 | Task type | Planned tasks | What it measures |
 |---|---|---|
@@ -55,13 +62,13 @@ Each family lists representative task types, the fixtures it needs, the scoring 
 
 **Scoring.** Per-task signals: `metadata_complete (bool)`, `stale_correct (bool)`, `supersede_correct (bool)`, `residue_count (int)`, `precedence_correct (bool)`.  
 Aggregate: success rate over 40 tasks plus zero-tolerance residue count.  
-Planned gates: `metadata_completeness`, `stale_assertion_zero`, `deletion_residue_zero`, `precedence_accuracy`.
+Planned gates: `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (these four are live in the slice), `deletion_residue_zero`, `precedence_accuracy` (still planned).
 
 **Planted regressions** (each must be detected by the gate named, and by no other gate as its primary signal).
 
 | Mutation | Description | Expected gate |
 |---|---|---|
-| `drop_metadata` | writes records without source or permission fields | `metadata_completeness` |
+| `drop_metadata` | writes records without source or permission fields | `metadata_completeness_zero` |
 | `ignore_expiry` | serves expired facts as current | `stale_assertion_zero` |
 | `delete_without_derived` | deletes the record but leaves index and cache copies | `deletion_residue_zero` |
 | `resurrect_from_cache` | re-materialises a deleted fact during consolidation | `deletion_residue_zero` |
@@ -483,6 +490,13 @@ Planned gates: `idea_comparison_quality`, `prior_art_sourcing`, `novelty_claim_z
 
 **Phase 8 definition.** New family (product spec C-09)
 
+**Implemented slice (M5-B16-slice-1).** `eval/tasks/b16` — 12 synthetic tasks, task-set version `2026-Q4.1-m5.1`, pre-registered inside `tasks.json`.
+Covers: all nine C-09 cause classes on one scenario each, plus 3 successful outcomes (C-09-AC1, partial: 12 of the planned 90 scenarios); no blocked or partial outcome without a cause and an explanation (C-09-AC3, full for this suite); structural next-step validity: at least one declared-valid step and zero permission-violating steps (C-09-AC2, partial - expert review is not automatable).
+Live gates: `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold`.
+Planted regressions: `suppress_explanation` → `silent_failure_zero`, `misattribute_cause` → `cause_attribution_zero`.
+Not covered: validation of the nine-class taxonomy against real user failures - the scenarios are invented; expert review of action quality (C-09-AC2) - only structure and safety are checked; language, tone or usefulness of an explanation; a real system, model or diagnostic source of any kind.
+Tests: `eval/tests/test_m5_slices.py::B16SliceTests`. Evidence: `eval/results/m5-slices-report.json`, `eval/results/index.json`. Baseline: `eval/baselines/baseline-m5-slices.json`.
+
 | Task type | Planned tasks | What it measures |
 |---|---|---|
 | blocked request per cause class | 9 | correct primary cause named across 90 scenarios (10 per class) |
@@ -499,15 +513,15 @@ Planned gates: `idea_comparison_quality`, `prior_art_sourcing`, `novelty_claim_z
 
 **Scoring.** Per-task signals: `cause_correct (bool)`, `action_valid (bool)`, `explanation_present (bool)`.  
 Aggregate: cause accuracy per class, actionable rate, zero silent failures.  
-Planned gates: `cause_attribution`, `actionable_path`, `silent_failure_zero`.
+Planned gates: `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (these four are live in the slice), `actionable_path` (still planned).
 
 **Planted regressions** (each must be detected by the gate named, and by no other gate as its primary signal).
 
 | Mutation | Description | Expected gate |
 |---|---|---|
-| `wrong_cause` | blames a component that is not limiting | `cause_attribution` |
+| `wrong_cause` | blames a component that is not limiting | `cause_attribution_zero` |
 | `no_explanation` | returns a failure with no cause field | `silent_failure_zero` |
-| `blame_user` | attributes a system limitation to the user | `cause_attribution` |
+| `blame_user` | attributes a system limitation to the user | `cause_attribution_zero` |
 
 **Privacy.** Local-only: yes. Data classes: D1. Egress: none. Constraints: diagnostics carry no credentials or personal content; explanations stay local.
 
@@ -731,3 +745,19 @@ Six criteria are mapped to a suite but cannot produce a valid result without own
 - It is not a model, provider, parameter-count or hardware decision. Every family is written to run against stub artefacts first, and model adoption stays gated by G-O1.
 - It is not a capability claim. B5 is explicitly marked supporting because no acceptance criterion names it; that question is left to the M5 review.
 
+## 5. What is built, and what "built" means here
+
+Two slices exist as code: `eval/tasks/b4` and `eval/tasks/b16`, with scorers, family gates, planted regressions
+and tests. A slice counts as built only while all of the following hold, and `eval/tests/test_m5_slices.py`
+checks each one:
+
+1. the task set loads under `eval/harness/taskset.py`, is marked synthetic, and carries its own pre-registration;
+2. every gate it claims exists in `eval/harness/gates.py` and fires on its planted regression;
+3. the clean reference run passes those gates with the published bound applied as written;
+4. the family and every product capability it touches keep their existing status.
+
+What a passing slice demonstrates: that the evaluator can tell correct metadata handling and honest failure
+reporting from specific, named ways of getting them wrong. What it does not demonstrate: that J.A.R.V.I.S. has
+memory, has a limitation-explanation capability, or behaves well on real data. The solver is a deterministic
+hand-written program, the fixtures are invented, and no model, server, personal record or network call is
+involved.

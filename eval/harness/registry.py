@@ -155,6 +155,11 @@ def tools_used_by_fixtures(tasksets: Iterable[Any]) -> set[str]:
             if block == "B10":
                 used.add("memory.consolidate")
                 used.add("state.verify")
+            if block == "B4":
+                used.add("memory.write_record")
+                used.add("memory.retrieve_current")
+            if block == "B16":
+                used.add("explain.limitation")
     used.discard("")
     return used
 

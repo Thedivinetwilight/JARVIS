@@ -18,7 +18,8 @@ TASKSET_VERSION = "2026-Q4.1"
 DEFAULT_SEED = 1729
 
 # Repeats per block. Phase 8 defines pass^k for B2 (dual-control tool use).
-DEFAULT_REPEATS = {"B1": 1, "B2": 4, "B3": 1, "B8": 1, "B9": 1, "B10": 1}
+DEFAULT_REPEATS = {"B1": 1, "B2": 4, "B3": 1, "B8": 1, "B9": 1, "B10": 1,
+                   "B4": 1, "B16": 1}
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,10 @@ class Thresholds:
     max_success_drop_pp: float = 0.0
     max_citation_precision_drop_pp: float = 5.0
     max_cost_ratio: float = 1.5
+    #: M5 slices. C-02-AC2 requires >=95% stale handling; C-09-AC1 requires >=95%
+    #: correct cause classification. Both are published bounds, not tuning knobs.
+    min_stale_handling: float = 0.95
+    min_cause_accuracy: float = 0.95
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

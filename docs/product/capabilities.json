@@ -2,7 +2,7 @@
   "spec_version": "1.1.0",
   "published": "2026-11-01",
   "title": "J.A.R.V.I.S. product capability specification (normative requirements)",
-  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists.",
+  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists. M5 added two evaluator slices (B4, B16) that run in the harness; they are evaluation code, not delivered J.A.R.V.I.S. features, and they do not change any capability status.",
   "status_vocabulary": {
     "specified": "requirement written and reviewable; no implementation and no product validation",
     "specified \u00b7 harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
@@ -1725,9 +1725,9 @@
     }
   ],
   "evaluation_backlog": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "published": "2026-11-01",
-    "status_statement": "Planning only: 14 families, 458 planned tasks and 45 planted regressions are described, but no task set, grader, gate or fixture exists and no family is implemented. Synthetic harness coverage is not product evidence.",
+    "status_statement": "Planning only, plus two evaluator slices. B4 (memory metadata and expiry) and B16 (limitation explanation) now have 12 task fixtures each, four live gates each and five planted regressions; the other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
     "documents": {
       "crosswalk": "docs/product/family-crosswalk.md",
       "backlog_markdown": "docs/product/family-backlog.md",
@@ -1755,14 +1755,20 @@
         "B20"
       ],
       "planned_tasks": 458,
-      "planted_regressions": 45
+      "planted_regressions": 45,
+      "with_partial_slice": 2,
+      "slices_built": [
+        "B4",
+        "B16"
+      ]
     },
     "acceptance_criteria": {
-      "total": 50,
-      "planned_suite": 32,
+      "planned_suite": 28,
       "named_audit": 9,
       "human_review": 3,
       "blocked_owner_input": 6,
+      "slice_built": 4,
+      "total": 50,
       "with_objective_protocol": 47,
       "human_review_only": [
         "C-08-AC1",
@@ -1778,6 +1784,62 @@
       ],
       "validated": 0
     },
-    "verified_by": "eval/tests/test_product_spec.py::EvaluationBacklogTests"
-  }
+    "verified_by": "eval/tests/test_product_spec.py::EvaluationBacklogTests",
+    "slices": [
+      {
+        "family": "B4",
+        "suite": "eval/tasks/b4",
+        "tasks": 12,
+        "family_complete": false,
+        "covers": [
+          "C-02-AC1",
+          "C-02-AC2"
+        ],
+        "partial_coverage": [
+          "C-01-AC2"
+        ],
+        "gates": [
+          "metadata_completeness_zero",
+          "stale_assertion_zero",
+          "stale_label_zero",
+          "stale_handling_threshold"
+        ],
+        "tests": "eval/tests/test_m5_slices.py::B4SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json"
+      },
+      {
+        "family": "B16",
+        "suite": "eval/tasks/b16",
+        "tasks": 12,
+        "family_complete": false,
+        "covers": [
+          "C-09-AC1",
+          "C-09-AC3"
+        ],
+        "partial_coverage": [
+          "C-09-AC2"
+        ],
+        "gates": [
+          "silent_failure_zero",
+          "cause_attribution_zero",
+          "unsafe_advice_zero",
+          "cause_accuracy_threshold"
+        ],
+        "tests": "eval/tests/test_m5_slices.py::B16SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json"
+      }
+    ]
+  },
+  "partial_slice_families": [
+    "B4",
+    "B16"
+  ]
 }

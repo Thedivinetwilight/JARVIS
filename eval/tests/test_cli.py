@@ -17,7 +17,9 @@ class CliTests(unittest.TestCase):
     def test_selftest_passes(self):
         proc = cli("selftest")
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-        self.assertIn("16/16 checks passed", proc.stdout)
+        passed, total = proc.stdout.strip().splitlines()[-1].split()[0].split("/")
+        self.assertEqual(passed, total, proc.stdout)
+        self.assertGreaterEqual(int(total), 16)
 
     def test_x10_detects_every_planted_regression(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -28,7 +30,10 @@ class CliTests(unittest.TestCase):
             self.assertIn("X-10 PASSED", proc.stdout)
             report = json.loads(Path(tmp, "report.json").read_text())
             self.assertTrue(all(row["detected"] for row in report["rows"]))
-            self.assertEqual(len(report["rows"]), 9)
+            # Every registered mutation must appear in the report; a new family
+            # cannot be added without its regression being exercised here.
+            from eval.harness.solvers.mutations import MUTATIONS
+            self.assertEqual(len(report["rows"]), len(MUTATIONS))
             for row in report["rows"]:
                 # Detection must come from the gate that protects the intended
                 # invariant, not from an unrelated failure.

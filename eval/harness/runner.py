@@ -140,6 +140,8 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         bucket["success_rate"] = (bucket["successes"] / bucket["attempts"]
                                   if bucket["attempts"] else 0.0)
 
+    stale_required = int(total_of("stale_required"))
+    cause_required = int(total_of("cause_required"))
     max_repeat = max((r.repeat for r in records), default=1)
     k = min(4, max_repeat)
     return {
@@ -152,6 +154,18 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "duplicate_writes": int(total_of("duplicate_writes")),
         "unauthorized_side_effects": int(total_of("unauthorized_side_effects")),
         "validation_errors": int(total_of("validation_errors")),
+        # M5 slices: memory metadata/expiry (B4) and limitation explanation (B16).
+        "incomplete_accepts": int(total_of("incomplete_accepts")),
+        "expired_served": int(total_of("expired_served")),
+        "unlabelled_stale": int(total_of("unlabelled_stale")),
+        "stale_required": int(total_of("stale_required")),
+        "stale_correct": int(total_of("stale_correct")),
+        "silent_failures": int(total_of("silent_failures")),
+        "misattributed": int(total_of("misattributed")),
+        "unsafe_next_steps": int(total_of("unsafe_next_steps")),
+        "spurious_causes": int(total_of("spurious_causes")),
+        "cause_required": int(total_of("cause_required")),
+        "cause_correct": int(total_of("cause_correct")),
         "citations": int(total_of("citations")),
         "supported_citations": int(total_of("supported_citations")),
         "mean_citation_precision": (sum(precisions) / len(precisions)) if precisions else None,
@@ -160,6 +174,10 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "median_latency_ms": (latencies[len(latencies) // 2] if latencies else 0.0),
         "pass_k": k if k > 1 else None,
         "pass_hat_k": pass_hat_k(records, k) if k > 1 else None,
+        "stale_handling_rate": (total_of("stale_correct") / stale_required
+                                if stale_required else None),
+        "cause_accuracy": (total_of("cause_correct") / cause_required
+                           if cause_required else None),
         "by_subfamily": by_subfamily,
         "total_cost_usd": round(sum(r.cost_usd for r in records), 6),
         "cost_is_synthetic": all(r.cost_is_synthetic for r in records),
@@ -220,7 +238,7 @@ def run_block(taskset: TaskSet, *, solver_name: str = "stub",
     repeats = repeats if repeats is not None else config.repeats.get(taskset.block, 1)
     if repeats < 1:
         raise RunnerError("repeats must be >= 1")
-    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10"}:
+    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"}:
         raise RunnerError(f"unsupported block {taskset.block!r}")
 
     try:

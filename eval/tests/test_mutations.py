@@ -16,10 +16,15 @@ class MutationRegistryTests(unittest.TestCase):
             "false_successes_zero", "approval_violations_zero", "duplicate_writes_zero",
             "unauthorized_side_effects_zero", "secret_leaks_zero", "success_drop",
             "citation_precision_drop", "cost_ratio",
+            # M5 slices (B4 memory metadata/expiry, B16 limitation explanation)
+            "metadata_completeness_zero", "stale_assertion_zero", "stale_label_zero",
+            "silent_failure_zero", "cause_attribution_zero",
         }
         for name, mutation in mutations.MUTATIONS.items():
             self.assertIn(mutation.expected_gate, known, name)
-            self.assertTrue(mutation.phase_requirement.startswith("Phase"), name)
+            self.assertTrue(
+                mutation.phase_requirement.startswith(("Phase", "Product spec C-")),
+                f"{name}: requirement must cite a phase or a product-spec criterion")
             self.assertTrue(mutation.description, name)
 
     def test_mutation_names_are_unique_and_sorted_stable(self):

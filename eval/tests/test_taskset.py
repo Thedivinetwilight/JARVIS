@@ -18,7 +18,7 @@ BASE_B1 = {"version": "t", "block": "B1", "synthetic": True,
 class TaskSetTests(unittest.TestCase):
     def test_published_task_sets_load(self):
         sets = load_tasksets(Path("eval/tasks"))
-        self.assertEqual(set(sets), {"B1", "B2", "B3", "B8", "B9", "B10"})
+        self.assertEqual(set(sets), {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"})
         for ts in sets.values():
             self.assertGreater(len(ts), 0)
 

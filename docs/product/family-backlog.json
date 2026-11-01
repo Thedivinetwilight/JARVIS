@@ -1,7 +1,7 @@
 {
-  "backlog_version": "1.0.0",
+  "backlog_version": "1.1.0",
   "published": "2026-11-01",
-  "status_statement": "Planning backlog for M5. No family is built, no task set exists, and nothing here is evidence of product capability. All fixtures are synthetic or manual; no real personal data, accounts, devices or recordings are used. Thresholds are copied from the product specification ACs they name and remain provisional until pre-registered in M5.",
+  "status_statement": "Planning backlog for M5, updated after the first two slices were built. Two of the fourteen families (B4, B16) now have small implemented evaluator suites with pre-registered fixtures, live gates and planted regressions; the other twelve have none. A slice is not a family: no product capability is implemented or validated, no model is involved, and every fixture is synthetic or manual.",
   "basis": {
     "spec": "1.1.0",
     "roadmap": "1.1.0",
@@ -85,8 +85,10 @@
         ],
         "aggregate": "success rate over 40 tasks plus zero-tolerance residue count",
         "gates": [
-          "metadata_completeness",
+          "metadata_completeness_zero",
           "stale_assertion_zero",
+          "stale_label_zero",
+          "stale_handling_threshold",
           "deletion_residue_zero",
           "precedence_accuracy"
         ]
@@ -95,7 +97,7 @@
         {
           "id": "drop_metadata",
           "description": "writes records without source or permission fields",
-          "expected_gate": "metadata_completeness"
+          "expected_gate": "metadata_completeness_zero"
         },
         {
           "id": "ignore_expiry",
@@ -154,7 +156,45 @@
       "blockers": [
         "Q18"
       ],
-      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered."
+      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built the first slice of this family (see implemented_slice); the family itself remains planned and nothing here is product evidence.",
+      "implemented_slice": {
+        "slice_id": "M5-B4-slice-1",
+        "suite": "eval/tasks/b4",
+        "taskset_version": "2026-Q4.1-m5.1",
+        "tasks": 12,
+        "family_complete": false,
+        "status": "implemented evaluator slice (not the family, not a product memory system)",
+        "covers": [
+          "metadata enforcement: every write carries source, observed_at, sensitivity, permitted_uses and review_state (C-02-AC1)",
+          "expiry: an expired fact is excluded from retrieval or explicitly labelled stale (C-02-AC2)",
+          "source and observed_at presence on stored records (C-01-AC2, partial - confidence and deletion are not exercised)"
+        ],
+        "not_covered": [
+          "supersession and conflict resolution (B10 covers ordering, the product family still owns this)",
+          "deletion and derived copies (C-02-AC3) - no deletion drill exists",
+          "people-database field policy (Q18) - fixtures use fictional fields, no owner decision is assumed",
+          "a real store, real data, a model or a server measurement of any kind"
+        ],
+        "gates": [
+          "metadata_completeness_zero",
+          "stale_assertion_zero",
+          "stale_label_zero",
+          "stale_handling_threshold"
+        ],
+        "mutations": {
+          "accept_incomplete_record": "metadata_completeness_zero",
+          "serve_expired_fact": "stale_assertion_zero",
+          "drop_stale_label": "stale_label_zero"
+        },
+        "preregistration": "embedded in eval/tasks/b4/tasks.json",
+        "tests": "eval/tests/test_m5_slices.py::B4SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json",
+        "reference_score": "12/12 with zero incomplete accepts, zero expired facts served and zero unlabelled stale records; a hand-written program, not a model"
+      }
     },
     {
       "id": "B5",
@@ -1169,16 +1209,18 @@
         ],
         "aggregate": "cause accuracy per class, actionable rate, zero silent failures",
         "gates": [
-          "cause_attribution",
-          "actionable_path",
-          "silent_failure_zero"
+          "silent_failure_zero",
+          "cause_attribution_zero",
+          "unsafe_advice_zero",
+          "cause_accuracy_threshold",
+          "actionable_path"
         ]
       },
       "planted_regressions": [
         {
           "id": "wrong_cause",
           "description": "blames a component that is not limiting",
-          "expected_gate": "cause_attribution"
+          "expected_gate": "cause_attribution_zero"
         },
         {
           "id": "no_explanation",
@@ -1188,7 +1230,7 @@
         {
           "id": "blame_user",
           "description": "attributes a system limitation to the user",
-          "expected_gate": "cause_attribution"
+          "expected_gate": "cause_attribution_zero"
         }
       ],
       "privacy": {
@@ -1223,7 +1265,44 @@
         "three regressions"
       ],
       "blockers": [],
-      "notes": "Partially extendable today: B3/B8 already emit failure text and the runner records status, so the silent-failure gate (C-09-AC3) can be implemented before the full suite."
+      "notes": "Partially extendable today: B3/B8 already emit failure text and the runner records status, so the silent-failure gate (C-09-AC3) can be implemented before the full suite. M5 built the first slice of this family (see implemented_slice); the family itself remains planned and nothing here is product evidence.",
+      "implemented_slice": {
+        "slice_id": "M5-B16-slice-1",
+        "suite": "eval/tasks/b16",
+        "taskset_version": "2026-Q4.1-m5.1",
+        "tasks": 12,
+        "family_complete": false,
+        "status": "implemented evaluator slice (not the family, not a validated taxonomy)",
+        "covers": [
+          "all nine C-09 cause classes on one scenario each, plus 3 successful outcomes (C-09-AC1, partial: 12 of the planned 90 scenarios)",
+          "no blocked or partial outcome without a cause and an explanation (C-09-AC3, full for this suite)",
+          "structural next-step validity: at least one declared-valid step and zero permission-violating steps (C-09-AC2, partial - expert review is not automatable)"
+        ],
+        "not_covered": [
+          "validation of the nine-class taxonomy against real user failures - the scenarios are invented",
+          "expert review of action quality (C-09-AC2) - only structure and safety are checked",
+          "language, tone or usefulness of an explanation",
+          "a real system, model or diagnostic source of any kind"
+        ],
+        "gates": [
+          "silent_failure_zero",
+          "cause_attribution_zero",
+          "unsafe_advice_zero",
+          "cause_accuracy_threshold"
+        ],
+        "mutations": {
+          "suppress_explanation": "silent_failure_zero",
+          "misattribute_cause": "cause_attribution_zero"
+        },
+        "preregistration": "embedded in eval/tasks/b16/tasks.json",
+        "tests": "eval/tests/test_m5_slices.py::B16SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json",
+        "reference_score": "12/12 with zero silent failures, zero misattributions, zero unsafe next steps and cause accuracy 1.00; a hand-written program, not a model"
+      }
     },
     {
       "id": "B17",
@@ -1708,5 +1787,92 @@
       ],
       "notes": "The existing tool simulator is not a connector and must not be relabelled as one; B20 needs its own registry with manifests."
     }
-  ]
+  ],
+  "slices_built": {
+    "count": 2,
+    "families": [
+      "B4",
+      "B16"
+    ],
+    "rule": "A slice may only be listed here if its task set loads under the harness, its gates exist in eval/harness/gates.py, and eval/tests/test_m5_slices.py passes. Listing a slice never changes a family status or a product capability status.",
+    "detail": [
+      {
+        "family": "B4",
+        "slice_id": "M5-B4-slice-1",
+        "suite": "eval/tasks/b4",
+        "taskset_version": "2026-Q4.1-m5.1",
+        "tasks": 12,
+        "family_complete": false,
+        "status": "implemented evaluator slice (not the family, not a product memory system)",
+        "covers": [
+          "metadata enforcement: every write carries source, observed_at, sensitivity, permitted_uses and review_state (C-02-AC1)",
+          "expiry: an expired fact is excluded from retrieval or explicitly labelled stale (C-02-AC2)",
+          "source and observed_at presence on stored records (C-01-AC2, partial - confidence and deletion are not exercised)"
+        ],
+        "not_covered": [
+          "supersession and conflict resolution (B10 covers ordering, the product family still owns this)",
+          "deletion and derived copies (C-02-AC3) - no deletion drill exists",
+          "people-database field policy (Q18) - fixtures use fictional fields, no owner decision is assumed",
+          "a real store, real data, a model or a server measurement of any kind"
+        ],
+        "gates": [
+          "metadata_completeness_zero",
+          "stale_assertion_zero",
+          "stale_label_zero",
+          "stale_handling_threshold"
+        ],
+        "mutations": {
+          "accept_incomplete_record": "metadata_completeness_zero",
+          "serve_expired_fact": "stale_assertion_zero",
+          "drop_stale_label": "stale_label_zero"
+        },
+        "preregistration": "embedded in eval/tasks/b4/tasks.json",
+        "tests": "eval/tests/test_m5_slices.py::B4SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json",
+        "reference_score": "12/12 with zero incomplete accepts, zero expired facts served and zero unlabelled stale records; a hand-written program, not a model"
+      },
+      {
+        "family": "B16",
+        "slice_id": "M5-B16-slice-1",
+        "suite": "eval/tasks/b16",
+        "taskset_version": "2026-Q4.1-m5.1",
+        "tasks": 12,
+        "family_complete": false,
+        "status": "implemented evaluator slice (not the family, not a validated taxonomy)",
+        "covers": [
+          "all nine C-09 cause classes on one scenario each, plus 3 successful outcomes (C-09-AC1, partial: 12 of the planned 90 scenarios)",
+          "no blocked or partial outcome without a cause and an explanation (C-09-AC3, full for this suite)",
+          "structural next-step validity: at least one declared-valid step and zero permission-violating steps (C-09-AC2, partial - expert review is not automatable)"
+        ],
+        "not_covered": [
+          "validation of the nine-class taxonomy against real user failures - the scenarios are invented",
+          "expert review of action quality (C-09-AC2) - only structure and safety are checked",
+          "language, tone or usefulness of an explanation",
+          "a real system, model or diagnostic source of any kind"
+        ],
+        "gates": [
+          "silent_failure_zero",
+          "cause_attribution_zero",
+          "unsafe_advice_zero",
+          "cause_accuracy_threshold"
+        ],
+        "mutations": {
+          "suppress_explanation": "silent_failure_zero",
+          "misattribute_cause": "cause_attribution_zero"
+        },
+        "preregistration": "embedded in eval/tasks/b16/tasks.json",
+        "tests": "eval/tests/test_m5_slices.py::B16SliceTests",
+        "evidence": [
+          "eval/results/m5-slices-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-slices.json",
+        "reference_score": "12/12 with zero silent failures, zero misattributions, zero unsafe next steps and cause accuracy 1.00; a hand-written program, not a model"
+      }
+    ]
+  }
 }

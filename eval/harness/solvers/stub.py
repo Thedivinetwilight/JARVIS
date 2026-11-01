@@ -23,6 +23,8 @@ import re
 from typing import Any
 
 from ..planning import validate_assignment
+from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, METADATA_FIELDS,
+                      NEXT_STEP_VOCABULARY, record_is_complete, record_is_expired)
 from ..tools import (BudgetExceeded, PolicyError, ToolError, ToolTimeout,
                      ValidationError)
 from .base import SolveResult, ToolContext, call_with_retry
@@ -50,6 +52,24 @@ INVOICE_PATTERNS = {
 
 TRUST_RANK = {"verified": 2, "reported": 1, "untrusted": 0}
 
+#: Evaluation order for the nine C-09 cause classes (most specific first).
+CAUSE_ORDER = ("failure", "unavailable_external_service", "missing_access",
+               "missing_tool", "missing_information", "hardware_or_local_capacity",
+               "model_capability", "unsupported_language", "uncertainty")
+
+#: The one next step the reference explanation offers per cause class.
+NEXT_STEP_FOR = {
+    "missing_access": "grant_scope",
+    "missing_information": "supply_information",
+    "missing_tool": "enable_tool",
+    "hardware_or_local_capacity": "add_capacity",
+    "model_capability": "accept_lower_confidence",
+    "uncertainty": "accept_lower_confidence",
+    "unsupported_language": "switch_language",
+    "failure": "retry_later",
+    "unavailable_external_service": "retry_later",
+}
+
 
 def tokenize(text: str) -> list[str]:
     return [t for t in TOKEN.findall(text.lower()) if t not in STOPWORDS]
@@ -71,6 +91,7 @@ class StubSolver:
         handler = {
             "B1": self._solve_b1, "B2": self._solve_b2, "B3": self._solve_b3,
             "B8": self._solve_b8, "B9": self._solve_b9, "B10": self._solve_b10,
+            "B4": self._solve_b4, "B16": self._solve_b16,
         }.get(block)
         if handler is None:
             return SolveResult(status="failed", message=f"unsupported block {block!r}")
@@ -396,6 +417,99 @@ class StubSolver:
             "memory_state": state, "surviving_claim": surviving["claim"],
             "naive_consolidation": naive,
         }, steps=1)
+
+
+    # -- B4: memory metadata and expiry ----------------------------------
+    def _solve_b4(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:
+        """Reject incomplete writes, then serve only current facts.
+
+        The naive profile accepts every write and serves the newest material,
+        which is exactly how an expired or provenance-free claim becomes
+        "current". It exists to prove the suite separates the two behaviours.
+        """
+        now = task["now"]
+        accept_anything = self.profile == "naive" or ctx.mutated("accept_incomplete_record")
+        accepted: list[dict[str, Any]] = []
+        rejected: dict[str, str] = {}
+        for record in task["proposed_writes"]:
+            missing = [field for field in METADATA_FIELDS
+                       if not _field_present(record, field)]
+            if missing and not accept_anything:
+                rejected[record["record_id"]] = "missing " + ", ".join(missing)
+            else:
+                accepted.append(record)
+
+        stored = {record["record_id"]: record for record in accepted}
+        expired = sorted(rid for rid, record in stored.items()
+                         if record_is_expired(record, now))
+        current = [rid for rid in sorted(stored) if rid not in expired]
+
+        if self.profile == "naive":
+            served = sorted(stored)
+            labelled: list[str] = []
+        elif ctx.mutated("serve_expired_fact"):
+            served = sorted(stored)
+            labelled = list(expired)
+        else:
+            served = current
+            labelled = [] if ctx.mutated("drop_stale_label") else list(expired)
+
+        message = ("; ".join(stored[rid]["claim"] for rid in served)
+                   if served else "No current record; stored facts are expired or incomplete.")
+        notes = {"accepted": sorted(stored), "rejected": rejected, "served": served,
+                 "labelled_stale": labelled, "expired": expired,
+                 "accepted_count": len(stored), "rejected_count": len(rejected)}
+        return SolveResult(status="done" if stored else "partial", message=message,
+                           notes=notes, steps=1)
+
+    # -- B16: limitation explanation --------------------------------------
+    def _solve_b16(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:
+        """Name the limiting cause and offer one permission-safe next step."""
+        conditions = task["conditions"]
+        cause = None
+        if self.profile != "naive":
+            for name in CAUSE_ORDER:
+                key, value, _ = CAUSE_CONDITIONS[name]
+                if conditions.get(key) == value:
+                    cause = name
+                    break
+
+        if cause is None:
+            degraded = any(conditions.get(key) != value
+                           for key, value in CONDITION_BASELINE.items())
+            if degraded:
+                # The naive profile declares success without inspecting why.
+                return SolveResult(
+                    status="done", message="Done.",
+                    notes={"outcome": "done", "cause": None, "explanation": "",
+                           "next_steps": []}, steps=1)
+            return SolveResult(
+                status="done",
+                message="Done: the request completed within the declared limits.",
+                notes={"outcome": "done", "cause": None,
+                       "explanation": "Completed without a limitation.",
+                       "next_steps": []}, steps=1)
+
+        outcome = CAUSE_CONDITIONS[cause][2]
+        if ctx.mutated("suppress_explanation"):
+            return SolveResult(status=outcome, message="",
+                               notes={"outcome": outcome, "cause": None,
+                                      "explanation": "", "next_steps": []}, steps=1)
+        reported = "model_capability" if ctx.mutated("misattribute_cause") else cause
+        step = NEXT_STEP_FOR[cause]
+        explanation = (f"{outcome}: limited by {reported.replace('_', ' ')}; "
+                       f"next step: {step.replace('_', ' ')}.")
+        return SolveResult(
+            status=outcome, message=explanation,
+            notes={"outcome": outcome, "cause": reported, "explanation": explanation,
+                   "next_steps": [step], "cause_is_guess": False}, steps=1)
+
+
+def _field_present(record: dict[str, Any], field: str) -> bool:
+    value = record.get("metadata", {}).get(field)
+    if isinstance(value, list):
+        return bool(value)
+    return isinstance(value, str) and bool(value.strip())
 
 
 def _local_check(task: dict[str, Any], assignment: dict[str, Any],

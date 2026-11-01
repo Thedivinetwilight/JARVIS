@@ -14,10 +14,12 @@ breadth becomes an inventory instead of a claim.
 
 ## What is here
 
-`capabilities.json` — one entry per capability the evaluation fixtures exercise: tools
-(`calendar.create_event`, `mail.send`, `files.write/append/delete`), skills
-(`corpus.retrieve`, `document.extract_fields`, `source.reconcile`, `schedule.assign`, `skill.apply`,
-`memory.consolidate`), the verifier and the approval policy. Each entry declares:
+`capabilities.json` — one entry per capability the evaluation fixtures exercise (16 at registry v1.1.0):
+tools (`calendar.create_event`, `mail.send`, `files.write/append/delete`, `memory.write_record`,
+`memory.retrieve_current`), skills (`corpus.retrieve`, `document.extract_fields`, `source.reconcile`,
+`schedule.assign`, `skill.apply`, `memory.consolidate`, `explain.limitation`), the verifier and the approval
+policy. The three M5 entries are simulators for the B4 (memory metadata/expiry) and B16 (limitation
+explanation) slices; they still simulate nothing that exists in a product. Each entry declares:
 
 | Field | Why |
 |---|---|

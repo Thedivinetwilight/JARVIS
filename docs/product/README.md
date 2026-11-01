@@ -18,12 +18,12 @@ what is true and what is feasible) and from `eval/` (which asks whether the eval
 | [`capabilities.json`](capabilities.json) | Machine-readable index of the same 12 capabilities, 15 milestones, 7 gates and 16 open items (one now resolved); checked by `eval/tests/test_product_spec.py` | 1.1.0 |
 | [M5 coverage matrix](coverage-matrix.md) | Working draft mapping all 12 capabilities to current evidence, planned evaluation families, local data boundary, outstanding owner inputs, and criterion-level coverage (§8) | Draft |
 | [B4–B7 crosswalk](family-crosswalk.md) | Supersession register resolving the Phase 8 vs Stage-0 family numbering conflict; Phase 8 numbering retained, M2/M3 labels superseded by name only | 1.0.0 |
-| [Evaluation family backlog](family-backlog.md) | Per-family implementation plan for B4–B7 and B11–B20: task types, synthetic fixtures, scoring, planted regressions, privacy constraints, spec thresholds, harness changes — generated from [`family-backlog.json`](family-backlog.json) | 1.0.0 |
+| [Evaluation family backlog](family-backlog.md) | Per-family implementation plan for B4–B7 and B11–B20: task types, synthetic fixtures, scoring, planted regressions, privacy constraints, spec thresholds, harness changes — generated from [`family-backlog.json`](family-backlog.json). Two families (B4, B16) now have a small **implemented evaluator slice**; no family is implemented | 1.1.0 |
 | [`ac-coverage.json`](ac-coverage.json) | All 50 acceptance criteria mapped exactly once to a planned suite, named audit, human review or owner-input block; no criterion is validated | 1.0.0 |
 
 ## M5 artefacts
 
-The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are planning documents: no task set, grader, gate, fixture or measurement exists yet, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
+The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are mostly planning documents: B4 and B16 now have small evaluator slices (`eval/tasks/b4`, `eval/tasks/b16`) with live gates and planted regressions, the other twelve families have no task set, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
 
 ## The requirement set at a glance
 

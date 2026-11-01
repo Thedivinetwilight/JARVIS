@@ -52,6 +52,10 @@ class Checker:
         return all(passed for _, passed, _ in self.results)
 
 
+def check_taskset_sets_b9() -> Any:
+    return load_tasksets(Path("eval/tasks"))["B9"]
+
+
 def _hashes(outcome: Any) -> list[str]:
     return [record.outcome_hash for record in outcome.records]
 
@@ -62,7 +66,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_tasksets() -> str:
         sets = load_tasksets(Path("eval/tasks"))
-        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10"}, \
+        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"}, \
             f"unexpected blocks {sorted(sets)}"
         for block, ts in sets.items():
             assert ts.tasks, f"{block} has no tasks"
@@ -79,7 +83,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_deterministic() -> str:
         detail = []
-        for block in ("B1", "B2", "B3", "B8", "B9", "B10"):
+        for block in ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"):
             first = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             second = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             assert _hashes(first) == _hashes(second), f"{block} hashes differ between runs"
@@ -140,6 +144,22 @@ def run_selftest(verbose: bool = True) -> int:
     checker.check("mutation_detection", check_mutations)
 
 
+    def check_family_gate_isolation() -> str:
+        clean = run_block(check_tasksets_sets["B4"], git_sha=sha, git_dirty=dirty)
+        b16_gates = {name for _, name in
+                     gates_mod.BLOCK_METRIC_GATES.get("B16", ())} | \
+                    {name for _, name, _, _ in gates_mod.BLOCK_RATE_GATES.get("B16", ())}
+        leaked = [result.gate for result in gates_mod.evaluate_block(
+            "B4", clean.summary, clean.summary, Thresholds()) if result.gate in b16_gates]
+        assert not leaked, f"B16 gates fired on a B4 run: {leaked}"
+        b4 = [result for result in gates_mod.evaluate_block(
+            "B4", clean.summary, clean.summary, Thresholds())]
+        assert any(result.gate == "metadata_completeness_zero" for result in b4), \
+            "B4 run did not evaluate its own metadata gate"
+        return (f"{len(b4)} B4 gates evaluated; no B16 gate fired on a B4 run")
+
+    checker.check("family_gate_isolation", check_family_gate_isolation)
+
     def check_registry() -> str:
         registry = load_registry()
         problems = validate_registry(registry, list(check_tasksets_sets.values()))
@@ -152,9 +172,11 @@ def run_selftest(verbose: bool = True) -> int:
     def check_evaluator_isolation() -> str:
         before = evaluator_digest(".")
         before_sha = registry_sha()
-        for block in ("B1", "B8", "B9", "B10"):
+        for block in ("B1", "B8", "B9", "B10", "B4", "B16"):
             run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
-        run_block(check_tasksets_sets["B9"], mutations=("disable_skill_reuse",),
+        run_block(check_taskset_sets_b9(), mutations=("disable_skill_reuse",),
+                  git_sha=sha, git_dirty=dirty)
+        run_block(check_tasksets_sets["B4"], mutations=("serve_expired_fact",),
                   git_sha=sha, git_dirty=dirty)
         assert evaluator_digest(".") == before, "a run modified evaluator-owned files"
         assert registry_sha() == before_sha, "a run modified the capability registry"

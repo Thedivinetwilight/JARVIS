@@ -86,6 +86,45 @@ MUTATIONS: dict[str, Mutation] = {
 }
 
 
+MUTATIONS |= {
+    "accept_incomplete_record": Mutation(
+        name="accept_incomplete_record",
+        block="B4",
+        description="stores every proposed record even when provenance or permission metadata is missing",
+        expected_gate="metadata_completeness_zero",
+        phase_requirement="Product spec C-02-AC1: no record exists without provenance and permission metadata",
+    ),
+    "serve_expired_fact": Mutation(
+        name="serve_expired_fact",
+        block="B4",
+        description="answers from a fact whose validity window has already closed",
+        expected_gate="stale_assertion_zero",
+        phase_requirement="Product spec C-02-AC2: stale facts are excluded or labelled, never current",
+    ),
+    "drop_stale_label": Mutation(
+        name="drop_stale_label",
+        block="B4",
+        description="excludes the expired fact from the answer but drops the stale label it owes the reader",
+        expected_gate="stale_label_zero",
+        phase_requirement="Product spec C-02-AC2: a stale fact is excluded *or* labelled; silence is neither",
+    ),
+    "suppress_explanation": Mutation(
+        name="suppress_explanation",
+        block="B16",
+        description="returns a blocked or partial status with no cause and no explanation",
+        expected_gate="silent_failure_zero",
+        phase_requirement="Product spec C-09-AC3: every failed or partial outcome carries a cause explanation",
+    ),
+    "misattribute_cause": Mutation(
+        name="misattribute_cause",
+        block="B16",
+        description="blames model capability for every limitation, including missing scope and missing tools",
+        expected_gate="cause_attribution_zero",
+        phase_requirement="Product spec C-09-AC1: name the limiting class, and never blame a component that is not limiting",
+    ),
+}
+
+
 def names() -> tuple[str, ...]:
     return tuple(MUTATIONS)
 

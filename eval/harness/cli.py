@@ -24,7 +24,7 @@ from .solvers.ladder import LADDER_ORDER
 from .solvers.mutations import MUTATIONS, blocks as mutation_blocks
 from .taskset import load_tasksets
 
-BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10")
+BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16")
 LADDER = LADDER_ORDER
 
 MUTATION_BLOCKS = mutation_blocks()
@@ -93,7 +93,9 @@ def cmd_baseline_freeze(args: argparse.Namespace) -> int:
     blocks = tuple(args.block) if args.block else BLOCKS
     outcomes = _outcomes(Path(args.results), blocks, "stub", (), None, args.seed)
     paths = [write_run(outcome, args.results) for outcome in outcomes.values()]
-    path = freeze_baseline(outcomes, root=args.baselines, name=args.name, note=args.note)
+    required = set(blocks) if args.partial else {"B1", "B2", "B3"}
+    path = freeze_baseline(outcomes, root=args.baselines, name=args.name, note=args.note,
+                           required_blocks=required)
     print(f"froze baseline {path}")
     for item in paths:
         print(f"  evidence {item}")
@@ -345,6 +347,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--name", default="baseline-b-stage1.json")
     p.add_argument("--note", default="Stage 1 reference baseline (synthetic fixtures, "
                                      "deterministic reference solver, no model calls)")
+    p.add_argument("--partial", action="store_true",
+                   help="freeze only the blocks given by --block (slice baseline, does not "
+                        "require B1-B3)")
     p.set_defaults(func=cmd_baseline_freeze)
 
     p = sub.add_parser("gates", help="evaluate gates for recorded runs")

@@ -1,10 +1,10 @@
 {
-  "registry_version": "1.0.0",
+  "registry_version": "1.1.0",
   "stage": "Stage 1 (revision R1)",
   "synthetic": true,
   "data_class": "synthetic",
   "evaluator_owned": true,
-  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1).",
+  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1 / M5 slices). M5 adds the memory-metadata and limitation-explanation simulators used by B4 and B16.",
   "capabilities": [
     {
       "capability_id": "calendar.create_event",
@@ -503,6 +503,126 @@
       "owner": "project-owner (unassigned at Stage 1)",
       "families": [
         "B2"
+      ]
+    },
+    {
+      "capability_id": "memory.write_record",
+      "kind": "tool",
+      "purpose": "Validate and store one memory record, rejecting any write that lacks required metadata.",
+      "contract": {
+        "preconditions": [
+          "record has record_id, claim, valid_from",
+          "metadata object uses only the five defined fields",
+          "sensitivity is D1-D3 when present"
+        ],
+        "postconditions": [
+          "incomplete records rejected with the missing fields named",
+          "complete records stored with metadata intact"
+        ],
+        "args_schema": {
+          "proposed_writes": "records"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "incomplete_record_accepted",
+        "metadata_field_dropped",
+        "invented_metadata_field"
+      ],
+      "tests": [
+        "eval/tests/test_m5_slices.py::B4SliceTests::test_incomplete_write_is_rejected",
+        "eval/tests/test_m5_slices.py::B4SliceTests::test_accept_incomplete_record_is_caught"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B4"
+      ]
+    },
+    {
+      "capability_id": "memory.retrieve_current",
+      "kind": "tool",
+      "purpose": "Serve current facts only, and report expired facts as stale instead of current.",
+      "contract": {
+        "preconditions": [
+          "store holds accepted records",
+          "task supplies an ISO 'now'"
+        ],
+        "postconditions": [
+          "served set contains no expired record",
+          "every expired record is either excluded or labelled stale"
+        ],
+        "args_schema": {
+          "now": "date",
+          "proposed_writes": "records"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "expired_fact_served",
+        "stale_label_dropped",
+        "answer_without_store_lookup"
+      ],
+      "tests": [
+        "eval/tests/test_m5_slices.py::B4SliceTests::test_expired_fact_is_not_served",
+        "eval/tests/test_m5_slices.py::B4SliceTests::test_serve_expired_fact_is_caught"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B4"
+      ]
+    },
+    {
+      "capability_id": "explain.limitation",
+      "kind": "skill",
+      "purpose": "Classify the limiting cause of a blocked or partial outcome and offer a permission-safe next step.",
+      "contract": {
+        "preconditions": [
+          "task declares conditions, gold outcome and gold cause",
+          "cause is one of the nine C-09 classes"
+        ],
+        "postconditions": [
+          "outcome carries a cause class, a non-empty explanation and >=1 valid next step",
+          "no cause is invented for a completed request"
+        ],
+        "args_schema": {
+          "conditions": "signals",
+          "request": "text"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "none",
+      "failure_modes": [
+        "explanation_suppressed",
+        "cause_misattributed",
+        "unsafe_next_step_suggested"
+      ],
+      "tests": [
+        "eval/tests/test_m5_slices.py::B16SliceTests::test_blocked_outcome_carries_cause",
+        "eval/tests/test_m5_slices.py::B16SliceTests::test_suppress_explanation_is_caught"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B16"
       ]
     }
   ]

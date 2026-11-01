@@ -1,5 +1,5 @@
 {
-  "coverage_version": "1.0.0",
+  "coverage_version": "1.1.0",
   "published": "2026-11-01",
   "basis": {
     "spec": "1.1.0",
@@ -12,7 +12,8 @@
     "planned_suite": "an evaluation family or task type is named; no task set exists yet",
     "named_audit": "measurement is an audit, inventory review or egress probe rather than a task outcome",
     "human_review": "requires human judgement; no automatable proxy has been identified",
-    "blocked_owner_input": "the suite can be prepared but cannot produce a valid result without the named owner input or G-O1"
+    "blocked_owner_input": "the suite can be prepared but cannot produce a valid result without the named owner input or G-O1",
+    "slice_built": "an implemented evaluator slice exercises part of this criterion and its gates run on synthetic fixtures; still not product validation, and the slice may cover only part of the metric"
   },
   "entries": [
     {
@@ -68,10 +69,16 @@
       "task_types": [
         "write with metadata"
       ],
-      "status": "planned_suite",
+      "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 write-metadata tasks."
+      "note": "B4 write-metadata tasks. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "slice": {
+        "suite": "eval/tasks/b4",
+        "tasks": 12,
+        "covers": "every proposed write is accepted only with all five metadata fields; 8 rejection cases",
+        "not_covered": "the people-database field policy (Q18) and any real store"
+      }
     },
     {
       "ac": "C-02-AC2",
@@ -82,10 +89,16 @@
       "task_types": [
         "expiry and staleness"
       ],
-      "status": "planned_suite",
+      "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Clock fixture required."
+      "note": "Clock fixture required. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "slice": {
+        "suite": "eval/tasks/b4",
+        "tasks": 12,
+        "covers": "expired accepted facts are excluded from the answer or labelled stale; threshold applied as written",
+        "not_covered": "long-horizon expiry over real data; retention policy review"
+      }
     },
     {
       "ac": "C-02-AC3",
@@ -517,10 +530,16 @@
       "task_types": [
         "blocked request per cause class"
       ],
-      "status": "planned_suite",
+      "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Nine-class gold labels."
+      "note": "Nine-class gold labels. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "slice": {
+        "suite": "eval/tasks/b16",
+        "tasks": 12,
+        "covers": "all nine cause classes, one scenario each, zero tolerance for a wrong cause",
+        "not_covered": "the planned 90 scenarios and any validation against real failures"
+      }
     },
     {
       "ac": "C-09-AC2",
@@ -545,10 +564,16 @@
       "task_types": [
         "silent-failure probe"
       ],
-      "status": "planned_suite",
+      "status": "slice_built",
       "existing_fragment": true,
       "blocked_by": [],
-      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early."
+      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
+      "slice": {
+        "suite": "eval/tasks/b16",
+        "tasks": 12,
+        "covers": "no blocked or partial outcome reaches the ledger without a cause and an explanation",
+        "not_covered": "failures outside this suite's simulated conditions"
+      }
     },
     {
       "ac": "C-10-AC1",
@@ -739,10 +764,11 @@
     "criteria_total": 50,
     "capabilities_total": 12,
     "by_status": {
-      "planned_suite": 32,
+      "planned_suite": 28,
       "named_audit": 9,
       "human_review": 3,
-      "blocked_owner_input": 6
+      "blocked_owner_input": 6,
+      "slice_built": 4
     },
     "with_objective_protocol": 47,
     "human_review_only": [
@@ -897,6 +923,12 @@
       "C-09",
       "C-10",
       "C-12"
+    ],
+    "slice_built": [
+      "C-02-AC1",
+      "C-02-AC2",
+      "C-09-AC1",
+      "C-09-AC3"
     ]
   },
   "unmapped": [],
