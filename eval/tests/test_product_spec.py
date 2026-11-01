@@ -391,3 +391,210 @@ class HarnessBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+BACKLOG = PRODUCT / "family-backlog.json"
+AC_COVERAGE = PRODUCT / "ac-coverage.json"
+CROSSWALK_MD = PRODUCT / "family-crosswalk.md"
+MATRIX_MD = PRODUCT / "coverage-matrix.md"
+
+COVERAGE_STATUSES = {"planned_suite", "named_audit", "human_review", "blocked_owner_input"}
+CROSSWALK_STATUSES = {"retained", "amended", "superseded"}
+FIXTURE_KINDS = {"synthetic", "manual"}
+
+
+def _load(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+class EvaluationBacklogTests(unittest.TestCase):
+    """The M5 backlog must stay a plan: complete, local-only, and never a capability claim."""
+
+    def setUp(self):
+        self.spec = _index()
+        self.caps = _capabilities(self.spec)
+        self.backlog = _load(BACKLOG)
+        self.coverage = _load(AC_COVERAGE)
+        self.families = {f["id"]: f for f in self.backlog["families"]}
+        self.entries = self.coverage["entries"]
+
+    def _ac_ids(self) -> set:
+        return {c["id"] for cap in self.caps.values() for c in cap["acceptance_criteria"]}
+
+    def _capability_text(self, cap_id: str) -> str:
+        cap = self.caps[cap_id]
+        return " ".join(c["statement"] + " " + c["metric"] + " " + c["measurement"]
+                        for c in cap["acceptance_criteria"])
+
+    def test_every_acceptance_criterion_is_mapped_exactly_once(self):
+        mapped = [e["ac"] for e in self.entries]
+        self.assertEqual(len(mapped), len(set(mapped)), "an acceptance criterion is mapped twice")
+        self.assertEqual(set(mapped), self._ac_ids(),
+                         "coverage does not match the acceptance criteria in capabilities.json")
+        self.assertEqual(self.coverage["unmapped"], [])
+
+    def test_coverage_uses_known_suites_and_statuses(self):
+        known = set(self.spec["existing_families"]) | set(self.spec["planned_families"])
+        known |= {g["id"] for g in self.spec["gates"]}
+        statuses = set(self.coverage["status_vocabulary"])
+        self.assertEqual(statuses, COVERAGE_STATUSES)
+        for entry in self.entries:
+            with self.subTest(ac=entry["ac"]):
+                self.assertIn(entry["suite"], known, "unknown suite or gate")
+                self.assertIn(entry["status"], COVERAGE_STATUSES)
+                if entry["status"] == "blocked_owner_input":
+                    self.assertTrue(entry["blocked_by"], "blocked criterion names no blocker")
+                    for blocker in entry["blocked_by"]:
+                        self.assertIn(blocker, self.coverage["blocker_vocabulary"])
+                else:
+                    self.assertEqual(entry["blocked_by"], [],
+                                     "only blocked_owner_input may name a blocker")
+                if entry["status"] == "named_audit":
+                    self.assertEqual(entry["suite_kind"], "audit")
+                if entry["status"] == "planned_suite":
+                    self.assertEqual(entry["suite_kind"], "family")
+
+    def test_coverage_summary_matches_the_entries(self):
+        summary = self.coverage["summary"]
+        for status in COVERAGE_STATUSES:
+            counted = sum(1 for e in self.entries if e["status"] == status)
+            self.assertEqual(summary["by_status"][status], counted, f"summary drift for {status}")
+        self.assertEqual(summary["criteria_total"], len(self.entries))
+        self.assertEqual(summary["with_objective_protocol"],
+                         len(self.entries) - summary["by_status"]["human_review"])
+        self.assertEqual(summary["human_review_only"],
+                         [e["ac"] for e in self.entries if e["status"] == "human_review"])
+        blocked = {b for e in self.entries for b in e["blocked_by"]}
+        self.assertEqual(set(summary["blocked_by_owner_input"]), blocked)
+
+    def test_backlog_covers_every_planned_family_and_claims_nothing_built(self):
+        self.assertEqual(set(self.families), set(self.spec["planned_families"]))
+        built = set(load_tasksets(REPO / "eval" / "tasks"))
+        for fid, family in self.families.items():
+            with self.subTest(family=fid):
+                self.assertEqual(family["status"], "planned",
+                                 "a backlog family may only be 'planned'")
+                self.assertNotIn(fid, built, "a planned family exists on disk")
+                self.assertGreaterEqual(len(family["task_types"]), 2)
+                for task in family["task_types"]:
+                    self.assertGreater(task["count"], 0)
+                    self.assertTrue(task["measures"].strip())
+                self.assertTrue(family["fixtures"])
+                self.assertTrue(family["harness_delta"])
+                self.assertTrue(family["scoring"]["per_task"])
+                self.assertTrue(family["scoring"]["gates"])
+                self.assertGreaterEqual(len(family["planted_regressions"]), 2)
+                ids = [r["id"] for r in family["planted_regressions"]]
+                self.assertEqual(len(ids), len(set(ids)))
+                for regression in family["planted_regressions"]:
+                    self.assertIn(regression["expected_gate"], family["scoring"]["gates"],
+                                  "regression expects a gate the family does not plan")
+
+    def test_backlog_fixtures_are_synthetic_or_manual_and_thresholds_exist(self):
+        for fid, family in self.families.items():
+            with self.subTest(family=fid):
+                for fixture in family["fixtures"]:
+                    self.assertIn(fixture["kind"], FIXTURE_KINDS,
+                                  "only synthetic or manual fixtures are allowed")
+                self.assertTrue(family["thresholds"])
+                for threshold in family["thresholds"]:
+                    self.assertIn(threshold["criterion"], self._ac_ids(),
+                                  "threshold cites an unknown criterion")
+                    mapped = {e["ac"]: e for e in self.entries}
+                    known = (set(self.spec["existing_families"]) | set(self.spec["planned_families"])
+                             | {g["id"] for g in self.spec["gates"]})
+                    self.assertIn(mapped[threshold["criterion"]]["suite"], known)
+
+    def test_backlog_stays_local_only(self):
+        #: every family either never leaves the server or names one declared external service
+        anchors = ("none", "telephone network", "public web", "device vendor cloud")
+        for fid, family in self.families.items():
+            with self.subTest(family=fid):
+                self.assertTrue(family["privacy"]["local_only"])
+                egress = family["privacy"]["egress"]
+                self.assertTrue(egress.startswith(anchors),
+                                f"{fid} egress is not 'none' or a declared external service")
+                self.assertTrue(family["privacy"]["constraints"])
+
+    def test_backlog_thresholds_do_not_contradict_the_spec(self):
+        pattern = re.compile(r"\d+(?:\.\d+)?\s*(?:%|ms\b|s\b)")
+        for fid, family in self.families.items():
+            for threshold in family["thresholds"]:
+                cap_id = threshold["criterion"][:4]
+                spec_text = self._capability_text(cap_id)
+                spec_values = {re.sub(r"\s+", "", v) for v in pattern.findall(spec_text)}
+                for value in pattern.findall(threshold["metric"]):
+                    with self.subTest(family=fid, criterion=threshold["criterion"], value=value):
+                        self.assertIn(re.sub(r"\s+", "", value), spec_values,
+                                      "threshold value does not appear in the specification text")
+
+    def test_planned_gates_do_not_exist_in_the_harness(self):
+        gates_source = (REPO / "eval" / "harness" / "gates.py").read_text(encoding="utf-8")
+        planned = {g for f in self.families.values() for g in f["scoring"]["gates"]}
+        self.assertTrue(planned)
+        for gate in planned:
+            with self.subTest(gate=gate):
+                self.assertNotIn(gate, gates_source,
+                                 "a backlog gate already exists; the backlog is out of date")
+
+    def test_index_summary_matches_the_backlog_files(self):
+        summary = self.spec["evaluation_backlog"]
+        self.assertEqual(summary["families"]["planned"], len(self.families))
+        self.assertEqual(summary["families"]["implemented"], 0)
+        self.assertEqual(summary["families"]["ids"], [f["id"] for f in self.backlog["families"]])
+        self.assertEqual(summary["families"]["planned_tasks"],
+                         sum(t["count"] for f in self.families.values() for t in f["task_types"]))
+        self.assertEqual(summary["families"]["planted_regressions"],
+                         sum(len(f["planted_regressions"]) for f in self.families.values()))
+        self.assertEqual(summary["acceptance_criteria"]["total"], len(self.entries))
+        self.assertEqual(summary["acceptance_criteria"]["validated"], 0)
+
+    def test_crosswalk_resolves_the_legacy_numbering(self):
+        text = CROSSWALK_MD.read_text(encoding="utf-8")
+        rows = [line for line in text.splitlines() if line.startswith("| M5-B-")]
+        self.assertGreaterEqual(len(rows), 8, "crosswalk register is incomplete")
+        cells = [[c.strip() for c in row.strip("|").split("|")] for row in rows]
+        for row in cells:
+            self.assertIn(row[3], CROSSWALK_STATUSES, f"{row[0]} has an unknown status")
+            self.assertTrue(row[4], f"{row[0]} names no replacement")
+        statuses = {row[0]: row[3] for row in cells}
+        self.assertIn("retained", statuses.values())
+        self.assertIn("superseded", statuses.values())
+        for needle in ("08-evaluation-and-improvement.md",
+                       "stage-0-m2-frozen-baseline.md", "stage-0-m3-planted-regression.md"):
+            self.assertIn(needle, text)
+        self.assertIn("by name only", text.lower())
+        self.assertIn("b4", text.lower())
+        self.assertIn("b7", text.lower())
+
+    def test_coverage_matrix_section_matches_the_json(self):
+        text = MATRIX_MD.read_text(encoding="utf-8")
+        self.assertIn("## 8. Criterion-level coverage", text)
+        row = re.compile(r"^\| (C-\d{2}-AC\d) \| ([^|]+) \| ([^|]+) \| ([^|]+) \| ([^|]+) \|$", re.M)
+        table = {m.group(1): (m.group(2).strip(), m.group(3).strip(), m.group(4).strip())
+                 for m in row.finditer(text)}
+        self.assertEqual(len(table), len(self.entries))
+        for entry in self.entries:
+            self.assertEqual(table[entry["ac"]],
+                             (entry["suite"], entry["suite_kind"], entry["status"]),
+                             f"{entry['ac']} drifts between the matrix and ac-coverage.json")
+        for name in ("family-crosswalk.md", "family-backlog.md", "ac-coverage.json"):
+            self.assertIn(name, text, "coverage matrix does not link its M5 artefacts")
+
+    def test_backlog_markdown_matches_the_json_summary(self):
+        text = (PRODUCT / "family-backlog.md").read_text(encoding="utf-8")
+        row = re.compile(r"^\| (B\d+) \| ([^|]+) \| (\d+) \| (\d+) \| ", re.M)
+        table = [(m.group(1), int(m.group(3)), int(m.group(4))) for m in row.finditer(text)]
+        expected = [(f["id"],
+                     sum(t["count"] for t in f["task_types"]),
+                     len(f["planted_regressions"])) for f in self.backlog["families"]]
+        self.assertEqual(table, expected,
+                         "family-backlog.md has drifted from family-backlog.json")
+        for family in self.backlog["families"]:
+            self.assertIn(f"## {family['id']} —", text)
+
+    def test_product_readme_lists_the_m5_artefacts(self):
+        text = README_MD.read_text(encoding="utf-8")
+        for name in ("family-crosswalk.md", "family-backlog.md", "ac-coverage.json"):
+            self.assertIn(name, text)
+        self.assertNotIn("\\n|", text, "a literal newline escape survives in the README table")
