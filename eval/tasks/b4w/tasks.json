@@ -1,0 +1,1931 @@
+{
+  "version": "2026-Q4.1-m5.7",
+  "block": "B4W",
+  "synthetic": true,
+  "data_class": "synthetic",
+  "fixture_kind": "evaluator durability slice (temporary file-backed store with a WAL)",
+  "tasks": [
+    {
+      "id": "b4w-001",
+      "instruction": "Write r1, r2 and r4 and delete r3, all in one process, then verify the store from disk. Nothing is interrupted; this is the control.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 0,
+        "crash_candidates": [],
+        "crash_op": 0,
+        "crash_record": "",
+        "salt": "b4w-001",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "absent": [],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "clean",
+        "fail_closed": false,
+        "recovery_required": false,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-002",
+      "instruction": "Write r1, r2 and r4 and delete r3. The process may die inside the write of r2; if it does, restart from disk, recover, and abandon that write. Report what recovery found.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 1,
+        "crash_candidates": [
+          "wal_append",
+          "record_write",
+          "commit_marker",
+          "corrupt_entry"
+        ],
+        "crash_op": 1,
+        "crash_record": "r2",
+        "salt": "b4w-002",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "absent": [
+          "r2"
+        ],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "any",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-003",
+      "instruction": "Write r1, r2 and r4 and delete r3. The process may die inside the delete of r3; if it does, restart, recover, and abandon that delete, so r3 must still be there afterwards.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 1,
+        "crash_candidates": [
+          "wal_append",
+          "record_write",
+          "commit_marker",
+          "corrupt_entry"
+        ],
+        "crash_op": 2,
+        "crash_record": "r3",
+        "salt": "b4w-003",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r2",
+          "r3",
+          "r4",
+          "r5"
+        ],
+        "absent": [],
+        "deleted": [],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "any",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r3",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-004",
+      "instruction": "Write r1, r2 and r4 and delete r3, then verify the store from disk. The process may die while recovery is rebuilding the store from the log; restart and recover again, and finish with one line per committed record.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 1,
+        "crash_candidates": [
+          "replay_write"
+        ],
+        "crash_op": 3,
+        "crash_record": "r4",
+        "salt": "b4w-004",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "absent": [],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "clean",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-005",
+      "instruction": "Write r1, r2 and r4 and delete r3. The process dies twice: once inside the write of r2 and once inside recovery. Restart after each, and finish with a store that matches the log exactly once.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 2,
+        "crash_stages": [
+          "wal_append",
+          "replay_write"
+        ],
+        "crash_candidates": [],
+        "crash_op": 1,
+        "crash_record": "r2",
+        "salt": "b4w-005",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "absent": [
+          "r2"
+        ],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "any",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-006",
+      "instruction": "Write r1 twice -- the second call retries the first with the same transaction id after an ambiguous acknowledgement -- then write r4 and delete r3. Nothing is interrupted, and the store must end with one entry per record.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        }
+      ],
+      "durability": {
+        "crashes": 0,
+        "crash_candidates": [],
+        "crash_op": 0,
+        "crash_record": "",
+        "salt": "b4w-006",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "absent": [],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "clean",
+        "fail_closed": false,
+        "recovery_required": false,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-007",
+      "instruction": "Delete r5, then a stale retry writes r5 again. The store's rule is that a committed deletion is final: after recovery r5 must be gone and no later write may bring it back. r3 comes from the planted history and must stay.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r5",
+          "txn": "t2"
+        },
+        {
+          "kind": "put",
+          "record_id": "r5",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 0,
+        "crash_candidates": [],
+        "crash_op": 0,
+        "crash_record": "",
+        "salt": "b4w-007",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r3",
+          "r4"
+        ],
+        "absent": [],
+        "deleted": [
+          "r5"
+        ],
+        "unrelated": [
+          "r3"
+        ],
+        "damage": "clean",
+        "fail_closed": false,
+        "recovery_required": false,
+        "final_lines": [
+          "r1",
+          "r3",
+          "r4"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-008",
+      "instruction": "The log this process inherits already has damage in the middle: a torn frame sits after the committed history. Write r1 and r4 anyway, then recover. Entries that follow unverifiable bytes may not be treated as committed, so report the damage and keep only the verifiable prefix.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "planted_corruption": {
+        "bytes": 24,
+        "frame_bytes": 4096
+      },
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 0,
+        "crash_candidates": [],
+        "crash_op": 0,
+        "crash_record": "",
+        "salt": "b4w-008",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r3",
+          "r5"
+        ],
+        "absent": [
+          "r1",
+          "r4"
+        ],
+        "deleted": [],
+        "unrelated": [
+          "r3",
+          "r5"
+        ],
+        "damage": "any",
+        "fail_closed": true,
+        "recovery_required": false,
+        "final_lines": [
+          "r3",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-010",
+      "instruction": "Write r1, r2 and r4 and delete r3. The process may die while the commit marker for r2 is being written; if it does, restart, recover, and abandon that write, so r2 is not durable.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 1,
+        "crash_candidates": [
+          "commit_marker"
+        ],
+        "crash_op": 1,
+        "crash_record": "r2",
+        "salt": "b4w-010",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "absent": [
+          "r2"
+        ],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "any",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    },
+    {
+      "id": "b4w-009",
+      "instruction": "Write r1, r2 and r4 and delete r3. The process dies just after the commit marker for r2 reached the file, so r2 is durable even though the call never returned. Restart, recover, and do not write r2 a second time.",
+      "planted_entries": [
+        {
+          "kind": "put",
+          "seq": 1,
+          "txn": "p1",
+          "record": {
+            "record_id": "r3",
+            "claim": "vendor: sample cedar",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8202",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 2,
+          "txn": "p1"
+        },
+        {
+          "kind": "put",
+          "seq": 3,
+          "txn": "p2",
+          "record": {
+            "record_id": "r5",
+            "claim": "vendor: sample elm",
+            "valid_from": "2026-09-05",
+            "metadata": {
+              "sensitivity": "D1",
+              "permitted_uses": [
+                "read"
+              ],
+              "review_state": "confirmed",
+              "source": "po-8204",
+              "observed_at": "2026-09-05"
+            }
+          }
+        },
+        {
+          "kind": "commit",
+          "seq": 4,
+          "txn": "p2"
+        }
+      ],
+      "operations": [
+        {
+          "kind": "put",
+          "record_id": "r1",
+          "txn": "t1"
+        },
+        {
+          "kind": "put",
+          "record_id": "r2",
+          "txn": "t2"
+        },
+        {
+          "kind": "delete",
+          "record_id": "r3",
+          "txn": "t3"
+        },
+        {
+          "kind": "put",
+          "record_id": "r4",
+          "txn": "t4"
+        }
+      ],
+      "durability": {
+        "crashes": 1,
+        "crash_candidates": [
+          "crash_after_commit"
+        ],
+        "crash_op": 1,
+        "crash_record": "r2",
+        "salt": "b4w-009",
+        "seq_base": 10
+      },
+      "resume": "abandon_interrupted",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample alder",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8200",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample birch",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8201",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample cedar",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8202",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample dogwood",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8203",
+            "observed_at": "2026-09-05"
+          }
+        },
+        {
+          "record_id": "r5",
+          "claim": "vendor: sample elm",
+          "valid_from": "2026-09-05",
+          "metadata": {
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed",
+            "source": "po-8204",
+            "observed_at": "2026-09-05"
+          }
+        }
+      ],
+      "expected": {
+        "durable": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "absent": [],
+        "deleted": [
+          "r3"
+        ],
+        "unrelated": [
+          "r5"
+        ],
+        "damage": "clean",
+        "fail_closed": false,
+        "recovery_required": true,
+        "final_lines": [
+          "r1",
+          "r2",
+          "r4",
+          "r5"
+        ],
+        "no_duplicate_lines": true
+      }
+    }
+  ],
+  "preregistration": {
+    "spec": "product spec v1.1.0, C-02-AC3 (deletion and restore over the memory stores)",
+    "derived_from": "extends M5-B4-slice-2 (B4D). That slice interrupted a restore inside a record write; this one asks whether the write survives a process death at all, on a real file with a write-ahead log.",
+    "task_counts": {
+      "total": 10,
+      "crash_scenarios": 6,
+      "no_crash_controls": 4,
+      "repeated_crash": 1,
+      "planted_history": 10,
+      "fail_closed": 1
+    },
+    "sample_counts": {
+      "tasks": 10,
+      "operations": 38,
+      "wal_frames": 76,
+      "planted_frames": 40,
+      "crash_scenarios": 6,
+      "simulated_crashes": 7,
+      "crash_stages_exercised": [
+        "commit_marker",
+        "corrupt_entry",
+        "crash_after_commit",
+        "record_write",
+        "replay_write",
+        "wal_append"
+      ],
+      "bytes_truncated": 603,
+      "declared_recovery_scenarios": 7,
+      "duplicate_retry_operations": 1,
+      "fail_closed_scenarios": 1,
+      "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
+    },
+    "scoring": {
+      "wal_integrity": "the reported damage class and committed set must match the bytes on disk; damage may not be omitted or invented",
+      "durability": "every committed record must be in the store after the final recovery",
+      "uncommitted_write": "a record whose transaction never committed may not be in the store and may not be left as a record line",
+      "duplicate_effects": "one line per record: a replay that applies a committed entry twice fails",
+      "resurrection": "a committed deletion is final; no later write may restore the record",
+      "unrelated_record": "records that were committed before the crash and are not part of the interrupted write must survive it",
+      "recovery_complete": "the final store must be the committed set, with no residue, and completeness may only be claimed when it is true"
+    },
+    "thresholds": {
+      "C-02-AC3": "0 residual copies, 0 resurrections, 0 lost committed records, 0 applied uncommitted writes, 0 duplicate effects, 0 unresolved recoveries"
+    },
+    "mutations": {
+      "replay_committed_twice": "durability_idempotency_zero",
+      "accept_torn_entry": "wal_integrity_zero",
+      "lose_unrelated_record": "unrelated_record_zero",
+      "claim_recovery_complete_with_partial_write": "recovery_complete_zero",
+      "resurrect_deleted_record": "durability_resurrection_zero",
+      "lose_post_crash_record": "durability_zero"
+    },
+    "provenance": {
+      "synthetic": true,
+      "model_calls": 0,
+      "network": false,
+      "note": "records are invented vendor claims in a temporary directory; the store is evaluator code, not J.A.R.V.I.S. storage; no file outside the temporary directory is read or written"
+    },
+    "crash_schedule": {
+      "rule": "the fixture declares the candidate stages and the interrupted operation; the evaluator picks the stage from sha256(task:salt:attempt) and a byte offset strictly inside that operation's bytes, so the same task always crashes at the same byte",
+      "stages": [
+        "wal_append",
+        "record_write",
+        "commit_marker",
+        "corrupt_entry",
+        "replay_write",
+        "crash_after_commit"
+      ],
+      "gold": "the fixture declares the end state; the loader recomputes it for every candidate stage and refuses the fixture if any candidate disagrees",
+      "solver_view": "the solver sees the instruction, the records, the planted history and the operations. It does not see the candidates, the salt, the chosen stage, the byte offset or the expected outcome"
+    },
+    "state_model": {
+      "record_states": [
+        "not_started",
+        "partially_applied",
+        "committed",
+        "rolled_back"
+      ],
+      "rule": "a record is committed when its entry frame and its commit frame are both verifiable on disk; a torn or corrupt frame leaves it not_started; a record line with no commit is partially_applied residue and is removed by recovery; a committed deletion rolls the record back and is final",
+      "recoverable": [
+        "torn tail",
+        "corrupt tail",
+        "record line with no commit marker",
+        "repeated transaction",
+        "crash during recovery"
+      ],
+      "fail_closed": [
+        "damage before verifiable frames",
+        "commit frame without its entry",
+        "unknown entry kind",
+        "log without the WAL header"
+      ]
+    }
+  }
+}

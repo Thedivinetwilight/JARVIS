@@ -1727,7 +1727,7 @@
   "evaluation_backlog": {
     "version": "1.4.0",
     "published": "2026-11-01",
-    "status_statement": "Planning only, plus three evaluator suites. B4 has two slices: metadata/expiry (12 task fixtures) and deletion with backup/restore (22 task fixtures: 3 deletion drills each, a 7-day replay, 14 restored backups - 4 retried after a stop the fixture declares, 4 interrupted at a point the evaluator chooses, 3 against a deliberately damaged backup). B16 (limitation explanation): 12 fixtures. The other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
+    "status_statement": "Planning only, plus four evaluator suites. B4 has three slices: metadata/expiry (12 task fixtures), deletion with backup/restore (27 task fixtures) and a synthetic write-ahead-log durability store (10 task fixtures); B16 has one (12 task fixtures). No family is implemented, no capability is validated, and no slice changes a capability status.",
     "documents": {
       "crosswalk": "docs/product/family-crosswalk.md",
       "backlog_markdown": "docs/product/family-backlog.md",
@@ -1736,7 +1736,8 @@
       "coverage_matrix": "docs/product/coverage-matrix.md",
       "deletion_report": "eval/results/m5-b4d-deletion-report.json",
       "restore_report": "eval/results/m5-b4d-restore-report.json",
-      "faults_report": "eval/results/m5-b4d-faults-report.json"
+      "faults_report": "eval/results/m5-b4d-faults-report.json",
+      "durability_report": "eval/results/m5-b4w-durability-report.json"
     },
     "families": {
       "planned": 14,
@@ -1760,12 +1761,8 @@
       "planned_tasks": 458,
       "planted_regressions": 57,
       "with_partial_slice": 2,
-      "slices_built": [
-        "b4",
-        "b4d",
-        "b16"
-      ],
-      "slices_total": 3
+      "slices_built": 4,
+      "slices_total": 4
     },
     "acceptance_criteria": {
       "planned_suite": 27,
@@ -1904,6 +1901,49 @@
           "note": "deterministic executions, not independent samples; the scripted interruptions, partial writes, retries and damaged backups are scenarios, not a distribution over restore implementations"
         },
         "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions between records and inside a record write, damaged backups; not the family, not a product memory system)"
+      },
+      {
+        "family": "B4",
+        "suite_block": "B4W",
+        "slice_id": "M5-B4-slice-3",
+        "suite": "eval/tasks/b4w",
+        "task_set": "eval/tasks/b4w",
+        "tasks": 10,
+        "family_complete": false,
+        "covers": [
+          "C-02-AC3"
+        ],
+        "partial_coverage": [],
+        "gates": [
+          "wal_integrity_zero",
+          "durability_zero",
+          "uncommitted_write_zero",
+          "durability_idempotency_zero",
+          "durability_resurrection_zero",
+          "unrelated_record_zero",
+          "recovery_complete_zero"
+        ],
+        "tests": "eval/tests/test_b4w_slice.py::B4WFixtureTests, ::B4WWALEncodingTests, ::B4WCrashInjectionTests, ::B4WRecoveryTests, ::B4WScoringTests, ::B4WGateTests, ::B4WMutationTests, ::B4WBookkeepingTests",
+        "evidence": [
+          "eval/results/m5-b4w-durability-report.json",
+          "eval/results/x10-report-m5-b4w-durability.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-b4w-durability.json",
+        "sample_counts": {
+          "tasks": 10,
+          "operations": 38,
+          "wal_frames": 76,
+          "planted_frames": 40,
+          "crash_scenarios": 6,
+          "simulated_crashes": 7,
+          "bytes_truncated": 603,
+          "declared_recovery_scenarios": 7,
+          "duplicate_retry_operations": 1,
+          "fail_closed_scenarios": 1,
+          "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
+        },
+        "status": "implemented evaluator slice (a synthetic WAL store in a temporary directory, crash points chosen by the evaluator at deterministic byte offsets, recovery from on-disk bytes only; not the family, not a product memory system)"
       }
     ],
     "slice_suites": {
@@ -1918,6 +1958,10 @@
       "B16": {
         "suite": "eval/tasks/b16",
         "family": "B16"
+      },
+      "B4W": {
+        "suite": "eval/tasks/b4w",
+        "family": "B4"
       }
     }
   },

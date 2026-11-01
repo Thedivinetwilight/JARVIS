@@ -245,6 +245,58 @@ MUTATIONS |= {
         phase_requirement=("Product spec C-02-AC3: a record is restored when the record and every "
                            "copy it had are restored, not when the record alone is back"),
     ),
+    "replay_committed_twice": Mutation(
+        name="replay_committed_twice",
+        block="B4W",
+        description=("recovery applies every committed entry twice, so each record ends up with "
+                     "two lines in the store"),
+        expected_gate="durability_idempotency_zero",
+        phase_requirement=("Product spec C-02-AC3: replaying a write-ahead log is idempotent -- "
+                           "recovery may be re-run without doubling the store"),
+    ),
+    "accept_torn_entry": Mutation(
+        name="accept_torn_entry",
+        block="B4W",
+        description=("treats the bytes of an interrupted, unverifiable write as committed and "
+                     "keeps the record"),
+        expected_gate="wal_integrity_zero",
+        phase_requirement=("Product spec C-02-AC3: an entry counts only when its frame and its "
+                           "commit marker both verify"),
+    ),
+    "lose_unrelated_record": Mutation(
+        name="lose_unrelated_record",
+        block="B4W",
+        description=("recovery drops a record that was committed before the crash and had "
+                     "nothing to do with the interrupted write"),
+        expected_gate="unrelated_record_zero",
+        phase_requirement=("Product spec C-02-AC3: a crash in one write may not delete a "
+                           "different, already-committed record"),
+    ),
+    "claim_recovery_complete_with_partial_write": Mutation(
+        name="claim_recovery_complete_with_partial_write",
+        block="B4W",
+        description=("reports recovery complete without rebuilding the store, leaving the "
+                     "partially written record and the residue in place"),
+        expected_gate="recovery_complete_zero",
+        phase_requirement=("Product spec C-02-AC3: completeness is a claim about the final store, "
+                           "and it may not be made over residue"),
+    ),
+    "resurrect_deleted_record": Mutation(
+        name="resurrect_deleted_record",
+        block="B4W",
+        description=("replays puts without honouring the tombstones, so a stale write brings a "
+                     "deleted record back"),
+        expected_gate="durability_resurrection_zero",
+        phase_requirement=("Product spec C-02-AC3: a committed deletion is final across restarts"),
+    ),
+    "lose_post_crash_record": Mutation(
+        name="lose_post_crash_record",
+        block="B4W",
+        description=("recovers the store but drops a record committed after the crash"),
+        expected_gate="durability_zero",
+        phase_requirement=("Product spec C-02-AC3: a write that committed after recovery is "
+                           "durable, whatever happened before it"),
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

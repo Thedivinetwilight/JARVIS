@@ -486,7 +486,8 @@ class EvaluationBacklogTests(unittest.TestCase):
         self.assertEqual(set(self.families), set(self.spec["planned_families"]))
         built = set(load_tasksets(REPO / "eval" / "tasks"))
         sliced = {fid for fid, family in self.families.items()
-                  if family.get("implemented_slice") or family.get("implemented_slice_2")}
+                  if family.get("implemented_slice") or family.get("implemented_slice_2")
+                  or family.get("implemented_slice_3")}
         self.assertEqual(sliced, set(self.spec.get("partial_slice_families", [])))
         # A block on disk must be either an existing family or a declared slice suite;
         # a family with two slices declares two suite blocks.
@@ -561,7 +562,8 @@ class EvaluationBacklogTests(unittest.TestCase):
         """A gate may only be described as live if it exists, and only as planned if it does not."""
         gates_source = (REPO / "eval" / "harness" / "gates.py").read_text(encoding="utf-8")
         live = {gate for family in self.families.values()
-                for key in ("implemented_slice", "implemented_slice_2")
+                for key in ("implemented_slice", "implemented_slice_2",
+                            "implemented_slice_3")
                 for gate in family.get(key, {}).get("gates", [])}
         planned = {gate for family in self.families.values()
                    for gate in family["scoring"]["gates"]}

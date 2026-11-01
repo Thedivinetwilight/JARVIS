@@ -876,6 +876,141 @@ def score_b4d(task: dict[str, Any], result: Any,
     }
 
 
+def score_b4w(task: dict[str, Any], result: Any, executor: Any) -> dict[str, Any]:
+    """Durability of a WAL-backed store after a simulated process death.
+
+    What is scored is the directory on disk after the run -- read back by the
+    harness, not the solver's account of it -- plus the one claim a solver makes
+    that the disk cannot settle: whether it says recovery *completed*.
+
+    Seven counters, each owning one failure direction:
+
+    * ``wal_integrity_errors`` -- the reported damage class or committed set
+      disagrees with the bytes, or damage was claimed that is not there;
+    * ``durability_lost`` -- a record committed *after* the crash is missing;
+    * ``uncommitted_applied`` -- a record whose transaction never committed is
+      in the store, or is left behind as a record line;
+    * ``duplicate_effects`` -- a record has more than its single line, so a
+      replay applied a committed entry twice;
+    * ``resurrections`` -- a record deleted by a committed tombstone is back;
+    * ``unrelated_lost`` -- a record committed before the crash, untouched by the
+      interrupted write, is missing (kept apart from ``durability_lost`` so the
+      two regressions cannot hide behind one another);
+    * ``recovery_unresolved`` -- the record file is not the committed set, or
+      completeness was claimed over a store that does not match the gold state.
+
+    A task with no store, no audit or no report fails closed: the counters cannot
+    be zeroed by staying silent.
+    """
+    expected = task.get("expected") or {}
+    info = executor.durability_result() if hasattr(executor, "durability_result") else {
+        "enabled": False}
+    audit = (info.get("audit") or {}) if isinstance(info, dict) else {}
+    report = (info.get("report") or {}) if isinstance(info, dict) else {}
+    injection = (info.get("injection") or {}) if isinstance(info, dict) else {}
+
+    durable = {str(rid) for rid in expected.get("durable") or []}
+    absent = {str(rid) for rid in expected.get("absent") or []}
+    deleted = {str(rid) for rid in expected.get("deleted") or []}
+    unrelated = {str(rid) for rid in expected.get("unrelated") or []}
+    expected_damage = expected.get("damage", "clean")
+
+    committed = {str(rid) for rid in audit.get("committed") or []}
+    lines = [str(rid) for rid in audit.get("line_ids") or []]
+    line_set = set(lines)
+    tombstoned = {str(rid) for rid in audit.get("tombstoned") or []}
+    actual_damage = audit.get("damage")
+    reported_damage = report.get("damage") if isinstance(report, dict) else None
+    # Ground truth for the damage class is the harness's own recovery call, recorded
+    # before the solver saw its result; the tail it repaired is gone from disk.
+    recoveries = info.get("recoveries") or []
+    observed_damage = recoveries[-1].get("damage") if recoveries else None
+    if recoveries and recoveries[-1].get("repaired") is None:
+        observed_damage = recoveries[-1].get("damage")
+    reported_committed = {str(rid) for rid in (report.get("committed") or [])}
+    claimed_complete = bool(report.get("complete"))
+
+    integrity_reasons: list[str] = []
+    if not audit:
+        integrity_reasons.append("no store audit: the run left nothing to read")
+    if not report:
+        integrity_reasons.append("no recovery report: the solver claimed nothing")
+    if audit and report:
+        if reported_damage != observed_damage:
+            integrity_reasons.append(
+                f"recovery reported damage {reported_damage!r}, the log held "
+                f"{observed_damage!r} when recovery read it")
+        if reported_committed != committed:
+            integrity_reasons.append(
+                f"recovery reported committed {sorted(reported_committed)}, "
+                f"the log says {sorted(committed)}")
+        if expected_damage == "clean" and (observed_damage is not None or actual_damage is not None):
+            integrity_reasons.append(
+                f"a clean scenario reported {observed_damage or actual_damage} damage")
+
+    durability_lost_records = sorted((durable - unrelated) - committed)
+    unrelated_lost_records = sorted(unrelated - committed)
+    uncommitted_records = sorted((committed | line_set) & absent)
+    duplicate_count = len(lines) - len(line_set)
+    resurrected = sorted((committed | line_set) & deleted)
+    unresolved_reasons: list[str] = []
+    if audit and line_set != committed:
+        unresolved_reasons.append(
+            f"record file holds {sorted(line_set)} but the log commits {sorted(committed)}")
+    if claimed_complete and committed != durable:
+        unresolved_reasons.append(
+            f"recovery claimed complete with {sorted(committed)} instead of {sorted(durable)}")
+
+    success = (result.status == "done"
+               and not integrity_reasons
+               and not durability_lost_records
+               and not unrelated_lost_records
+               and not uncommitted_records
+               and duplicate_count == 0
+               and not resurrected
+               and not unresolved_reasons)
+
+    return {
+        "success": success,
+        "false_success": result.status == "done" and not success,
+        "metrics": {
+            "wal_integrity_errors": len(integrity_reasons),
+            "durability_lost": len(durability_lost_records),
+            "uncommitted_applied": len(uncommitted_records),
+            "duplicate_effects": duplicate_count,
+            "resurrections": len(resurrected),
+            "unrelated_lost": len(unrelated_lost_records),
+            "recovery_unresolved": len(unresolved_reasons),
+            "crash_events": len(info.get("crashes") or []),
+            "recovery_attempts": len(info.get("recoveries") or []),
+            "wal_frames": int(audit.get("entries") or 0),
+            "wal_bytes": int(audit.get("wal_bytes") or 0),
+            "store_records": len(committed),
+            "damage_reported": 1 if reported_damage else 0,
+            "fail_closed_expected": 1 if expected.get("fail_closed") else 0,
+        },
+        "detail": {
+            "audit": {key: audit.get(key) for key in
+                      ("entries", "wal_bytes", "damage", "damage_offset", "damage_detail",
+                       "committed", "tombstoned", "discarded", "line_ids",
+                       "unreadable_lines", "commit_frames")},
+            "report": report,
+            "injection": injection,
+            "crashes": info.get("crashes") or [],
+            "recoveries": info.get("recoveries") or [],
+            "integrity_reasons": integrity_reasons,
+            "unresolved_reasons": unresolved_reasons,
+            "durability_lost_records": durability_lost_records,
+            "unrelated_lost_records": unrelated_lost_records,
+            "uncommitted_records": uncommitted_records,
+            "resurrected_records": resurrected,
+            "expected": {key: expected.get(key) for key in
+                         ("durable", "absent", "deleted", "unrelated", "damage",
+                          "fail_closed", "final_lines")},
+        },
+    }
+
+
 def score_task(task: dict[str, Any], result: Any, world: dict[str, Any],
                executor: Any, corpus: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     block = task.get("block")
@@ -897,4 +1032,6 @@ def score_task(task: dict[str, Any], result: Any, world: dict[str, Any],
         return score_b16(task, result)
     if block == "B4D":
         return score_b4d(task, result, getattr(executor, "restore_injection", None))
+    if block == "B4W":
+        return score_b4w(task, result, executor)
     raise ValueError(f"no scorer for block {block!r}")

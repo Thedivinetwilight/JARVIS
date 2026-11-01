@@ -39,6 +39,16 @@ BLOCK_METRIC_GATES: dict[str, tuple[tuple[str, str], ...]] = {
             ("restore_partial_residue", "restore_partial_write_zero"),
             ("restore_rollback_errors", "restore_rollback_zero"),
             ("unreported_states", "deletion_report_zero")),
+    # B4W: durability of a file-backed store with a write-ahead log. Each counter
+    # owns one invariant, so a planted regression fails its own gate rather than
+    # a generic one.
+    "B4W": (("wal_integrity_errors", "wal_integrity_zero"),
+             ("durability_lost", "durability_zero"),
+             ("uncommitted_applied", "uncommitted_write_zero"),
+             ("durability_duplicate_effects", "durability_idempotency_zero"),
+             ("durability_resurrections", "durability_resurrection_zero"),
+             ("unrelated_lost", "unrelated_record_zero"),
+             ("recovery_unresolved", "recovery_complete_zero")),
 }
 
 #: Family-specific published-rate gates: (metric, gate name, threshold attribute,

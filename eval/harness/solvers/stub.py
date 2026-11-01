@@ -23,13 +23,14 @@ import re
 from typing import Any
 
 from .. import restore_integrity, write_state
+from ..durability import CRASH_LIMIT
 from ..faults import RESTORE_ATTEMPT_LIMIT
 from ..planning import validate_assignment
 from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, DERIVED_SURFACES,
                       METADATA_FIELDS, NEXT_STEP_VOCABULARY, record_is_complete,
                       record_is_expired)
-from ..tools import (BudgetExceeded, PolicyError, RecordWriteInterrupted,
-                     RestoreInterrupted, ToolError,
+from ..tools import (BudgetExceeded, DurabilityCrash, PolicyError,
+                     RecordWriteInterrupted, RestoreInterrupted, ToolError,
                      ToolTimeout, ValidationError)
 from .base import SolveResult, ToolContext, call_with_retry
 
@@ -96,6 +97,7 @@ class StubSolver:
             "B1": self._solve_b1, "B2": self._solve_b2, "B3": self._solve_b3,
             "B8": self._solve_b8, "B9": self._solve_b9, "B10": self._solve_b10,
             "B4": self._solve_b4, "B16": self._solve_b16, "B4D": self._solve_b4d,
+            "B4W": self._solve_b4w,
         }.get(block)
         if handler is None:
             return SolveResult(status="failed", message=f"unsupported block {block!r}")
@@ -894,6 +896,115 @@ class StubSolver:
             status=outcome, message=explanation,
             notes={"outcome": outcome, "cause": reported, "explanation": explanation,
                    "next_steps": [step], "cause_is_guess": False}, steps=1)
+
+    # -- B4W: durability under a simulated crash --------------------------
+    def _solve_b4w(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:
+        """Write records through a WAL, survive crashes, recover from disk only.
+
+        The reference path writes each declared operation as one transaction
+        (entry frame, record line, commit frame). If the process dies, it opens
+        the directory again -- nothing from before the crash is reused -- reads
+        the log, rebuilds the store from the committed prefix, and carries on
+        with the operations that were never attempted. The interrupted
+        operation is abandoned, as the scenario states. At the end it recovers
+        once more, so what it reports is what the bytes on disk say.
+
+        The planted-regression knobs below are the ways this goes wrong:
+        trusting a torn entry, applying committed entries twice, dropping a
+        record that was never in doubt, letting a stale write resurrect a
+        deleted record, and claiming completeness over an unresolved store.
+        """
+        ctx.durability_open()
+        ops = task.get("operations") or []
+
+        replay_entries = 2 if ctx.mutated("replay_committed_twice") else 1
+        ignore_tombstones = ctx.mutated("resurrect_deleted_record")
+        no_rebuild = ctx.mutated("claim_recovery_complete_with_partial_write")
+
+        crashes: list[dict[str, Any]] = []
+        recoveries: list[dict[str, Any]] = []
+        attempted: list[int] = []
+
+        def recover_once(**knobs: Any) -> dict[str, Any]:
+            """Recover, retrying when recovery itself is interrupted."""
+            for _ in range(CRASH_LIMIT):
+                try:
+                    report = ctx.durability_recover(**knobs)
+                except DurabilityCrash as exc:
+                    crashes.append({"message": str(exc), "during": "recovery"})
+                    continue
+                recoveries.append(report)
+                return report
+            raise ToolError("recovery kept dying; giving up")
+
+        index = 0
+        while index < len(ops):
+            attempted.append(index)
+            try:
+                ctx.durability_write(index)
+            except DurabilityCrash as exc:
+                crashes.append({"message": str(exc), "during": "write",
+                                "operation": index})
+                recover_once(replay_entries=replay_entries,
+                             ignore_tombstones=ignore_tombstones,
+                             rebuild=not no_rebuild)
+                # The interrupted operation is abandoned -- a write that never
+                # returned was never acknowledged -- and the rest still run.
+                index += 1
+                continue
+            index += 1
+
+        final = recover_once(replay_entries=replay_entries,
+                             ignore_tombstones=ignore_tombstones,
+                             rebuild=not no_rebuild)
+
+        if ctx.mutated("accept_torn_entry"):
+            uncommitted = sorted({str(op.get("record_id")) for op in ops
+                                  if op["kind"] == "put"}
+                                 - set(final["committed"]))
+            for rid in uncommitted:
+                ctx.durability_apply_uncommitted(rid)
+            if uncommitted:
+                final = dict(final)
+                final["committed"] = sorted(set(final["committed"]) | set(uncommitted))
+
+        if ctx.mutated("lose_unrelated_record"):
+            # A planted record no declared operation touches: committed before the
+            # run, and none of the crash's business.
+            touched = {str(op.get("record_id")) for op in ops}
+            planted = [str(entry["record"]["record_id"])
+                       for entry in task.get("planted_entries") or []
+                       if entry["kind"] == "put"]
+            untouched = [rid for rid in planted if rid not in touched]
+            victim = (untouched or planted or [None])[0]
+            if victim:
+                final = recover_once(forget=[victim], replay_entries=1)
+        elif ctx.mutated("lose_post_crash_record"):
+            written = [str(op.get("record_id")) for op in ops if op["kind"] == "put"]
+            if written:
+                final = recover_once(forget=[written[-1]], replay_entries=1)
+
+        reported = {
+            "attempted_operations": attempted,
+            "crashes": crashes,
+            "recoveries": recoveries,
+            "damage": final["damage"],
+            "committed": sorted(final["committed"]),
+            "discarded": sorted(final["discarded"]),
+            "replayed": sorted(final["replayed"]),
+            "complete": (not ctx.mutated("claim_recovery_complete_with_partial_write")
+                         and final["damage"] is None),
+            "verified_from_disk": True,
+        }
+        ctx.durability_finish(reported)
+
+        message = (f"wrote {len(attempted)} of {len(ops)} operation(s); "
+                   f"{len(crashes)} crash(es); recovered "
+                   f"{len(recoveries)} time(s); store holds {len(final['committed'])} record(s)")
+        if final["damage"]:
+            message += f"; log damage: {final['damage']}"
+        return SolveResult(status="done", message=message, steps=len(attempted),
+                           notes={"durability": reported})
 
 
 def _field_present(record: dict[str, Any], field: str) -> bool:

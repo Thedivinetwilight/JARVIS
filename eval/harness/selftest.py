@@ -66,7 +66,8 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_tasksets() -> str:
         sets = load_tasksets(Path("eval/tasks"))
-        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"}, \
+        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16",
+                             "B4W"}, \
             f"unexpected blocks {sorted(sets)}"
         for block, ts in sets.items():
             assert ts.tasks, f"{block} has no tasks"
@@ -83,7 +84,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_deterministic() -> str:
         detail = []
-        for block in ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"):
+        for block in ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16", "B4W"):
             first = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             second = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             assert _hashes(first) == _hashes(second), f"{block} hashes differ between runs"
@@ -156,7 +157,32 @@ def run_selftest(verbose: bool = True) -> int:
             "B4", clean.summary, clean.summary, Thresholds())]
         assert any(result.gate == "metadata_completeness_zero" for result in b4), \
             "B4 run did not evaluate its own metadata gate"
-        return (f"{len(b4)} B4 gates evaluated; no B16 gate fired on a B4 run")
+        durability = run_block(check_tasksets_sets["B4W"], git_sha=sha, git_dirty=dirty)
+        foreign = {name for block in ("B4", "B4D", "B16")
+                   for _, name in gates_mod.BLOCK_METRIC_GATES.get(block, ())}
+        on_b4w = [result for result in gates_mod.evaluate_block(
+            "B4W", durability.summary, durability.summary, Thresholds())]
+        durability_gates = {
+            "wal_integrity_zero", "durability_zero", "uncommitted_write_zero",
+            "durability_idempotency_zero", "durability_resurrection_zero",
+            "unrelated_record_zero", "recovery_complete_zero"}
+        fired = {result.gate for result in on_b4w}
+        assert durability_gates <= fired, \
+            f"B4W gates missing from a B4W run: {sorted(durability_gates - fired)}"
+        assert all(result.status != "fail" for result in on_b4w
+                   if result.gate in durability_gates), \
+            f"a clean B4W run failed its own gate: " \
+            f"{[r.gate for r in on_b4w if r.gate in durability_gates and r.status == 'fail']}"
+        assert not [result.gate for result in on_b4w if result.gate in foreign], \
+            "a B4/B4D/B16 gate fired on a B4W run"
+        b4d = run_block(check_tasksets_sets["B4D"], git_sha=sha, git_dirty=dirty)
+        back = [result.gate for result in gates_mod.evaluate_block(
+            "B4D", b4d.summary, b4d.summary, Thresholds())
+            if result.gate in durability_gates]
+        assert not back, f"B4W gates fired on a B4D run: {back}"
+        return (f"{len(b4)} B4 gates evaluated; no B16 gate on a B4 run; "
+                f"the {len(durability_gates)} durability gates pass on a B4W run and "
+                "stay out of B4D")
 
     checker.check("family_gate_isolation", check_family_gate_isolation)
 
@@ -172,7 +198,7 @@ def run_selftest(verbose: bool = True) -> int:
     def check_evaluator_isolation() -> str:
         before = evaluator_digest(".")
         before_sha = registry_sha()
-        for block in ("B1", "B8", "B9", "B10", "B4", "B4D", "B16"):
+        for block in ("B1", "B8", "B9", "B10", "B4", "B4D", "B16", "B4W"):
             run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
         run_block(check_taskset_sets_b9(), mutations=("disable_skill_reuse",),
                   git_sha=sha, git_dirty=dirty)

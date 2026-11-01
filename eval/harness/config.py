@@ -19,7 +19,7 @@ DEFAULT_SEED = 1729
 
 # Repeats per block. Phase 8 defines pass^k for B2 (dual-control tool use).
 DEFAULT_REPEATS = {"B1": 1, "B2": 4, "B3": 1, "B8": 1, "B9": 1, "B10": 1,
-                   "B4": 1, "B4D": 1, "B16": 1}
+                   "B4": 1, "B4D": 1, "B16": 1, "B4W": 1}
 
 
 @dataclass(frozen=True)

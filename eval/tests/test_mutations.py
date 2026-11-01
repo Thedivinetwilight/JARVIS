@@ -23,6 +23,10 @@ class MutationRegistryTests(unittest.TestCase):
             "restore_resurrection_zero", "restore_survivor_zero", "restore_residue_zero",
             "restore_recovery_zero", "restore_idempotency_zero", "restore_attempt_count_zero",
             "restore_corruption_zero", "restore_partial_write_zero", "restore_rollback_zero",
+            # M5 durability slice (B4W: synthetic write-ahead log, evaluator-chosen crash bytes)
+            "wal_integrity_zero", "durability_zero", "uncommitted_write_zero",
+            "durability_idempotency_zero", "durability_resurrection_zero",
+            "unrelated_record_zero", "recovery_complete_zero",
         }
         for name, mutation in mutations.MUTATIONS.items():
             self.assertIn(mutation.expected_gate, known, name)

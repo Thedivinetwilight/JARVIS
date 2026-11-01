@@ -112,7 +112,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2), extended it with backup/restore scenarios, then with interrupted partial restores and same-day retries, then moved the interruption point to the evaluator and added damaged-backup scenarios, and then added a record-write state model so an attempt can be interrupted inside a record rather than only between records; see docs/product/coverage-matrix.md section 9. No capability is validated.",
+      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2), extended it with backup/restore scenarios, then with interrupted partial restores and same-day retries, then moved the interruption point to the evaluator and added damaged-backup scenarios, and then added a record-write state model so an attempt can be interrupted inside a record rather than only between records; see docs/product/coverage-matrix.md section 9. No capability is validated. M5 then added a durability slice (M5-B4-slice-3, eval/tasks/b4w) that puts the same four-state audit on a synthetic write-ahead log and crashes it at evaluator-chosen byte offsets. It is test infrastructure, not a product store, and it changes no status. No capability is validated.",
       "slice": {
         "suite": "eval/tasks/b4d",
         "tasks": 27,
@@ -132,6 +132,27 @@
           "note": "deterministic executions, not independent samples; the scripted interruptions, partial writes, retries and damaged backups are scenarios, not a distribution over restore implementations"
         },
         "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, corruption classes beyond the three synthetic ones, real checksum or key management, crash semantics in a real engine (no torn write, no fsync, no journal or WAL), a real store or real data"
+      },
+      "slice_2": {
+        "suite": "eval/tasks/b4w",
+        "slice_id": "M5-B4-slice-3",
+        "tasks": 10,
+        "covers": "a synthetic file-backed store with a write-ahead log, crashed by the evaluator at deterministic byte offsets during the log append, the record write, the commit marker and recovery replay: torn and corrupt tails, duplicate replay, a missing commit marker, a repeated crash during recovery, and one fail-closed fixture where damage sits before verifiable frames",
+        "sample_counts": {
+          "tasks": 10,
+          "operations": 38,
+          "wal_frames": 76,
+          "planted_frames": 40,
+          "crash_scenarios": 6,
+          "simulated_crashes": 7,
+          "bytes_truncated": 603,
+          "declared_recovery_scenarios": 7,
+          "duplicate_retry_operations": 1,
+          "fail_closed_scenarios": 1,
+          "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
+        },
+        "not_covered": "any real storage engine or real crash: there is no kernel, no disk cache, no power loss, no firmware reordering and no fsync semantics beyond flushing the file object the harness opens - the process dies because the harness raises at a byte offset; no real checksum or key management, no encryption at rest, no replication or consensus; nothing about performance (write amplification, fsync cost, recovery time), which is not measured; nothing about the J.A.R.V.I.S. product store - this is evaluator test infrastructure holding invented records; and no statistical claim: ten tasks, one deterministic execution each",
+        "status": "slice_built"
       }
     },
     {

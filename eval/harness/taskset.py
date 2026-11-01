@@ -12,14 +12,14 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from . import restore_integrity, write_state
+from . import durability, restore_integrity, wal_store, write_state
 from .config import sha256_obj
 from .faults import RESTORE_ATTEMPT_LIMIT
 
 REQUIRED_BLOCK_FIELDS = {"version", "block", "synthetic", "data_class", "tasks"}
 
 #: Families added at M5 must ship a pre-registration with their fixtures.
-NEW_FAMILY_BLOCKS = {"B4", "B16", "B4D"}
+NEW_FAMILY_BLOCKS = {"B4", "B16", "B4D", "B4W"}
 
 
 class TaskSetError(ValueError):
@@ -139,6 +139,8 @@ def _validate(block: str, tasks: list[dict[str, Any]], corpus: list[dict[str, An
             _validate_b16(directory, task)
         elif block == "B4D":
             _validate_b4d(directory, task)
+        elif block == "B4W":
+            _validate_b4w(directory, task)
         else:
             raise TaskSetError(f"{directory}: unsupported block {block}")
 
@@ -381,6 +383,183 @@ def record_is_complete(record: dict[str, Any]) -> bool:
 def record_is_expired(record: dict[str, Any], now: str) -> bool:
     until = record.get("valid_until")
     return bool(until) and str(until) < str(now)
+
+
+#: Counters a B4W scenario must never invite (each has its own gate).
+B4W_ZERO_COUNTERS = ("wal_integrity_errors", "durability_lost", "uncommitted_applied",
+                     "duplicate_effects", "resurrections", "unrelated_lost",
+                     "recovery_unresolved")
+
+#: Fields a B4W expectation must carry.
+B4W_EXPECTED_FIELDS = ("durable", "absent", "deleted", "unrelated", "damage",
+                       "fail_closed", "recovery_required", "final_lines")
+
+
+def _validate_b4w(directory: Path, task: dict[str, Any]) -> None:
+    """A durability fixture has to be able to fail closed and must not encode its gold."""
+    tid = task["id"]
+    _require(directory, task, ("id", "instruction", "records", "operations",
+                               "durability", "expected"))
+
+    records = task["records"]
+    if not isinstance(records, list) or not records:
+        raise TaskSetError(f"{directory}: B4W task {tid} has no records")
+    ids: set[str] = set()
+    for record in records:
+        rid = record.get("record_id")
+        if not rid or not isinstance(rid, str):
+            raise TaskSetError(f"{directory}: B4W task {tid} record without id")
+        if rid in ids:
+            raise TaskSetError(f"{directory}: B4W task {tid} duplicate record {rid}")
+        ids.add(rid)
+        if not record.get("claim"):
+            raise TaskSetError(f"{directory}: B4W task {tid} record {rid} has no claim")
+        metadata = record.get("metadata")
+        if not isinstance(metadata, dict) or not record_is_complete(record):
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} record {rid} is missing metadata; every record "
+                "the durability store holds carries the five fields C-02-AC1 requires")
+
+    operations = task["operations"]
+    if not isinstance(operations, list) or not operations:
+        raise TaskSetError(f"{directory}: B4W task {tid} writes nothing")
+    txns: list[str] = []
+    for index, op in enumerate(operations):
+        if not isinstance(op, dict):
+            raise TaskSetError(f"{directory}: B4W task {tid} operation {index} is not an object")
+        if op.get("kind") not in wal_store.OP_KINDS:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} operation {index} has kind {op.get('kind')!r}; "
+                f"allowed: {list(wal_store.OP_KINDS)}")
+        if op.get("record_id") not in ids:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} operation {index} names unknown record "
+                f"{op.get('record_id')!r}")
+        if not isinstance(op.get("txn"), str) or not op["txn"]:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} operation {index} has no transaction id; a WAL "
+                "entry without commit metadata cannot be replayed safely")
+        txns.append(op["txn"])
+
+    planted = task.get("planted_entries") or []
+    if planted:
+        problems = wal_store.validate_sequence(planted)
+        if problems:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} planted WAL sequence is malformed: {problems[0]}")
+        unknown = {str(entry["record"]["record_id"]) for entry in planted
+                   if entry["kind"] in wal_store.OP_KINDS} - ids
+        if unknown:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} plants entries for unknown records {sorted(unknown)}")
+
+    spec = task["durability"]
+    if not isinstance(spec, dict):
+        raise TaskSetError(f"{directory}: B4W task {tid} durability must be an object")
+    crashes = spec.get("crashes")
+    if not isinstance(crashes, int) or isinstance(crashes, bool) or crashes < 0:
+        raise TaskSetError(f"{directory}: B4W task {tid} must declare an integer crash count")
+    if crashes > durability.CRASH_LIMIT:
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} asks for {crashes} crashes; the limit is "
+            f"{durability.CRASH_LIMIT}")
+    candidates = list(spec.get("crash_candidates") or [])
+    fixed = list(spec.get("crash_stages") or [])
+    if crashes and not candidates and not fixed:
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} declares crashes but no candidate stage")
+    if not crashes and (candidates or fixed):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} declares candidate stages but no crash")
+    for stage in candidates + fixed:
+        if stage not in wal_store.CRASH_STAGES:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} crash stage {stage!r} is not one of "
+                f"{list(wal_store.CRASH_STAGES)}")
+    if fixed and len(fixed) != crashes:
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} declares {len(fixed)} crash stages for {crashes} crashes")
+    crash_op = spec.get("crash_op")
+    if not isinstance(crash_op, int) or not 0 <= crash_op < len(operations):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} crash_op {crash_op!r} is not an operation index")
+    if crashes:
+        target = str(operations[crash_op].get("record_id"))
+        if str(spec.get("crash_record")) != target:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} says the crash interrupts "
+                f"{spec.get('crash_record')!r} but operation {crash_op} touches {target!r}")
+    try:
+        chosen = durability.plans(task)
+    except wal_store.WalError as exc:
+        raise TaskSetError(f"{directory}: B4W task {tid}: {exc}") from exc
+    for plan in chosen:
+        if not 1 <= plan.offset <= plan.target_bytes:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} crash offset {plan.offset} is outside the "
+                f"{plan.target_bytes} bytes of the {plan.stage} operation")
+    if len(chosen) != crashes:
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} produced {len(chosen)} crash plans for {crashes} crashes")
+
+    expected = task["expected"]
+    missing = [field for field in B4W_EXPECTED_FIELDS if field not in expected]
+    if missing:
+        raise TaskSetError(f"{directory}: B4W task {tid} expected missing {missing}")
+    for key in B4W_ZERO_COUNTERS:
+        if expected.get(key, 0) != 0:
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} expects {key}={expected[key]}; a durability "
+                "scenario may not invite a nonzero counter its gate protects")
+    if expected["damage"] not in ("clean", "any"):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} declares damage {expected['damage']!r}; "
+            "allowed: 'clean' (log must be intact) or 'any' (a torn or corrupt tail is "
+            "allowed, and the reported class must match the bytes)")
+    for key in ("durable", "absent", "deleted", "unrelated", "final_lines"):
+        value = expected[key]
+        if not isinstance(value, list) or any(str(item) not in ids for item in value):
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} expected.{key} must list known record ids")
+    if set(expected["durable"]) & set(expected["absent"]):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} lists a record both durable and absent")
+    if set(expected["durable"]) & set(expected["deleted"]):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} lists a record both durable and deleted")
+    if sorted(expected["final_lines"]) != sorted(expected["durable"]):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} final_lines must be exactly the durable records")
+    if not set(expected["unrelated"]) <= set(expected["durable"]):
+        raise TaskSetError(
+            f"{directory}: B4W task {tid} names an unrelated record that is not durable")
+
+    # The gold may not depend on which stage the evaluator picks.
+    stages: list[str | None]
+    if not crashes:
+        stages = [None]
+    elif fixed:
+        stages = [fixed[0]]
+    else:
+        stages = list(candidates)
+    baseline = None
+    for stage in stages:
+        outcome = durability.expected_outcome(task, stage=stage)
+        if baseline is None:
+            baseline = outcome
+            continue
+        for key in ("durable", "absent", "deleted", "unrelated"):
+            if outcome[key] != baseline[key]:
+                raise TaskSetError(
+                    f"{directory}: B4W task {tid} gold depends on the crash stage: {key} is "
+                    f"{outcome[key]} under {stage} but {baseline[key]} under {stages[0]}")
+    if baseline is None:
+        raise TaskSetError(f"{directory}: B4W task {tid} produced no gold state")
+    for key in ("durable", "absent", "deleted", "unrelated"):
+        if sorted(baseline[key]) != sorted(expected[key]):
+            raise TaskSetError(
+                f"{directory}: B4W task {tid} expected.{key} is {sorted(expected[key])} but the "
+                f"operations and the crash schedule imply {sorted(baseline[key])}")
 
 
 def _validate_preregistration(directory: Path, payload: dict[str, Any],

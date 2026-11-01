@@ -57,6 +57,22 @@ class ToolContext:
         """
         self.executor.restore_write_step(attempt, record, part_index, total_parts)
 
+    # -- durability (B4W) -------------------------------------------------
+    def durability_open(self) -> dict[str, Any]:
+        return self.executor.durability_open()
+
+    def durability_write(self, index: int) -> dict[str, Any]:
+        return self.executor.durability_write(index)
+
+    def durability_recover(self, **knobs: Any) -> dict[str, Any]:
+        return self.executor.durability_recover(**knobs)
+
+    def durability_apply_uncommitted(self, record_id: str) -> dict[str, Any]:
+        return self.executor.durability_apply_uncommitted(record_id)
+
+    def durability_finish(self, report: dict[str, Any]) -> dict[str, Any]:
+        return self.executor.durability_finish(report)
+
     def mutated(self, name: str) -> bool:
         return name in self.mutations
 

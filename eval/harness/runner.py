@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from . import durability as durability_mod
 from . import faults as faults_mod
 from .config import HARNESS_VERSION, RunConfig, canonical_json, sha256_obj
 from .registry import registry_sha
@@ -194,6 +195,18 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "restore_rollback_errors": int(total_of("restore_rollback_errors")),
         "restore_mid_write_stops": int(total_of("restore_mid_write_stops")),
         "restore_rollbacks": int(total_of("restore_rollbacks")),
+        # M5 slice 5: durability of a WAL-backed store under a simulated crash (B4W).
+        "wal_integrity_errors": int(total_of("wal_integrity_errors")),
+        "durability_lost": int(total_of("durability_lost")),
+        "uncommitted_applied": int(total_of("uncommitted_applied")),
+        "durability_duplicate_effects": int(total_of("duplicate_effects")),
+        "durability_resurrections": int(total_of("resurrections")),
+        "unrelated_lost": int(total_of("unrelated_lost")),
+        "recovery_unresolved": int(total_of("recovery_unresolved")),
+        "crash_events": int(total_of("crash_events")),
+        "durability_recovery_attempts": int(total_of("recovery_attempts")),
+        "wal_frames": int(total_of("wal_frames")),
+        "wal_bytes": int(total_of("wal_bytes")),
         "replay_complete": int(total_of("replay_complete")),
         "replay_tasks": sum(1 for r in records if r.metrics.get("replay_complete") is not None),
         "citations": int(total_of("citations")),
@@ -238,6 +251,14 @@ def solver_view(task: dict[str, Any], block: str) -> dict[str, Any]:
     """
     view = copy.deepcopy(task)
     view["block"] = block
+    if block == "B4W":
+        # The crash schedule and the gold state are the evaluator's: a solver
+        # learns where it was interrupted only by dying there.
+        view.pop("durability", None)
+        view.pop("expected", None)
+        # Damage the fixture plants is discovered by reading the log, not announced.
+        view.pop("planted_corruption", None)
+        return view
     if block != "B4D":
         return view
     view.pop("expected", None)
@@ -258,12 +279,13 @@ def run_task(task: dict[str, Any], *, block: str, solver_name: str,
     world = World()
     injection = faults_mod.injection(task) if block == "B4D" else None
     kind = (injection or {}).get("kind")
+    driver = durability_mod.DurabilityDriver(task) if block == "B4W" else None
     executor = Executor(world, policy=policy, faults=faults, call_budget=budget,
                         restore_stops=(injection or {}).get("stops")
                         if kind == "interrupt_after_records" else None,
                         restore_writes=(injection or {}).get("stops")
                         if kind == "interrupt_mid_write" else None,
-                        restore_injection=injection)
+                        restore_injection=injection, durability=driver)
 
     from .solvers.base import ToolContext
 
@@ -286,8 +308,14 @@ def run_task(task: dict[str, Any], *, block: str, solver_name: str,
         error = f"{type(exc).__name__}: {exc}"
     latency_ms = (time.perf_counter() - started) * 1000.0
 
-    score = score_task(task_view, result, world.snapshot(), executor,
-                       corpus=list(corpus))
+    try:
+        score = score_task(task_view, result, world.snapshot(), executor,
+                           corpus=list(corpus))
+    finally:
+        # The store directory is temporary: it is removed whatever happened, and
+        # only after the scorer has read it back from disk.
+        if driver is not None:
+            executor.durability_close()
     return ResultRecord(
         run_id=run_id, block=block, task_id=str(task["id"]),
         repeat=repeat, seed=seed, solver=solver_name, mutations=list(mutations),
@@ -307,7 +335,8 @@ def run_block(taskset: TaskSet, *, solver_name: str = "stub",
     repeats = repeats if repeats is not None else config.repeats.get(taskset.block, 1)
     if repeats < 1:
         raise RunnerError("repeats must be >= 1")
-    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"}:
+    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16",
+                             "B4W"}:
         raise RunnerError(f"unsupported block {taskset.block!r}")
 
     try:

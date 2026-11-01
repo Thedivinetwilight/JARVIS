@@ -1,7 +1,7 @@
 {
   "backlog_version": "1.3.0",
   "published": "2026-11-01",
-  "status_statement": "Planning backlog for M5, updated after the deletion slice was extended with backup/restore scenarios. Two of the fourteen families (B4, B16) have small implemented evaluator suites; B4 has two slices (metadata/expiry and deletion with restore), so three suites exist in total. The other twelve families have none. A slice is not a family: no product capability is implemented or validated, no model is involved, and every fixture is synthetic or manual.",
+  "status_statement": "Planning backlog for M5, updated after the durability slice was added on top of the deletion and restore suite. Two of the fourteen families (B4, B16) have small implemented evaluator slices -- four slices in total, three of them for B4 -- and no family is implemented. A slice is evaluation code on synthetic fixtures, never a delivered feature.",
   "basis": {
     "spec": "1.1.0",
     "roadmap": "1.1.0",
@@ -89,10 +89,14 @@
           "deletion_replay_completeness",
           "deletion_report_zero",
           "deletion_residue_zero",
+          "durability_idempotency_zero",
+          "durability_resurrection_zero",
+          "durability_zero",
           "metadata_completeness_zero",
           "overdeletion_zero",
           "post_delete_hit_zero",
           "precedence_accuracy",
+          "recovery_complete_zero",
           "restore_attempt_count_zero",
           "restore_corruption_zero",
           "restore_idempotency_zero",
@@ -105,7 +109,10 @@
           "resurrection_zero",
           "stale_assertion_zero",
           "stale_handling_threshold",
-          "stale_label_zero"
+          "stale_label_zero",
+          "uncommitted_write_zero",
+          "unrelated_record_zero",
+          "wal_integrity_zero"
         ]
       },
       "planted_regressions": [
@@ -391,6 +398,58 @@
           "mid_write_gold": "the fixture states the per-record end state (interrupted count, rolled-back count, committed count) and the loader recomputes it from the schedule and the recovery policy, refusing the fixture if the two disagree",
           "mid_write_solver_view": "the solver sees the recovery policy (resume or rollback) because that is the rule it must follow, but no candidate, no chosen boundary, no per-record state table and no gold write states"
         }
+      },
+      "implemented_slice_3": {
+        "slice_id": "M5-B4-slice-3",
+        "suite": "eval/tasks/b4w",
+        "taskset_version": "2026-Q4.1-m5.7",
+        "tasks": 10,
+        "family_complete": false,
+        "status": "implemented evaluator slice (a synthetic WAL store in a temporary directory, crash points chosen by the evaluator at deterministic byte offsets, recovery from on-disk bytes only; not the family, not a product memory system)",
+        "covers": [
+          "wal integrity: an entry counts only when its length header, payload and checksum verify and its commit marker follows; the damage class is read from the bytes, never invented (C-02-AC3)",
+          "committed durability: every record whose commit marker reached the file survives a simulated process death and the restart that follows (C-02-AC3)",
+          "uncommitted handling: a write interrupted before its commit marker leaves no record in the store and no residue line after recovery (C-02-AC3)",
+          "duplicate effects: replay is idempotent and one fixture declares a duplicate retry, so a log applied twice still yields one line per record (C-02-AC3)",
+          "deleted-record resurrection: a committed deletion is final across a restart and a replay; a stale put may not bring the record back (C-02-AC3)",
+          "unrelated preservation: records committed before the crash and untouched by the interrupted write are still there afterwards (C-02-AC3)",
+          "recovery completeness: the final store is exactly the committed set with no residue, and completeness may only be claimed when that is true (C-02-AC3)",
+          "crash points the evaluator owns: the fixture declares candidate stages (wal append, record write, commit marker, corrupt entry, replay write, crash after commit) and the harness picks one from sha256(task:salt:attempt) with a byte offset strictly inside the operation, so the fixture cannot encode the answer and the gold is recomputed for every candidate (C-02-AC3)",
+          "fail-closed: damage before any verifiable frame, a commit marker without its entry, an unknown entry kind and a log without the WAL header are refused rather than repaired, and one fixture must end in the refused state rather than a plausible one (C-02-AC3)",
+          "bounded access: every task runs in its own temporary directory, the store refuses symlinks and paths outside it, and cleanup is verified after the run (C-02-AC3)"
+        ],
+        "not_covered": "any real storage engine or real crash: there is no kernel, no disk cache, no power loss, no firmware reordering and no fsync semantics beyond flushing the file object the harness opens - the process dies because the harness raises at a byte offset; no real checksum or key management, no encryption at rest, no replication or consensus; nothing about performance (write amplification, fsync cost, recovery time), which is not measured; nothing about the J.A.R.V.I.S. product store - this is evaluator test infrastructure holding invented records; and no statistical claim: ten tasks, one deterministic execution each",
+        "gates": [
+          "wal_integrity_zero",
+          "durability_zero",
+          "uncommitted_write_zero",
+          "durability_idempotency_zero",
+          "durability_resurrection_zero",
+          "unrelated_record_zero",
+          "recovery_complete_zero"
+        ],
+        "tests": "eval/tests/test_b4w_slice.py::B4WFixtureTests, ::B4WWALEncodingTests, ::B4WCrashInjectionTests, ::B4WRecoveryTests, ::B4WScoringTests, ::B4WGateTests, ::B4WMutationTests, ::B4WBookkeepingTests",
+        "evidence": [
+          "eval/results/m5-b4w-durability-report.json",
+          "eval/results/x10-report-m5-b4w-durability.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-b4w-durability.json",
+        "sample_counts": {
+          "tasks": 10,
+          "operations": 38,
+          "wal_frames": 76,
+          "planted_frames": 40,
+          "crash_scenarios": 6,
+          "simulated_crashes": 7,
+          "bytes_truncated": 603,
+          "declared_recovery_scenarios": 7,
+          "duplicate_retry_operations": 1,
+          "fail_closed_scenarios": 1,
+          "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
+        },
+        "environment": "evaluator test infrastructure: a file-backed store with an explicit write-ahead log, created per task under a temporary directory and removed afterwards; records are invented vendor claims; no production database, no storage engine, and no storage product is selected or recommended",
+        "preregistration": "embedded in eval/tasks/b4w/tasks.json"
       }
     },
     {
@@ -1986,12 +2045,12 @@
     }
   ],
   "slices_built": {
-    "count": 3,
+    "count": 4,
     "families": [
       "B4",
       "B16"
     ],
-    "rule": "A slice may only be listed here if its task set loads under the harness, its gates exist in eval/harness/gates.py, and its tests pass (eval/tests/test_m5_slices.py for the first two, eval/tests/test_b4d_slice.py for M5-B4-slice-2). Listing a slice never changes a family status or a product capability status.",
+    "rule": "A slice may only be listed here if its task set loads under the harness, its gates exist in eval/harness/gates.py, and its tests pass (eval/tests/test_m5_slices.py for the first two, eval/tests/test_b4d_slice.py for M5-B4-slice-2, eval/tests/test_b4w_slice.py for M5-B4-slice-3). Listing a slice never changes a family status or a product capability status.",
     "detail": [
       {
         "family": "B4",
@@ -2186,6 +2245,49 @@
           "mid_write_rule": "a separate mid-write schedule enumerates one point per (record, copy boundary) for records the live store has lost, and the fixture declares only which of those points are candidates; a point on a record that is still present is refused as unobservable, because rewriting a copy that is already there is idempotent",
           "mid_write_gold": "the fixture states the per-record end state (interrupted count, rolled-back count, committed count) and the loader recomputes it from the schedule and the recovery policy, refusing the fixture if the two disagree",
           "mid_write_solver_view": "the solver sees the recovery policy (resume or rollback) because that is the rule it must follow, but no candidate, no chosen boundary, no per-record state table and no gold write states"
+        }
+      },
+      {
+        "family": "B4",
+        "slice_id": "M5-B4-slice-3",
+        "suite": "eval/tasks/b4w",
+        "taskset_version": "2026-Q4.1-m5.7",
+        "tasks": 10,
+        "family_complete": false,
+        "status": "implemented evaluator slice (a synthetic WAL store in a temporary directory, crash points chosen by the evaluator at deterministic byte offsets, recovery from on-disk bytes only; not the family, not a product memory system)",
+        "covers": [
+          "wal integrity",
+          "committed durability",
+          "uncommitted handling",
+          "duplicate effects",
+          "deleted-record resurrection",
+          "unrelated preservation",
+          "recovery completeness",
+          "evaluator-chosen crash points",
+          "fail-closed refusal",
+          "bounded temporary-directory access"
+        ],
+        "gates": [
+          "wal_integrity_zero",
+          "durability_zero",
+          "uncommitted_write_zero",
+          "durability_idempotency_zero",
+          "durability_resurrection_zero",
+          "unrelated_record_zero",
+          "recovery_complete_zero"
+        ],
+        "sample_counts": {
+          "tasks": 10,
+          "operations": 38,
+          "wal_frames": 76,
+          "planted_frames": 40,
+          "crash_scenarios": 6,
+          "simulated_crashes": 7,
+          "bytes_truncated": 603,
+          "declared_recovery_scenarios": 7,
+          "duplicate_retry_operations": 1,
+          "fail_closed_scenarios": 1,
+          "note": "deterministic executions, not independent samples: each crash lands at one fixed byte, every scenario runs once, and no confidence interval is implied or may be computed from these counts"
         }
       }
     ]

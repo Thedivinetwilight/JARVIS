@@ -24,7 +24,7 @@ from .solvers.ladder import LADDER_ORDER
 from .solvers.mutations import MUTATIONS, blocks as mutation_blocks
 from .taskset import load_tasksets
 
-BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16")
+BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16", "B4W")
 LADDER = LADDER_ORDER
 
 MUTATION_BLOCKS = mutation_blocks()

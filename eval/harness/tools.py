@@ -59,6 +59,16 @@ class RestoreInterrupted(ToolError):
     """
 
 
+class DurabilityCrash(ToolError):
+    """The simulated process died mid-write while the solver was writing records.
+
+    The mediated call does not return normally: the bytes that reached the file
+    are whatever the hidden crash plan allowed, and the store handle is dead. A
+    solver recovers the way it would after a real crash -- by opening the
+    directory again and reading the write-ahead log.
+    """
+
+
 class RecordWriteInterrupted(RestoreInterrupted):
     """The harness stopped a single record write between two of its parts.
 
@@ -104,7 +114,8 @@ class Executor:
                  call_budget: int = 50,
                  restore_stops: dict[int, int] | None = None,
                  restore_writes: dict[int, dict[str, Any]] | None = None,
-                 restore_injection: dict[str, Any] | None = None) -> None:
+                 restore_injection: dict[str, Any] | None = None,
+                 durability: Any | None = None) -> None:
         self.world = world
         self.policy = policy or {}
         self.faults = list(faults or [])
@@ -116,6 +127,8 @@ class Executor:
         #: {"record": id, "after_parts": n}. Chosen in `faults.injection`.
         self.restore_writes = dict(restore_writes or {})
         self.restore_injection = restore_injection
+        #: B4W only: the engine that owns this task's temporary store directory.
+        self.durability_driver = durability
         self.restore_steps = 0
         self.restore_interruptions = 0
         self.restore_write_interruptions = 0
@@ -166,6 +179,58 @@ class Executor:
             raise RecordWriteInterrupted(
                 f"restore attempt {attempt} stopped inside the write of {record} after "
                 f"{point['after_parts']} of {total_parts} part(s)")
+
+    # -- durability (B4W) -------------------------------------------------
+    def durability_open(self) -> dict[str, Any]:
+        if self.durability_driver is None:
+            raise ValidationError("this task has no durability store")
+        return self.durability_driver.open()
+
+    def durability_write(self, index: int) -> dict[str, Any]:
+        """Write one declared operation through the WAL. May die mid-write."""
+        if self.durability_driver is None:
+            raise ValidationError("this task has no durability store")
+        from .wal_store import StoreCrashed
+        try:
+            return self.durability_driver.write(int(index))
+        except StoreCrashed as exc:
+            raise DurabilityCrash(f"process died during {exc.stage} at byte {exc.offset}") from exc
+
+    def durability_recover(self, **knobs: Any) -> dict[str, Any]:
+        """Restart from disk and recover; recovery itself may die."""
+        if self.durability_driver is None:
+            raise ValidationError("this task has no durability store")
+        from .wal_store import StoreCrashed
+        try:
+            return self.durability_driver.recover(**knobs)
+        except StoreCrashed as exc:
+            raise DurabilityCrash(
+                f"process died during recovery ({exc.stage}) at byte {exc.offset}") from exc
+
+    def durability_apply_uncommitted(self, record_id: str) -> dict[str, Any]:
+        """Planted-regression knob: write a record line no commit marker covers."""
+        if self.durability_driver is None:
+            raise ValidationError("this task has no durability store")
+        return self.durability_driver.apply_uncommitted(record_id)
+
+    def durability_finish(self, report: dict[str, Any]) -> dict[str, Any]:
+        if self.durability_driver is None:
+            raise ValidationError("this task has no durability store")
+        return self.durability_driver.finish(report)
+
+    def durability_result(self) -> dict[str, Any]:
+        """Disk audit plus the solver's claim, for the scorer."""
+        if self.durability_driver is None:
+            return {"enabled": False}
+        driver = self.durability_driver
+        return {"enabled": True, "audit": driver.audit(),
+                "injection": driver.injection, "report": driver.report,
+                "crashes": list(driver.crashes), "recoveries": list(driver.recoveries),
+                "writes": list(driver.writes), "activities": list(driver.activities[:80])}
+
+    def durability_close(self) -> None:
+        if self.durability_driver is not None:
+            self.durability_driver.close()
 
     # -- public API -------------------------------------------------------
     def call(self, tool: str, args: dict[str, Any], *,

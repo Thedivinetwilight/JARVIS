@@ -13,7 +13,8 @@ the gate that protects the invariant it breaks:
 | **B9** | skill reuse (applying a stored, under-specified skill) | 6 | 1 |
 | **B10** | memory evolution (trust, supersession, expiry) | 6 | 1 |
 | **B4** | memory metadata and expiry: required fields, rejection, stale exclusion/labelling | 12 | M5 slice |
-| **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything, an evaluator-chosen interruption (between records and inside a record write) retried to completion under a resume or rollback policy, and a damaged backup refused or repaired | 27 | M5 slice |
+| **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything, an evaluator-chosen interruption (between records and inside a record write) retried to completion under a resume or rollback policy, and a damaged backup refused or repaired | 27 | M5 slice || **B4D** | deletion drills + backup restore: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay, a pre-deletion backup restored without reintroducing or destroying anything, an evaluator-chosen interruption (between records and inside a record write) retried to completion under a resume or rollback policy, and a damaged backup refused or repaired | 27 | M5 slice |
+| **B4W** | durability of a synthetic write-ahead-log store: committed records survive a simulated process death at an evaluator-chosen byte offset, uncommitted writes leave nothing behind, replay is idempotent, deletions stay deleted, unrelated records survive, and recovery may only be called complete when the store is | 10 | M5 slice |
 | **B16** | limitation explanation: nine cause classes, no silent failure, safe next step | 12 | M5 slice |
 
 ## Where this sits (revision R1, 2026-11-01)
@@ -54,18 +55,31 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
   than stronger behaviour, and the `family_regression` gate fails when one family collapses while the
   aggregate improves.
 
-## M5 slices (B4, B4D, B16)
+## M5 slices (B4, B4D, B4W, B16)
 
-Two product families now have deliberately small evaluator suites: three **slices**, not the families and
+Two product families now have deliberately small evaluator suites: four **slices**, not the families and
 not product features. `B4` (memory metadata and expiry), `B4D` (deletion drills, evaluator-chosen interruptions
-inside and between records, damaged backups: the second B4 slice) and `B16` (limitation explanation), 12 / 27 / 12 synthetic tasks,
-each pre-registered inside its own `tasks.json`.
+inside and between records, damaged backups: the second B4 slice), `B4W` (a synthetic file-backed store with a
+write-ahead log, crashed at byte offsets the evaluator chooses: the third B4 slice) and `B16` (limitation
+explanation), 12 / 27 / 10 / 12 synthetic tasks, each pre-registered inside its own `tasks.json`.
 
 | Slice | Gates that must pass | Planted regressions (each caught by its own gate) |
 |---|---|---|
 | B4 `eval/tasks/b4` | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (>=0.95, C-02-AC2) | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` |
 | B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3), `restore_resurrection_zero`, `restore_survivor_zero`, `restore_residue_zero`, `restore_recovery_zero`, `restore_idempotency_zero`, `restore_attempt_count_zero`, `restore_corruption_zero`, `restore_partial_write_zero`, `restore_rollback_zero` | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay`, `restore_without_filter`, `restore_drops_unrelated`, `restore_skips_tombstones`, `retry_from_scratch`, `retry_without_filter`, `abandon_partial_restore`, `ignore_injected_stop`, `accept_corrupt_backup`, `recover_loses_unrelated`, `falsely_claim_restore_complete`, `recover_without_repair`, `replay_partial_write_twice`, `claim_rollback_without_reverting`, `report_success_with_partial_record` |
+| B4W `eval/tasks/b4w` | `wal_integrity_zero`, `durability_zero`, `uncommitted_write_zero`, `durability_idempotency_zero`, `durability_resurrection_zero`, `unrelated_record_zero`, `recovery_complete_zero` | `replay_committed_twice`, `accept_torn_entry`, `lose_unrelated_record`, `claim_recovery_complete_with_partial_write`, `resurrect_deleted_record`, `lose_post_crash_record` |
 | B16 `eval/tasks/b16` | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (>=0.95, C-09-AC1) | `suppress_explanation`, `misattribute_cause` |
+
+The durability slice reports its schedule the same way: 10 scenarios, 38 declared operations, 76 declared
+log frames (40 of them planted before the run), 6 crash scenarios and 7 simulated crashes that cover all
+six stages (`wal_append`, `record_write`, `commit_marker`, `corrupt_entry`, `replay_write`,
+`crash_after_commit`), 603 bytes truncated by the crash points, 7 declared recovery scenarios, one
+duplicate-retry operation and one scenario whose damage precedes the frames the run writes. The crash
+point is the evaluator's: the fixture declares candidates and the harness picks the stage from
+`sha256(task:salt:attempt)` with an offset strictly inside the interrupted operation, so the gold is
+recomputed for every candidate and the fixture cannot encode the answer. These are deterministic
+executions, not independent samples; seven simulated process deaths say nothing about how a real engine
+fails, and the store is evaluator test code in a temporary directory, not a product store.
 
 The deletion slice reports its schedule instead of implying a rate: 27 scenarios, 3 deletion drills each
 (81 executions), 7 replay days each (189 day evaluations), 19 backups and 19 restore events (each on a
@@ -133,7 +147,7 @@ model allowed an attempt to stop inside a record — and its own baselines,
   demonstrated headroom above the reference program.
 - It does not evaluate the unfinished families B5–B7, B11–B15 or B17–B20 (multimodal, voice, adversarial,
   speaker verification, telephony, preferences, self-evolution, invention, canon parity, smart home,
-  connectors), long-horizon tasks, or real user data. B4, B4D and B16 exist only as the slices described
+  connectors), long-horizon tasks, or real user data. B4, B4D, B4W and B16 exist only as the slices described
   above; the deletion slice restores scripted backups from an invented store — the evaluator picks where an
   attempt is interrupted, but it is still a clean abort between records, and its corruption classes are three
   synthetic cases under a sha256 digest — and it has no retention policy, off-site replication, legal-hold
@@ -167,7 +181,7 @@ eval/
                      idempotency, fault injection and credential redaction
     solvers/
       base.py        Solver protocol, ToolContext, single idempotent retry
-      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10, B4, B4D, B16)
+      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10, B4, B4D, B4W, B16)
       ladder.py      the X-13 rungs, including the gold-reading oracle probe
       mutations.py   the planted regressions used by X-10 (31 at M5.6)
     scorers.py       per-family scoring; pure functions of fixture + result + world
