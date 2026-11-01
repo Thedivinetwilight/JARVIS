@@ -404,22 +404,51 @@ def score_b16(task: dict[str, Any], result: Any) -> dict[str, Any]:
     }
 
 
+def _duplicate_entry_effects(surfaces: dict[str, Any]) -> int:
+    """How many derived entries the store holds more than once, after a retried restore."""
+    effect = 0
+    for name in DERIVED_SURFACES:
+        seen: set[str] = set()
+        for entry in surfaces.get(name, []) or []:
+            entry_id = entry.get("entry_id")
+            if entry_id in seen:
+                effect += 1
+            else:
+                seen.add(entry_id)
+    return effect
+
+
+def _restore_declared_attempts(backup: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not backup:
+        return []
+    declared = backup.get("attempts")
+    if not declared:
+        return [{"attempt": 1, "stop_after_records": None, "expect_complete": True}]
+    return list(declared)
+
+
 def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     """Deletion, replay and restore: audit the reported store, do not trust its summary.
 
-    Three phases are scored separately, because they fail differently:
+    Four phases are scored separately, because they fail differently:
 
     * **live store after deletion** -- residual copies, post-delete probe hits and
       over-deletion, measured on the store one deletion cycle later;
     * **replay window** -- resurrections, counted against that post-deletion state
       so a copy that never left is residue rather than rebirth;
-    * **restore event** -- a backup taken before the deletion is restored on a
-      declared replay day. Restore resurrections are counted only for records the
-      restore brought back that were absent immediately before it, so an unchanged
-      pre-restore state is never scored as a restore resurrection; restore residue
-      counts derived copies of deleted records that the restore itself reintroduced;
-      restore drops count surviving records present before the restore and missing
-      after it.
+    * **restore attempts** -- a backup taken before the deletion is restored on a
+      declared replay day, possibly in several attempts on that day. Each attempt
+      is audited on its own: resurrections are counted only for records an attempt
+      brought back that were absent immediately before it, and residue only for
+      derived copies an attempt itself added. A deliberately interrupted first
+      attempt is therefore not a failure by itself;
+    * **final recovered state** -- after the last attempt: surviving records the
+      backup holds must be back, recovery probes must resolve, and no derived entry
+      may be duplicated by a retry.
+
+    What is scored is the final state, not the number of attempts: an abandoned
+    partial restore fails, a completed retry passes, and a retry that duplicates
+    effects fails even though every record it touched is present.
 
     A run that reports no store state fails closed instead of scoring as "nothing
     found".
@@ -436,12 +465,16 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     replay = notes.get("replay")
     after_delete = notes.get("present_after_delete")
     restore = notes.get("restore")
+    attempts = restore.get("attempts") if isinstance(restore, dict) else None
     reports_restore = (backup is None
-                       or (isinstance(restore, dict)
-                           and isinstance(restore.get("records_before"), list)
-                           and isinstance(restore.get("records_after"), list)
-                           and isinstance(restore.get("surfaces_before"), dict)
-                           and isinstance(restore.get("surfaces_after"), dict)))
+                       or (isinstance(attempts, list) and bool(attempts)
+                           and all(isinstance(attempt, dict)
+                                   and isinstance(attempt.get("records_before"), list)
+                                   and isinstance(attempt.get("records_after"), list)
+                                   and isinstance(attempt.get("surfaces_before"), dict)
+                                   and isinstance(attempt.get("surfaces_after"), dict)
+                                   and isinstance(attempt.get("complete"), bool)
+                                   for attempt in attempts)))
     reports_state = (isinstance(surfaces, dict)
                      and all(isinstance(surfaces.get(name), list)
                              for name in DERIVED_SURFACES)
@@ -456,7 +489,14 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
     restore_resurrections = 0
     restore_dropped = 0
     restore_residue = 0
+    restore_unrecovered = 0
+    restore_unrecovered_records = 0
+    recovery_probe_failures = 0
+    restore_duplicate_effects = 0
+    restore_attempt_mismatch = 0
     restore_applied = 0
+    attempts_reported = 0
+    attempt_detail: list[dict[str, Any]] = []
     reported_records: set[str] = set()
     if reports_state:
         entries = [entry for name in DERIVED_SURFACES for entry in surfaces.get(name, [])]
@@ -478,22 +518,61 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
             # one that never left is residue, counted by the residue gate instead.
             resurrections += len((present & deleted) - already_there)
 
-        if backup is not None and isinstance(restore, dict):
-            before_records = {str(rid) for rid in restore.get("records_before") or []}
-            after_records = {str(rid) for rid in restore.get("records_after") or []}
-            if restore.get("applied") and restore.get("day") == backup["restore_day"]:
+        if backup is not None and reports_restore:
+            attempts_reported = len(attempts)
+            if restore.get("day") == backup["restore_day"]:
                 restore_applied = 1
-            # Only records the restore brought back count: anything already present
-            # before the restore is pre-existing residue, not a restore resurrection.
-            restore_resurrections = len((after_records & deleted) - before_records)
-            restore_dropped = len((surviving & before_records) - after_records)
-            before_ids = {entry.get("entry_id")
-                          for name in DERIVED_SURFACES
-                          for entry in (restore.get("surfaces_before") or {}).get(name, [])}
-            restore_residue = sum(
-                1 for name in DERIVED_SURFACES
-                for entry in (restore.get("surfaces_after") or {}).get(name, [])
-                if entry.get("record_id") in deleted and entry.get("entry_id") not in before_ids)
+            for attempt in attempts:
+                before = {str(rid) for rid in attempt.get("records_before") or []}
+                after = {str(rid) for rid in attempt.get("records_after") or []}
+                # Only records this attempt brought back count: anything already
+                # present before it is pre-existing residue, not a resurrection.
+                restore_resurrections += len((after & deleted) - before)
+                before_ids = {entry.get("entry_id")
+                              for name in DERIVED_SURFACES
+                              for entry in (attempt.get("surfaces_before") or {}).get(name, [])}
+                added_residue = sum(
+                    1 for name in DERIVED_SURFACES
+                    for entry in (attempt.get("surfaces_after") or {}).get(name, [])
+                    if entry.get("record_id") in deleted
+                    and entry.get("entry_id") not in before_ids)
+                restore_residue += added_residue
+                attempt_detail.append({
+                    "attempt": attempt.get("attempt"),
+                    "complete": attempt["complete"],
+                    "records_added": sorted(after - before),
+                    "residue_added": added_residue,
+                })
+
+            first_before = {str(rid) for rid in attempts[0].get("records_before") or []}
+            final_after = {str(rid) for rid in attempts[-1].get("records_after") or []}
+            # Loss is judged on the final state: a record an intermediate attempt
+            # has not restored yet is incomplete, not lost.
+            restore_dropped = len((surviving & first_before) - final_after)
+
+            final_surfaces = attempts[-1].get("surfaces_after") or {}
+            restore_duplicate_effects = _duplicate_entry_effects(final_surfaces)
+
+            held_survivors = surviving & {str(rid) for rid in backup["contents"]["records"]}
+            restore_unrecovered_records = len(held_survivors - final_after)
+            final_entries = [entry for name in DERIVED_SURFACES
+                             for entry in final_surfaces.get(name, []) or []]
+            for probe in task.get("recovery_probes") or []:
+                resolved = any(entry_matches_probe(entry, probe["text"])
+                               for entry in final_entries)
+                if probe["expect"] == "present" and not resolved:
+                    recovery_probe_failures += 1
+                elif probe["expect"] == "absent" and resolved:
+                    recovery_probe_failures += 1
+            restore_unrecovered = restore_unrecovered_records + recovery_probe_failures
+
+            declared = _restore_declared_attempts(backup)
+            declared_flags = [bool(item.get("expect_complete", True)) for item in declared]
+            reported_flags = [bool(attempt["complete"]) for attempt in attempts]
+            consistent = (len(attempts) == len(declared)
+                          and reported_flags == declared_flags
+                          and restore.get("day") == backup["restore_day"])
+            restore_attempt_mismatch = 0 if consistent else 1
 
     schedule_complete = (len(drills or []) == required_drills
                          and len(replay or []) == required_days)
@@ -504,7 +583,8 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                and residual_copies == 0 and post_delete_hits == 0
                and resurrections == 0 and overdeleted == 0
                and restore_resurrections == 0 and restore_dropped == 0
-               and restore_residue == 0)
+               and restore_residue == 0 and restore_unrecovered == 0
+               and restore_duplicate_effects == 0 and restore_attempt_mismatch == 0)
 
     return {
         "success": success,
@@ -517,6 +597,10 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
             "restore_resurrections": restore_resurrections,
             "restore_dropped": restore_dropped,
             "restore_residue": restore_residue,
+            "restore_unrecovered": restore_unrecovered,
+            "restore_duplicate_effects": restore_duplicate_effects,
+            "restore_attempt_mismatch": restore_attempt_mismatch,
+            "restore_attempts": attempts_reported,
             "restores": 1 if backup is not None else 0,
             "restore_applied": restore_applied,
             "unreported_states": unreported,
@@ -535,9 +619,13 @@ def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
                    "backup_id": backup["backup_id"] if backup else None,
                    "restore_day": backup["restore_day"] if backup else None,
                    "restore_applied": bool(restore_applied),
+                   "restore_attempts": attempt_detail,
+                   "restore_attempts_declared": len(_restore_declared_attempts(backup)),
+                   "restore_unrecovered_records": restore_unrecovered_records,
+                   "recovery_probe_failures": recovery_probe_failures,
                    "restore_records_after": sorted(
-                       {str(rid) for rid in (restore or {}).get("records_after") or []})
-                   if isinstance(restore, dict) else []},
+                       {str(rid) for rid in (attempts[-1].get("records_after") or [])})
+                   if isinstance(attempts, list) and attempts else []},
     }
 
 

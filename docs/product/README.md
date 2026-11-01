@@ -23,7 +23,7 @@ what is true and what is feasible) and from `eval/` (which asks whether the eval
 
 ## M5 artefacts
 
-The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are mostly planning documents: B4 and B16 now have small evaluator slices (`eval/tasks/b4`, `eval/tasks/b4d` — deletion drills with backup/restore — and `eval/tasks/b16`) with live gates and planted regressions, the other twelve families have no task set, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
+The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are mostly planning documents: B4 and B16 now have small evaluator slices (`eval/tasks/b4`, `eval/tasks/b4d` — deletion drills with backup/restore, including interrupted restores and retries — and `eval/tasks/b16`) with live gates and planted regressions, the other twelve families have no task set, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
 
 ## The requirement set at a glance
 

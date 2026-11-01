@@ -321,7 +321,9 @@ PROBE_NORM = re.compile(r"[^a-z0-9]+")
 #: Zero-tolerance counters a B4D scenario must never invite. The restore counters
 #: are only exercised by scenarios that declare a backup.
 B4D_ZERO_COUNTERS = ("residual_copies", "post_delete_hits", "resurrections", "overdeleted",
-                     "restore_resurrections", "restore_dropped", "restore_residue")
+                     "restore_resurrections", "restore_dropped", "restore_residue",
+                     "restore_unrecovered", "restore_duplicate_effects",
+                     "restore_attempt_mismatch")
 
 
 def parse_timestamp(value: Any) -> datetime | None:
@@ -899,6 +901,179 @@ def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[
             raise TaskSetError(
                 f"{directory}: B4D task {tid} backup holds no derived copy of the deleted {rid}; "
                 "restore-time residue could not be observed")
+
+    _validate_b4d_attempts(directory, task, held, filtered, restored, copies)
+
+
+def _validate_b4d_attempts(directory: Path, task: dict[str, Any], held: list[str],
+                           filtered: list[str], restored: list[str],
+                           copies: dict[str, list[str]]) -> None:
+    """Retry scenarios must declare an ordered attempt sequence that ends recovered.
+
+    An interruption point that changes nothing, a retry numbered out of order, a
+    duplicate attempt, a sequence that stops incomplete, and a retry that is never
+    declared are all refused: each would let a fixture claim recovery it cannot
+    demonstrate.
+    """
+    tid = task["id"]
+    backup = task["backup"]
+    expected = task["expected"]
+    attempts = backup.get("attempts")
+    declared = ([{"attempt": 1, "stop_after_records": None, "expect_complete": True}]
+                if attempts is None else attempts)
+    if not isinstance(declared, list) or not declared:
+        raise TaskSetError(f"{directory}: B4D task {tid} backup attempts must be a non-empty list")
+
+    numbers: list[int] = []
+    stops: list[int | None] = []
+    for position, attempt in enumerate(declared, start=1):
+        if not isinstance(attempt, dict):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} attempt {position} must be an object")
+        number = attempt.get("attempt")
+        if isinstance(number, bool) or not isinstance(number, int):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} attempt {position} has no integer attempt number")
+        if number in numbers:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} declares attempt {number} twice; a retry sequence "
+                "may not repeat an attempt")
+        numbers.append(number)
+        stop = attempt.get("stop_after_records")
+        if stop is not None:
+            if isinstance(stop, bool) or not isinstance(stop, int):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} attempt {number} stop_after_records "
+                    f"{stop!r} is neither null nor an integer")
+            if stop < 1 or stop >= len(held):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} attempt {number} stops after {stop} of "
+                    f"{len(held)} records; an interruption point must leave work undone")
+        if not isinstance(attempt.get("expect_complete"), bool):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} attempt {number} must declare expect_complete "
+                "true or false")
+        if attempt["expect_complete"] != (stop is None):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} attempt {number} claims expect_complete="
+                f"{attempt['expect_complete']} with stop_after_records={stop}")
+        stops.append(stop)
+
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} attempts are numbered {numbers}; a retry sequence must "
+            "be ordered 1..n with no gap")
+    if stops[-1] is not None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} ends on an interrupted attempt; the fixture must "
+            "declare recovery, since an abandoned restore is a failure, not a scenario")
+    if any(stop is None for stop in stops[:-1]):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} retries after a completed attempt; nothing would be "
+            "left to resume")
+    if len(declared) > 1 and stops[0] is None:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares a retry whose first attempt was not interrupted")
+
+    # the gold intermediate state: survivors the backup holds that the last
+    # interrupted attempt has not put back yet
+    last_incomplete = max((index for index, stop in enumerate(stops) if stop is not None),
+                          default=None)
+    interrupted_missing: list[str] = []
+    if last_incomplete is not None:
+        present = set(restored) - set(task.get("pre_restore_missing", []))
+        present |= set(held[:stops[last_incomplete]]) & set(restored)
+        interrupted_missing = sorted(set(restored) - present)
+    declared_interrupted = expected.get("restore_interrupted_missing", [])
+    if sorted(declared_interrupted) != interrupted_missing:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_interrupted_missing "
+            f"{declared_interrupted} disagrees with the declared attempt sequence "
+            f"(expected {interrupted_missing})")
+    if "restore_attempts" not in expected:
+        if len(declared) != 1:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} declares {len(declared)} attempts but no "
+                "restore_attempts in its gold state")
+    elif expected["restore_attempts"] != len(declared):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} expected restore_attempts={expected['restore_attempts']} "
+            f"but the backup declares {len(declared)} attempts")
+
+    lost = task.get("pre_restore_missing", [])
+    if not isinstance(lost, list):
+        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing must be a list")
+    if len(set(lost)) != len(lost):
+        raise TaskSetError(f"{directory}: B4D task {tid} pre_restore_missing repeats a record")
+    unknown = set(lost) - set(restored)
+    if unknown:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} pre_restore_missing names {sorted(unknown)}, which the "
+            "backup does not hold as surviving records; the restore could not recover them")
+    for rid in lost:
+        if not copies.get(rid):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} pre_restore_missing names {rid} but the backup holds "
+                "no derived copy of it")
+
+    recovery = task.get("recovery_probes")
+    if lost and not recovery:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} loses records before the restore but declares no "
+            "recovery_probes; recovery could not be observed on the final state")
+    if recovery is None:
+        return
+    if not isinstance(recovery, list):
+        raise TaskSetError(f"{directory}: B4D task {tid} recovery_probes must be a list")
+    seen: set[str] = set()
+    present_records: set[str] = set()
+    for probe in recovery:
+        pid = probe.get("probe_id")
+        if not pid or pid in seen:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe id missing or duplicated")
+        seen.add(pid)
+        rid = probe.get("record_id")
+        if rid not in set(held):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} names {rid!r}, which the "
+                "backup does not hold")
+        if probe.get("expect") not in {"absent", "present"}:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expect must be 'absent' or "
+                "'present'")
+        if probe["expect"] == "present" and rid in filtered:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expects a deleted record to be "
+                "restored")
+        if probe["expect"] == "absent" and rid not in filtered:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} expects a surviving record to "
+                "be absent after recovery")
+        if not str(probe.get("text", "")).strip():
+            raise TaskSetError(f"{directory}: B4D task {tid} recovery probe {pid} has no text")
+        matched = [entry for name, entries in backup["contents"]["surfaces"].items()
+                   for entry in entries
+                   if entry.get("record_id") == rid
+                   and entry_matches_probe(entry, probe["text"])]
+        if not matched:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} matches no entry of {rid} in "
+                "the backup; it could not resolve even after a complete restore")
+        stray = [entry["entry_id"] for name, entries in backup["contents"]["surfaces"].items()
+                 for entry in entries
+                 if entry.get("record_id") != rid
+                 and entry_matches_probe(entry, probe["text"])]
+        if stray:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} recovery probe {pid} is ambiguous with {stray}")
+        if probe["expect"] == "present":
+            present_records.add(rid)
+    missing_probe = set(lost) - present_records
+    if missing_probe:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} loses {sorted(missing_probe)} before the restore without "
+            "a recovery probe that must resolve afterwards")
 
 
 def load_tasksets(root: Path | str = "eval/tasks") -> dict[str, TaskSet]:

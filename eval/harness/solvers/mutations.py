@@ -157,6 +157,32 @@ MUTATIONS |= {
         expected_gate="restore_residue_zero",
         phase_requirement="Product spec C-02-AC3: restore-time deletion metadata governs derived copies too",
     ),
+    "retry_from_scratch": Mutation(
+        name="retry_from_scratch",
+        block="B4D",
+        description=("retries an interrupted restore from the beginning instead of resuming, "
+                     "re-appending derived entries it has already written"),
+        expected_gate="restore_idempotency_zero",
+        phase_requirement=("Product spec C-02-AC3: retrying a restore must not duplicate its "
+                           "effects"),
+    ),
+    "retry_without_filter": Mutation(
+        name="retry_without_filter",
+        block="B4D",
+        description="retries the restore without consulting the deletion record, reintroducing deleted records",
+        expected_gate="restore_resurrection_zero",
+        phase_requirement=("Product spec C-02-AC3: every attempt, including a retry, filters what "
+                           "was deleted"),
+    ),
+    "abandon_partial_restore": Mutation(
+        name="abandon_partial_restore",
+        block="B4D",
+        description=("abandons the restore after its interrupted first attempt and still reports "
+                     "the task done"),
+        expected_gate="restore_recovery_zero",
+        phase_requirement=("Product spec C-02-AC3: a restore is only complete when the final state "
+                           "is recovered"),
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

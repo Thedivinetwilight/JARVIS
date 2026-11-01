@@ -14,12 +14,13 @@ breadth becomes an inventory instead of a claim.
 
 ## What is here
 
-`capabilities.json` — one entry per capability the evaluation fixtures exercise (19 at registry v1.3.0):
+`capabilities.json` — one entry per capability the evaluation fixtures exercise (19 at registry v1.4.0):
 tools (`calendar.create_event`, `mail.send`, `files.write/append/delete`, `memory.write_record`,
 `memory.retrieve_current`), skills (`corpus.retrieve`, `document.extract_fields`, `source.reconcile`,
 `schedule.assign`, `skill.apply`, `memory.consolidate`, `explain.limitation`), the verifier and the approval
-policy. The three M5 entries are simulators for the B4 (memory metadata/expiry) and B16 (limitation
-explanation) slices; they still simulate nothing that exists in a product. Each entry declares:
+policy. `memory.restore_backup` is the third M5-era entry: it simulates a backup restore that filters
+deleted records, keeps unrelated ones and can be interrupted and retried, and it backs the B4D deletion /
+restore slice. All of them still simulate nothing that exists in a product. Each entry declares:
 
 | Field | Why |
 |---|---|

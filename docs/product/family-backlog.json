@@ -99,7 +99,10 @@
           "deletion_replay_completeness",
           "restore_resurrection_zero",
           "restore_survivor_zero",
-          "restore_residue_zero"
+          "restore_residue_zero",
+          "restore_attempt_count_zero",
+          "restore_idempotency_zero",
+          "restore_recovery_zero"
         ]
       },
       "planted_regressions": [
@@ -142,6 +145,21 @@
           "id": "restore_skips_tombstones",
           "description": "filters the primary record out of the restore but rebuilds index, cache and summary copies from the backup unfiltered",
           "expected_gate": "restore_residue_zero"
+        },
+        {
+          "id": "retry_from_scratch",
+          "description": "retries an interrupted restore from the beginning, appending every derived entry a second time",
+          "expected_gate": "restore_idempotency_zero"
+        },
+        {
+          "id": "retry_without_filter",
+          "description": "retries an interrupted restore without consulting the deletion record, so the deleted record comes back",
+          "expected_gate": "restore_resurrection_zero"
+        },
+        {
+          "id": "abandon_partial_restore",
+          "description": "stops after the interrupted attempt, reports the restore as complete and leaves a survivor missing until nothing recovers it",
+          "expected_gate": "restore_recovery_zero"
         }
       ],
       "privacy": {
@@ -180,13 +198,14 @@
         "block schema with a clock and five stores",
         "store simulator with index/cache copies",
         "per-task scorers",
-        "four planted regressions and their gates",
-        "deletion drills: three cycles, a seven-day replay and post-delete probes"
+        "nine planted regressions and their gates",
+        "deletion drills: three cycles, a seven-day replay and post-delete probes",
+        "resumable restore attempts: interruption points, per-attempt state and a same-day retry"
       ],
       "blockers": [
         "Q18"
       ],
-      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy.",
+      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy. The second slice was extended once (m5.4) to score interrupted partial restores and retries; it still restores invented backups and still says nothing about any real retention or legal-hold policy.",
       "implemented_slice": {
         "slice_id": "M5-B4-slice-1",
         "suite": "eval/tasks/b4",
@@ -228,35 +247,44 @@
       "implemented_slice_2": {
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.3",
-        "tasks": 11,
+        "taskset_version": "2026-Q4.1-m5.4",
+        "tasks": 15,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills and backup restore; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, interrupted restore retries; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
           "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
           "restore: a backup taken before the deletion is restored during the replay, drops the records deleted since it was taken and keeps unrelated records with their copies (C-02-AC3)",
+          "retried restore: a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
+          "pre-restore loss: a survivor the store lost before the restore is restored by it, and recovery is probed on the final state (C-02-AC3)",
           "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
-          "real retention policy, legal hold, off-site replication and restore-order semantics beyond a single scripted restore day",
+          "real retention policy, legal hold, off-site replication, partial or corrupt backups, restore ordering across several days and concurrent restores",
+          "which attempt counts as \"interrupted\" in a real implementation: the fixture declares the interruption point, so resumability of a real engine is untested",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 11,
+          "tasks": 15,
           "drills_per_task": 3,
-          "drill_executions": 33,
+          "drill_executions": 45,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 77,
-          "backups": 3,
-          "restore_events": 3,
-          "restore_day_evaluations": 3,
-          "probes": 28,
-          "deleted_records": 14,
-          "surface_entries": 62,
-          "note": "Deterministic executions, not independent samples: eleven scenarios re-run on a fixed schedule, with three scripted backups and three scripted restores. No confidence interval is implied and none may be computed from these counts."
+          "replay_day_evaluations": 105,
+          "backups": 7,
+          "restore_events": 7,
+          "restore_day_evaluations": 7,
+          "restore_attempts": 11,
+          "retried_restore_scenarios": 4,
+          "incomplete_attempts": 4,
+          "pre_restore_losses": 2,
+          "recovery_probes": 13,
+          "probes": 42,
+          "deleted_records": 19,
+          "surface_entries": 91,
+          "backup_entries": 48,
+          "note": "Deterministic executions, not independent samples: fifteen scenarios re-run on a fixed schedule, with seven scripted backups, seven scripted restores and eleven scripted restore attempts (four of them deliberately interrupted and retried). No confidence interval is implied and none may be computed from these counts; the scripted retries are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -267,7 +295,10 @@
           "deletion_replay_completeness",
           "restore_resurrection_zero",
           "restore_survivor_zero",
-          "restore_residue_zero"
+          "restore_residue_zero",
+          "restore_recovery_zero",
+          "restore_idempotency_zero",
+          "restore_attempt_count_zero"
         ],
         "mutations": {
           "delete_primary_only": "deletion_residue_zero",
@@ -275,16 +306,24 @@
           "resurrect_on_replay": "resurrection_zero",
           "restore_without_filter": "restore_resurrection_zero",
           "restore_drops_unrelated": "restore_survivor_zero",
-          "restore_skips_tombstones": "restore_residue_zero"
+          "restore_skips_tombstones": "restore_residue_zero",
+          "retry_from_scratch": "restore_idempotency_zero",
+          "retry_without_filter": "restore_resurrection_zero",
+          "abandon_partial_restore": "restore_recovery_zero"
         },
         "preregistration": "embedded in eval/tasks/b4d/tasks.json",
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
+          "eval/results/m5-b4d-retry-report.json",
+          "eval/results/x10-report-m5-b4d-retry.json",
           "eval/results/index.json"
         ],
-        "baseline": "eval/baselines/baseline-m5-b4d-restore.json",
-        "reference_score": "11/11 with zero residual copies, zero post-delete hits, zero resurrections, zero restore-caused resurrection, zero restore-caused loss, zero restore-caused residue and zero over-deleted records; a hand-written program, not a model"
+        "baseline": [
+          "eval/baselines/baseline-m5-b4d-restore.json",
+          "eval/baselines/baseline-m5-b4d-retry.json"
+        ],
+        "reference_score": "15/15 with zero residual copies, zero post-delete hits, zero resurrections, zero restore-caused resurrection, zero restore-caused loss, zero restore-caused residue, zero unrecovered survivors, zero duplicated entries, zero attempt mismatches and zero over-deleted records; a hand-written program, not a model"
       }
     },
     {
@@ -1968,35 +2007,44 @@
         "family": "B4",
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.3",
-        "tasks": 11,
+        "taskset_version": "2026-Q4.1-m5.4",
+        "tasks": 15,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills and backup restore; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, interrupted restore retries; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
           "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
           "restore: a backup taken before the deletion is restored during the replay, drops the records deleted since it was taken and keeps unrelated records with their copies (C-02-AC3)",
+          "retried restore: a restore that stops after part of the backup is retried on the same day; the retry adds no duplicate entry, brings back no deleted record and leaves the final state recovered (C-02-AC3)",
+          "pre-restore loss: a survivor the store lost before the restore is restored by it, and recovery is probed on the final state (C-02-AC3)",
           "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
-          "real retention policy, legal hold, off-site replication and restore-order semantics beyond a single scripted restore day",
+          "real retention policy, legal hold, off-site replication, partial or corrupt backups, restore ordering across several days and concurrent restores",
+          "which attempt counts as \"interrupted\" in a real implementation: the fixture declares the interruption point, so resumability of a real engine is untested",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 11,
+          "tasks": 15,
           "drills_per_task": 3,
-          "drill_executions": 33,
+          "drill_executions": 45,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 77,
-          "backups": 3,
-          "restore_events": 3,
-          "restore_day_evaluations": 3,
-          "probes": 28,
-          "deleted_records": 14,
-          "surface_entries": 62,
-          "note": "Deterministic executions, not independent samples: eleven scenarios re-run on a fixed schedule, with three scripted backups and three scripted restores. No confidence interval is implied and none may be computed from these counts."
+          "replay_day_evaluations": 105,
+          "backups": 7,
+          "restore_events": 7,
+          "restore_day_evaluations": 7,
+          "restore_attempts": 11,
+          "retried_restore_scenarios": 4,
+          "incomplete_attempts": 4,
+          "pre_restore_losses": 2,
+          "recovery_probes": 13,
+          "probes": 42,
+          "deleted_records": 19,
+          "surface_entries": 91,
+          "backup_entries": 48,
+          "note": "Deterministic executions, not independent samples: fifteen scenarios re-run on a fixed schedule, with seven scripted backups, seven scripted restores and eleven scripted restore attempts (four of them deliberately interrupted and retried). No confidence interval is implied and none may be computed from these counts; the scripted retries are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -2007,14 +2055,22 @@
           "deletion_replay_completeness",
           "restore_resurrection_zero",
           "restore_survivor_zero",
-          "restore_residue_zero"
+          "restore_residue_zero",
+          "restore_recovery_zero",
+          "restore_idempotency_zero",
+          "restore_attempt_count_zero"
         ],
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
+          "eval/results/m5-b4d-retry-report.json",
+          "eval/results/x10-report-m5-b4d-retry.json",
           "eval/results/index.json"
         ],
-        "baseline": "eval/baselines/baseline-m5-b4d-restore.json"
+        "baseline": [
+          "eval/baselines/baseline-m5-b4d-restore.json",
+          "eval/baselines/baseline-m5-b4d-retry.json"
+        ]
       }
     ]
   }

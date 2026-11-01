@@ -112,21 +112,23 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2) and extended it with backup/restore scenarios; see docs/product/coverage-matrix.md section 9.",
+      "note": "B4 deletion and restore drills. M5 built the deletion slice (M5-B4-slice-2), extended it with backup/restore scenarios and then with interrupted partial restores and same-day retries; see docs/product/coverage-matrix.md section 9. No capability is validated.",
       "slice": {
         "suite": "eval/tasks/b4d",
-        "tasks": 8,
-        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections; a backup taken before the deletion is restored during the replay, dropping deleted records and keeping unrelated ones",
+        "tasks": 15,
+        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections; a backup taken before the deletion is restored during the replay, dropping deleted records and keeping unrelated ones; a restore interrupted after part of the backup and retried on the same day, where the retry duplicates no entry, resurrects no deleted record and leaves the final state recovered; a survivor lost before the restore must be recovered by it",
         "sample_counts": {
-          "tasks": 11,
-          "drill_executions": 33,
-          "replay_day_evaluations": 77,
-          "backups": 3,
-          "restore_events": 3,
-          "probes": 28,
-          "note": "deterministic executions, not independent samples"
+          "tasks": 15,
+          "drill_executions": 45,
+          "replay_day_evaluations": 105,
+          "backups": 7,
+          "restore_events": 7,
+          "restore_attempts": 11,
+          "recovery_probes": 13,
+          "probes": 42,
+          "note": "deterministic executions, not independent samples; the four interrupted attempts and their retries are scripted scenarios, not a distribution over restore implementations"
         },
-        "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, a real store or real data"
+        "not_covered": "people-database field policy (Q18), real retention/legal-hold and replication semantics, corrupt or partial backups, interruption semantics in a real engine, a real store or real data"
       }
     },
     {

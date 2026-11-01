@@ -1,5 +1,5 @@
 {
-  "version": "2026-Q4.1-m5.3",
+  "version": "2026-Q4.1-m5.4",
   "block": "B4D",
   "synthetic": true,
   "data_class": "synthetic",
@@ -10,11 +10,11 @@
       {
         "criterion": "C-02-AC3",
         "metric": "a delete removes the record and its derived copies (index, cache, summaries) within one cycle; 0 resurrections across 3 deletion drills and a 7-day replay",
-        "slice": "11 synthetic scenarios over index, cache and summary surfaces; 3 drills and a 7-day consolidation replay per scenario; 3 scenarios restore a backup taken before the deletion during the replay"
+        "slice": "15 synthetic scenarios over index, cache and summary surfaces; 3 drills and a 7-day consolidation replay per scenario; 7 scenarios restore a backup taken before the deletion during the replay, 4 of them in two attempts after an interrupted first one"
       }
     ],
     "task_counts": {
-      "total": 11,
+      "total": 15,
       "index_only": 1,
       "cache_only": 1,
       "summary_only": 1,
@@ -22,22 +22,29 @@
       "multi_record": 2,
       "replay_consolidation": 1,
       "alias_probe": 1,
-      "backup_restore": 3
+      "backup_restore": 7,
+      "retried_restore": 4,
+      "pre_restore_loss": 2
     },
     "sample_counts": {
-      "tasks": 11,
+      "tasks": 15,
       "drills_per_task": 3,
-      "drill_executions": 33,
+      "drill_executions": 45,
       "replay_days_per_task": 7,
-      "replay_day_evaluations": 77,
-      "backups": 3,
-      "restore_events": 3,
-      "restore_day_evaluations": 3,
-      "probes": 28,
-      "deleted_records": 14,
-      "surface_entries": 62,
-      "backup_entries": 19,
-      "note": "deterministic executions, not independent samples; no confidence interval is implied, and the 3 backups / 3 restores are three scripted scenarios, not a distribution over restore strategies"
+      "replay_day_evaluations": 105,
+      "backups": 7,
+      "restore_events": 7,
+      "restore_day_evaluations": 7,
+      "restore_attempts": 11,
+      "retried_restore_scenarios": 4,
+      "incomplete_attempts": 4,
+      "pre_restore_losses": 2,
+      "recovery_probes": 13,
+      "probes": 42,
+      "deleted_records": 19,
+      "surface_entries": 91,
+      "backup_entries": 48,
+      "note": "deterministic executions, not independent samples; no confidence interval is implied, and the scripted restores -- including the four interrupted attempts and their retries -- are scenarios, not a distribution over restore implementations"
     },
     "scoring": {
       "per_task": [
@@ -48,11 +55,15 @@
         "restore_resurrections",
         "restore_dropped",
         "restore_residue",
+        "restore_unrecovered",
+        "restore_duplicate_effects",
+        "restore_attempt_mismatch",
+        "restore_attempts",
         "restores",
         "unreported_states",
         "replay_complete"
       ],
-      "success": "status=done and the reported store has zero residual entries for every deleted record, zero post-delete probe hits, zero resurrections across the 7 replay days, no surviving record lost, zero restore-caused resurrection, zero restore-caused loss and zero restore-caused derived residue, and the full 3-drill / 7-day schedule with its declared restore reported",
+      "success": "status=done and the reported store has zero residual entries for every deleted record, zero post-delete probe hits, zero resurrections across the 7 replay days, no surviving record lost, zero restore-caused resurrection, loss, derived residue or duplicate effect, a final state in which every surviving record the backup holds is recovered, and a reported attempt sequence that matches the declared one",
       "gates": [
         "deletion_residue_zero",
         "post_delete_hit_zero",
@@ -63,6 +74,9 @@
         "restore_resurrection_zero",
         "restore_survivor_zero",
         "restore_residue_zero",
+        "restore_recovery_zero",
+        "restore_idempotency_zero",
+        "restore_attempt_count_zero",
         "success_drop"
       ]
     },
@@ -112,6 +126,21 @@
         "metric": "restore_residue",
         "limit": 0,
         "criterion": "C-02-AC3 (restoring a backup must consult the deletion record before rebuilding derived surfaces)"
+      },
+      "restore_recovery_zero": {
+        "metric": "restore_unrecovered",
+        "limit": 0,
+        "criterion": "C-02-AC3 (the final state after the last attempt must be recovered: no surviving record the backup holds may stay missing)"
+      },
+      "restore_idempotency_zero": {
+        "metric": "restore_duplicate_effects",
+        "limit": 0,
+        "criterion": "C-02-AC3 (retrying a restore must not duplicate derived entries)"
+      },
+      "restore_attempt_count_zero": {
+        "metric": "restore_attempt_mismatch",
+        "limit": 0,
+        "criterion": "fail closed: the reported attempt sequence must match the declared one, so a skipped retry cannot pass as a completed restore"
       }
     },
     "mutations": {
@@ -120,7 +149,10 @@
       "resurrect_on_replay": "resurrection_zero",
       "restore_without_filter": "restore_resurrection_zero",
       "restore_drops_unrelated": "restore_survivor_zero",
-      "restore_skips_tombstones": "restore_residue_zero"
+      "restore_skips_tombstones": "restore_residue_zero",
+      "retry_from_scratch": "restore_idempotency_zero",
+      "retry_without_filter": "restore_resurrection_zero",
+      "abandon_partial_restore": "restore_recovery_zero"
     },
     "provenance": {
       "author": "evaluator (M5 slice)",
@@ -151,20 +183,32 @@
           "meaning": "any deleted record present on a replay day but absent at the end of the deletion cycle; measured against that post-deletion state"
         },
         {
-          "phase": "restore_event",
+          "phase": "restore_attempts",
           "measured_by": [
             "restore_resurrections",
             "restore_dropped",
-            "restore_residue"
+            "restore_residue",
+            "restore_attempt_mismatch"
           ],
-          "meaning": "a backup taken before the deletion is restored on a declared replay day; restore_resurrections counts deleted records the restore brought back that were absent immediately before it, so an unchanged pre-restore state is never counted as a restore resurrection; restore_dropped counts surviving records present before the restore and missing after it; restore_residue counts derived-surface copies of deleted records that the restore reintroduced"
+          "meaning": "a backup taken before the deletion is restored on a declared replay day in one or more attempts. Each attempt is audited on its own: resurrection counts only records an attempt brought back that were absent immediately before it, residue only copies an attempt itself added. An interrupted first attempt is incomplete by design and is not a failure while a retry can still finish the restore; the reported attempt sequence must match the declared one"
+        },
+        {
+          "phase": "final_recovered_state",
+          "measured_by": [
+            "restore_unrecovered",
+            "restore_duplicate_effects"
+          ],
+          "meaning": "after the last attempt: every surviving record the backup holds must be back, recovery probes over the final store must resolve as declared, and no derived entry may be duplicated by a retry. This is where an abandoned partial restore fails, and where a retry that re-applies its effects fails even though every record it touched is present"
         }
       ],
       "invariants": [
-        "a record deleted after the backup was taken is filtered out of the restore",
-        "a record not deleted survives the restore with its derived copies",
+        "a record deleted after the backup was taken is filtered out of every attempt",
+        "a record not deleted survives the restore series with its derived copies",
         "restoring a backup never reintroduces derived copies of a deleted record",
-        "a restore that does not run, or runs on a day outside the replay, leaves the task incomplete rather than clean"
+        "an interrupted attempt leaves the store incomplete, and incompleteness alone is not failure",
+        "a retry resumes from the interrupted state and never duplicates a derived entry",
+        "the final state is recovered: no surviving record the backup holds is left missing",
+        "a restore that does not run, or runs on a day outside the replay, leaves the task incomplete"
       ]
     }
   },
@@ -1633,7 +1677,12 @@
         "overdeleted": 0,
         "restore_resurrections": 0,
         "restore_dropped": 0,
-        "restore_residue": 0
+        "restore_residue": 0,
+        "restore_attempts": 1,
+        "restore_interrupted_missing": [],
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
       }
     },
     {
@@ -1889,7 +1938,12 @@
         "overdeleted": 0,
         "restore_resurrections": 0,
         "restore_dropped": 0,
-        "restore_residue": 0
+        "restore_residue": 0,
+        "restore_attempts": 1,
+        "restore_interrupted_missing": [],
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
       }
     },
     {
@@ -2210,7 +2264,1345 @@
         "overdeleted": 0,
         "restore_resurrections": 0,
         "restore_dropped": 0,
-        "restore_residue": 0
+        "restore_residue": 0,
+        "restore_attempts": 1,
+        "restore_interrupted_missing": [],
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
+      }
+    },
+    {
+      "id": "b4d-012",
+      "instruction": "Delete the brass vendor record, then restore last week's backup in two attempts: the first stops after two records, the retry must finish the job without bringing the brass vendor back.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample brass",
+          "metadata": {
+            "source": "po-5601",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample copper",
+          "metadata": {
+            "source": "po-5602",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample nickel",
+          "metadata": {
+            "source": "po-5603",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "brass",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "copper",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "nickel",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample copper"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample brass"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample nickel"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "brass",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "copper",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "nickel",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample copper"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample brass"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample nickel"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-24",
+      "backup": {
+        "backup_id": "bkp-012",
+        "taken_at": "2026-09-17",
+        "restore_day": 3,
+        "attempts": [
+          {
+            "attempt": 1,
+            "stop_after_records": 2,
+            "expect_complete": false
+          },
+          {
+            "attempt": 2,
+            "stop_after_records": null,
+            "expect_complete": true
+          }
+        ],
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "brass",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "copper",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "nickel",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample copper"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample brass"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample nickel"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample brass",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample copper",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample nickel",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r2",
+          "text": "sample copper",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r3",
+          "text": "sample nickel",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r1",
+          "text": "sample brass",
+          "expect": "absent"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_interrupted_missing": [],
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
+      }
+    },
+    {
+      "id": "b4d-013",
+      "instruction": "Delete the silver vendor record and restore the backup in two attempts. The first attempt already rewrote the zinc vendor's index, cache and summary entries; the retry must not write them a second time.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample silver",
+          "metadata": {
+            "source": "po-5611",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample zinc",
+          "metadata": {
+            "source": "po-5612",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample tin",
+          "metadata": {
+            "source": "po-5613",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "silver",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "zinc",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "tin",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample zinc"
+          },
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample tin"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample silver"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample zinc"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample tin"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "silver",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "zinc",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "tin",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample zinc"
+          },
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample tin"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample silver"
+          },
+          {
+            "entry_id": "s-r2",
+            "record_id": "r2",
+            "text": "weekly summary: vendor is sample zinc"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample tin"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-25",
+      "backup": {
+        "backup_id": "bkp-013",
+        "taken_at": "2026-09-16",
+        "restore_day": 2,
+        "attempts": [
+          {
+            "attempt": 1,
+            "stop_after_records": 2,
+            "expect_complete": false
+          },
+          {
+            "attempt": 2,
+            "stop_after_records": null,
+            "expect_complete": true
+          }
+        ],
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "silver",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "zinc",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "tin",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample zinc"
+              },
+              {
+                "entry_id": "c-r3",
+                "record_id": "r3",
+                "text": "cached answer: vendor is sample tin"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample silver"
+              },
+              {
+                "entry_id": "s-r2",
+                "record_id": "r2",
+                "text": "weekly summary: vendor is sample zinc"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample tin"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample silver",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample zinc",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample tin",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r2",
+          "text": "sample zinc",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r3",
+          "text": "sample tin",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r1",
+          "text": "sample silver",
+          "expect": "absent"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_interrupted_missing": [],
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
+      }
+    },
+    {
+      "id": "b4d-014",
+      "instruction": "Delete the cobalt vendor record. A failed migration has already lost the lead vendor from the live store; restore the backup in two attempts and the retry must bring the lead vendor back without resurrecting cobalt.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample cobalt",
+          "metadata": {
+            "source": "po-5621",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample iron",
+          "metadata": {
+            "source": "po-5622",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample lead",
+          "metadata": {
+            "source": "po-5623",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample chrome",
+          "metadata": {
+            "source": "po-5624",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "cobalt",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "iron",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "lead",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "chrome",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample lead"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample cobalt"
+          },
+          {
+            "entry_id": "s-r4",
+            "record_id": "r4",
+            "text": "weekly summary: vendor is sample chrome"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "cobalt",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "iron",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "lead",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "chrome",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r3",
+            "record_id": "r3",
+            "text": "cached answer: vendor is sample lead"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample cobalt"
+          },
+          {
+            "entry_id": "s-r4",
+            "record_id": "r4",
+            "text": "weekly summary: vendor is sample chrome"
+          }
+        ]
+      },
+      "delete": [
+        "r1"
+      ],
+      "deleted_at": "2026-09-26",
+      "pre_restore_missing": [
+        "r3"
+      ],
+      "backup": {
+        "backup_id": "bkp-014",
+        "taken_at": "2026-09-15",
+        "restore_day": 4,
+        "attempts": [
+          {
+            "attempt": 1,
+            "stop_after_records": 2,
+            "expect_complete": false
+          },
+          {
+            "attempt": 2,
+            "stop_after_records": null,
+            "expect_complete": true
+          }
+        ],
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "cobalt",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "iron",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "lead",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "chrome",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r3",
+                "record_id": "r3",
+                "text": "cached answer: vendor is sample lead"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample cobalt"
+              },
+              {
+                "entry_id": "s-r4",
+                "record_id": "r4",
+                "text": "weekly summary: vendor is sample chrome"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample cobalt",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample iron",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample lead",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample chrome",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r3",
+          "text": "sample lead",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r4",
+          "text": "sample chrome",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r1",
+          "text": "sample cobalt",
+          "expect": "absent"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r2",
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1"
+        ],
+        "restore_attempts": 2,
+        "restore_interrupted_missing": [
+          "r3"
+        ],
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
+      }
+    },
+    {
+      "id": "b4d-015",
+      "instruction": "Delete the granite and marble vendor records, then restore the backup in two attempts. The retry must add back the slate vendor the live store lost, keep the quartz vendor, and leave both deleted vendors out.",
+      "records": [
+        {
+          "record_id": "r1",
+          "claim": "vendor: sample granite",
+          "metadata": {
+            "source": "po-5631",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r2",
+          "claim": "vendor: sample marble",
+          "metadata": {
+            "source": "po-5632",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r3",
+          "claim": "vendor: sample slate",
+          "metadata": {
+            "source": "po-5633",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        },
+        {
+          "record_id": "r4",
+          "claim": "vendor: sample quartz",
+          "metadata": {
+            "source": "po-5634",
+            "observed_at": "2026-09-01",
+            "sensitivity": "D1",
+            "permitted_uses": [
+              "read"
+            ],
+            "review_state": "confirmed"
+          },
+          "valid_from": "2026-09-01"
+        }
+      ],
+      "surfaces": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "granite",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "marble",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "slate",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "quartz",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample marble"
+          },
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample quartz"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample granite"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample slate"
+          }
+        ]
+      },
+      "snapshot": {
+        "index": [
+          {
+            "entry_id": "i-r1",
+            "record_id": "r1",
+            "tokens": [
+              "sample",
+              "granite",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r2",
+            "record_id": "r2",
+            "tokens": [
+              "sample",
+              "marble",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r3",
+            "record_id": "r3",
+            "tokens": [
+              "sample",
+              "slate",
+              "vendor"
+            ]
+          },
+          {
+            "entry_id": "i-r4",
+            "record_id": "r4",
+            "tokens": [
+              "sample",
+              "quartz",
+              "vendor"
+            ]
+          }
+        ],
+        "cache": [
+          {
+            "entry_id": "c-r2",
+            "record_id": "r2",
+            "text": "cached answer: vendor is sample marble"
+          },
+          {
+            "entry_id": "c-r4",
+            "record_id": "r4",
+            "text": "cached answer: vendor is sample quartz"
+          }
+        ],
+        "summary": [
+          {
+            "entry_id": "s-r1",
+            "record_id": "r1",
+            "text": "weekly summary: vendor is sample granite"
+          },
+          {
+            "entry_id": "s-r3",
+            "record_id": "r3",
+            "text": "weekly summary: vendor is sample slate"
+          }
+        ]
+      },
+      "delete": [
+        "r1",
+        "r2"
+      ],
+      "deleted_at": "2026-09-27",
+      "pre_restore_missing": [
+        "r3"
+      ],
+      "backup": {
+        "backup_id": "bkp-015",
+        "taken_at": "2026-09-14",
+        "restore_day": 5,
+        "attempts": [
+          {
+            "attempt": 1,
+            "stop_after_records": 2,
+            "expect_complete": false
+          },
+          {
+            "attempt": 2,
+            "stop_after_records": null,
+            "expect_complete": true
+          }
+        ],
+        "contents": {
+          "records": [
+            "r1",
+            "r2",
+            "r3",
+            "r4"
+          ],
+          "surfaces": {
+            "index": [
+              {
+                "entry_id": "i-r1",
+                "record_id": "r1",
+                "tokens": [
+                  "sample",
+                  "granite",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r2",
+                "record_id": "r2",
+                "tokens": [
+                  "sample",
+                  "marble",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r3",
+                "record_id": "r3",
+                "tokens": [
+                  "sample",
+                  "slate",
+                  "vendor"
+                ]
+              },
+              {
+                "entry_id": "i-r4",
+                "record_id": "r4",
+                "tokens": [
+                  "sample",
+                  "quartz",
+                  "vendor"
+                ]
+              }
+            ],
+            "cache": [
+              {
+                "entry_id": "c-r2",
+                "record_id": "r2",
+                "text": "cached answer: vendor is sample marble"
+              },
+              {
+                "entry_id": "c-r4",
+                "record_id": "r4",
+                "text": "cached answer: vendor is sample quartz"
+              }
+            ],
+            "summary": [
+              {
+                "entry_id": "s-r1",
+                "record_id": "r1",
+                "text": "weekly summary: vendor is sample granite"
+              },
+              {
+                "entry_id": "s-r3",
+                "record_id": "r3",
+                "text": "weekly summary: vendor is sample slate"
+              }
+            ]
+          }
+        }
+      },
+      "drills": 3,
+      "replay_days": 7,
+      "probes": [
+        {
+          "probe_id": "p1",
+          "record_id": "r1",
+          "text": "sample granite",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p2",
+          "record_id": "r2",
+          "text": "sample marble",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "p3",
+          "record_id": "r3",
+          "text": "sample slate",
+          "expect": "present"
+        },
+        {
+          "probe_id": "p4",
+          "record_id": "r4",
+          "text": "sample quartz",
+          "expect": "present"
+        }
+      ],
+      "recovery_probes": [
+        {
+          "probe_id": "q1",
+          "record_id": "r3",
+          "text": "sample slate",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q2",
+          "record_id": "r4",
+          "text": "sample quartz",
+          "expect": "present"
+        },
+        {
+          "probe_id": "q3",
+          "record_id": "r1",
+          "text": "sample granite",
+          "expect": "absent"
+        },
+        {
+          "probe_id": "q4",
+          "record_id": "r2",
+          "text": "sample marble",
+          "expect": "absent"
+        }
+      ],
+      "expected": {
+        "surviving_records": [
+          "r3",
+          "r4"
+        ],
+        "restore_restored_records": [
+          "r3",
+          "r4"
+        ],
+        "restore_filtered_records": [
+          "r1",
+          "r2"
+        ],
+        "restore_attempts": 2,
+        "restore_interrupted_missing": [
+          "r3"
+        ],
+        "residual_copies": 0,
+        "post_delete_hits": 0,
+        "resurrections": 0,
+        "overdeleted": 0,
+        "restore_resurrections": 0,
+        "restore_dropped": 0,
+        "restore_residue": 0,
+        "restore_unrecovered": 0,
+        "restore_duplicate_effects": 0,
+        "restore_attempt_mismatch": 0
       }
     }
   ]
