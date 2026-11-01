@@ -1,0 +1,37 @@
+{
+  "scope": [
+    "B4D"
+  ],
+  "rows": [
+    {
+      "mutation": "delete_primary_only",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "deletion_residue_zero",
+      "gates_failed": "false_successes_zero=8, deletion_residue_zero=22, post_delete_hit_zero=10, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-12722ffcc37d8928-delete_primary_only.jsonl"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.25,
+      "expected_gate": "post_delete_hit_zero",
+      "gates_failed": "false_successes_zero=6, deletion_residue_zero=6, post_delete_hit_zero=6, success_drop=0.25",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-4fe837bd887427c5-keep_derived_copy.jsonl"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "block": "B4D",
+      "clean_success": 1.0,
+      "mutant_success": 0.0,
+      "expected_gate": "resurrection_zero",
+      "gates_failed": "false_successes_zero=8, resurrection_zero=70, success_drop=0.0",
+      "detected": true,
+      "evidence": "eval/results/2026-11-01-B4D-a33b9c305631fb7d-resurrect_on_replay.jsonl"
+    }
+  ]
+}

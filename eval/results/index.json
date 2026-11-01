@@ -783,6 +783,67 @@
       "records": 12,
       "run_id": "c8c291d04bd8c361",
       "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:01:15+00:00",
+      "file": "eval/results/2026-11-01-B4D-d9e3b6469a386c78.jsonl",
+      "git_sha": "fc95a91156e3",
+      "ledger_digest": "161d1c777a31990957619fe469b3373cdf2bcf3d3535437519c5f6413c81982a",
+      "mutations": [],
+      "records": 8,
+      "run_id": "d9e3b6469a386c78",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:01:15+00:00",
+      "file": "eval/results/2026-11-01-B4D-12722ffcc37d8928-delete_primary_only.jsonl",
+      "git_sha": "fc95a91156e3",
+      "ledger_digest": "7997dd07fc23f885ac396f4b4a8cf704754f85b1c945a09703e7a941381245e9",
+      "mutations": [
+        "delete_primary_only"
+      ],
+      "records": 8,
+      "run_id": "12722ffcc37d8928",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:01:15+00:00",
+      "file": "eval/results/2026-11-01-B4D-4fe837bd887427c5-keep_derived_copy.jsonl",
+      "git_sha": "fc95a91156e3",
+      "ledger_digest": "ab8d9754323cc3aaf036d8a2d3273fb5cdde8be6b57dfbb717c650ebdbd2de54",
+      "mutations": [
+        "keep_derived_copy"
+      ],
+      "records": 8,
+      "run_id": "4fe837bd887427c5",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:01:15+00:00",
+      "file": "eval/results/2026-11-01-B4D-a33b9c305631fb7d-resurrect_on_replay.jsonl",
+      "git_sha": "fc95a91156e3",
+      "ledger_digest": "e2aa6d42f377fa48b21771114fcbb68ef767cbd4d928af5bfca11072548ff4a4",
+      "mutations": [
+        "resurrect_on_replay"
+      ],
+      "records": 8,
+      "run_id": "a33b9c305631fb7d",
+      "solver": "stub"
+    },
+    {
+      "block": "B4D",
+      "created_at": "2026-11-01T13:01:15+00:00",
+      "file": "eval/results/2026-11-01-B4D-514dc3a95633b917.jsonl",
+      "git_sha": "fc95a91156e3",
+      "ledger_digest": "161d1c777a31990957619fe469b3373cdf2bcf3d3535437519c5f6413c81982a",
+      "mutations": [],
+      "records": 8,
+      "run_id": "514dc3a95633b917",
+      "solver": "stub"
     }
   ]
 }

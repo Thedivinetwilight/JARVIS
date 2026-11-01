@@ -1,0 +1,86 @@
+{
+  "baseline_id": "ba6656b686bd9f27",
+  "blocks": {
+    "B4D": {
+      "config_hash": "6bfcf72e7f46e9f2cbdcc1ca42553bf6ca5756ca68d7d840006050b5427cc3cf",
+      "repeats": 1,
+      "run_id": "514dc3a95633b917",
+      "solver": "stub",
+      "summary": {
+        "abstentions": 0,
+        "approval_violations": 0,
+        "attempts": 8,
+        "by_subfamily": {},
+        "cause_accuracy": null,
+        "cause_correct": 0,
+        "cause_required": 0,
+        "citations": 0,
+        "cost_is_synthetic": true,
+        "duplicate_writes": 0,
+        "expired_served": 0,
+        "false_successes": 0,
+        "incomplete_accepts": 0,
+        "mean_citation_precision": null,
+        "median_latency_ms": 0.04,
+        "misattributed": 0,
+        "overdeleted": 0,
+        "pass_hat_k": null,
+        "pass_k": null,
+        "post_delete_hits": 0,
+        "replay_complete": 8,
+        "replay_completeness": 1.0,
+        "replay_tasks": 8,
+        "residual_copies": 0,
+        "resurrections": 0,
+        "silent_failures": 0,
+        "spurious_causes": 0,
+        "stale_correct": 0,
+        "stale_handling_rate": null,
+        "stale_required": 0,
+        "success_rate": 1.0,
+        "successes": 8,
+        "supported_citations": 0,
+        "tasks": 8,
+        "total_cost_usd": 0.0,
+        "unauthorized_side_effects": 0,
+        "unlabelled_stale": 0,
+        "unreported_states": 0,
+        "unsafe_next_steps": 0,
+        "validation_errors": 0
+      },
+      "task_hashes": {
+        "b4d-001": [
+          "328521b61261caca52efe4e00e823ff1bcc26117b140ae7dcd8d94b44dcea7ce"
+        ],
+        "b4d-002": [
+          "e1df1c02e3db496332d1d6ade698df6e0a0910c71546231b340b0be40220bfa6"
+        ],
+        "b4d-003": [
+          "4075ff6288887bfad5fe07ec2422673e9d58222eef76bea921de147c06d3507f"
+        ],
+        "b4d-004": [
+          "7560bd8729b6bc24621bfadca1741579d09226b2829dc9affe5de5704020506c"
+        ],
+        "b4d-005": [
+          "6220dbfffee437d890f0c0fcf983ae675320436856bb469189b18507132a15de"
+        ],
+        "b4d-006": [
+          "dbff932b67ca3602368d9efb6e9a8b0b145ef6f2ad6eee188cf08c5b848b1394"
+        ],
+        "b4d-007": [
+          "aa7f69ab08d262dfb6bf646d176b15f7acc97a68b0a0339c2676df0b59275b3d"
+        ],
+        "b4d-008": [
+          "1bf9c7ae3a46eac774f55573d6056b51d4a7165008fbd4cd2458781663806074"
+        ]
+      },
+      "taskset_sha": "64c6dc6b50122c305da24cd21e47e41c3a68e817a16988f998d9bb4e2881784e",
+      "taskset_version": "2026-Q4.1-m5.2"
+    }
+  },
+  "created_at": "2026-11-01T13:01:15+00:00",
+  "git_dirty": true,
+  "git_sha": "fc95a91156e3",
+  "harness_version": "0.1.0",
+  "note": "M5-B4-slice-2 deletion-drill baseline (8 synthetic tasks, 3 drills each, 7-day replay; deterministic reference solver, no model calls)"
+}

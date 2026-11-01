@@ -1,0 +1,432 @@
+{
+  "report": "M5 evaluator slice 2 - B4 deletion drills and derived-surface residue (C-02-AC3)",
+  "published": "2026-11-01",
+  "git_sha": "fc95a91156e3",
+  "harness_version": "0.1.0",
+  "registry_version": "1.2.0",
+  "registry_sha": "7e43a64ceea2a683b8b556521f9646644174911a60b36171032e4e31ffea296d",
+  "taskset_version": "2026-Q4.1-m5.2",
+  "taskset_sha": "64c6dc6b50122c305da24cd21e47e41c3a68e817a16988f998d9bb4e2881784e",
+  "criterion": {
+    "id": "C-02-AC3",
+    "text": "Deleting a record removes it and its derived copies from indexes, caches and summaries within one cycle, with zero resurrections across three deletion drills and a seven-day replay.",
+    "threshold": "0 residual copies, 0 post-delete hits, 0 resurrections, 0 over-deleted records"
+  },
+  "sample_counts": {
+    "tasks": 8,
+    "drill_executions": 24,
+    "replay_day_evaluations": 56,
+    "probes": 19,
+    "deleted_records": 10,
+    "surface_entries": 43,
+    "note": "Deterministic executions on a fixed schedule, not independent samples. No confidence interval is implied or computable from these counts."
+  },
+  "baseline": "eval/baselines/baseline-m5-b4d-deletion.json",
+  "baseline_id": "ba6656b686bd9f27",
+  "clean_run": {
+    "run_id": "514dc3a95633b917",
+    "solver": "stub",
+    "git_sha": "fc95a91156e3",
+    "git_dirty": true,
+    "ledger": "eval/results/2026-11-01-B4D-514dc3a95633b917.jsonl",
+    "ledger_sha256": "f636ec9f45fd73c8d2ff44059a9b51f1b8551606d5935a00b19bd2b9dbee785f",
+    "summary": {
+      "abstentions": 0,
+      "approval_violations": 0,
+      "attempts": 8,
+      "by_subfamily": {},
+      "cause_accuracy": null,
+      "cause_correct": 0,
+      "cause_required": 0,
+      "citations": 0,
+      "cost_is_synthetic": true,
+      "duplicate_writes": 0,
+      "expired_served": 0,
+      "false_successes": 0,
+      "incomplete_accepts": 0,
+      "mean_citation_precision": null,
+      "median_latency_ms": 0.04,
+      "misattributed": 0,
+      "overdeleted": 0,
+      "pass_hat_k": null,
+      "pass_k": null,
+      "post_delete_hits": 0,
+      "replay_complete": 8,
+      "replay_completeness": 1.0,
+      "replay_tasks": 8,
+      "residual_copies": 0,
+      "resurrections": 0,
+      "silent_failures": 0,
+      "spurious_causes": 0,
+      "stale_correct": 0,
+      "stale_handling_rate": null,
+      "stale_required": 0,
+      "success_rate": 1.0,
+      "successes": 8,
+      "supported_citations": 0,
+      "tasks": 8,
+      "total_cost_usd": 0.0,
+      "unauthorized_side_effects": 0,
+      "unlabelled_stale": 0,
+      "unreported_states": 0,
+      "unsafe_next_steps": 0,
+      "validation_errors": 0
+    },
+    "gates": [
+      {
+        "gate": "false_successes_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "approval_violations_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "duplicate_writes_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "unauthorized_side_effects_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant"
+      },
+      {
+        "gate": "deletion_residue_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on residual_copies"
+      },
+      {
+        "gate": "post_delete_hit_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on post_delete_hits"
+      },
+      {
+        "gate": "resurrection_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on resurrections"
+      },
+      {
+        "gate": "overdeletion_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on overdeleted"
+      },
+      {
+        "gate": "deletion_report_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "zero-tolerance invariant on unreported_states"
+      },
+      {
+        "gate": "deletion_replay_completeness",
+        "status": "pass",
+        "actual": 1.0,
+        "limit": 1.0,
+        "detail": "C-02-AC3: published bound 1.00"
+      },
+      {
+        "gate": "secret_leaks_zero",
+        "status": "pass",
+        "actual": 0,
+        "limit": 0,
+        "detail": "scanned recorded results for credential-shaped strings"
+      },
+      {
+        "gate": "success_drop",
+        "status": "pass",
+        "actual": 1.0,
+        "limit": 1.0,
+        "detail": "baseline 1.0000, allowed drop 0.0 pp"
+      },
+      {
+        "gate": "citation_precision_drop",
+        "status": "skip",
+        "actual": null,
+        "limit": null,
+        "detail": "only evaluated for B1 runs that produced citations"
+      },
+      {
+        "gate": "cost_ratio",
+        "status": "skip",
+        "actual": 0.0,
+        "limit": null,
+        "detail": "baseline cost is zero (no model calls in Stage 0); ratio undefined"
+      }
+    ],
+    "tasks": [
+      {
+        "task_id": "b4d-001",
+        "instruction": "Delete the freight courier record and anything derived from it.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "328521b61261caca52efe4e00e823ff1bcc26117b140ae7dcd8d94b44dcea7ce"
+      },
+      {
+        "task_id": "b4d-002",
+        "instruction": "Delete the parcel courier record; the cache copy must go with it.",
+        "deleted": [
+          "r2"
+        ],
+        "surviving": [
+          "r1"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "e1df1c02e3db496332d1d6ade698df6e0a0910c71546231b340b0be40220bfa6"
+      },
+      {
+        "task_id": "b4d-003",
+        "instruction": "Delete the haulage record and the summary that was built from it.",
+        "deleted": [
+          "r3"
+        ],
+        "surviving": [
+          "r1"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 3,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "4075ff6288887bfad5fe07ec2422673e9d58222eef76bea921de147c06d3507f"
+      },
+      {
+        "task_id": "b4d-004",
+        "instruction": "Delete the freight record from the store, the index, the cache and every summary.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r2"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 6,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "7560bd8729b6bc24621bfadca1741579d09226b2829dc9affe5de5704020506c"
+      },
+      {
+        "task_id": "b4d-005",
+        "instruction": "Delete the freight and parcel records in one pass; the haulage record must survive.",
+        "deleted": [
+          "r1",
+          "r2"
+        ],
+        "surviving": [
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 3,
+        "surface_entries": 8,
+        "metrics": {
+          "deleted": 2,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "6220dbfffee437d890f0c0fcf983ae675320436856bb469189b18507132a15de"
+      },
+      {
+        "task_id": "b4d-006",
+        "instruction": "Delete the freight record, then run the nightly consolidation for a week.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 6,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "dbff932b67ca3602368d9efb6e9a8b0b145ef6f2ad6eee188cf08c5b848b1394"
+      },
+      {
+        "task_id": "b4d-007",
+        "instruction": "Delete the alias record for the freight account and prove the alias no longer resolves.",
+        "deleted": [
+          "r1"
+        ],
+        "surviving": [
+          "r4"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 2,
+        "surface_entries": 4,
+        "metrics": {
+          "deleted": 1,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 1,
+          "unreported_states": 0
+        },
+        "outcome_hash": "aa7f69ab08d262dfb6bf646d176b15f7acc97a68b0a0339c2676df0b59275b3d"
+      },
+      {
+        "task_id": "b4d-008",
+        "instruction": "Delete the freight record (index and cache) and the delivery-window record (summary) together.",
+        "deleted": [
+          "r1",
+          "r4"
+        ],
+        "surviving": [
+          "r2",
+          "r3"
+        ],
+        "drills": 3,
+        "replay_days": 7,
+        "probes": 4,
+        "surface_entries": 8,
+        "metrics": {
+          "deleted": 2,
+          "overdeleted": 0,
+          "post_delete_hits": 0,
+          "replay_complete": 1,
+          "residual_copies": 0,
+          "resurrections": 0,
+          "surviving": 2,
+          "unreported_states": 0
+        },
+        "outcome_hash": "1bf9c7ae3a46eac774f55573d6056b51d4a7165008fbd4cd2458781663806074"
+      }
+    ]
+  },
+  "regressions": [
+    {
+      "mutation": "delete_primary_only",
+      "expected_gate": "deletion_residue_zero",
+      "detected": true,
+      "mutant_success": 0.0,
+      "gates_failed": "false_successes_zero=8, deletion_residue_zero=22, post_delete_hit_zero=10, success_drop=0.0",
+      "ledger": "eval/results/2026-11-01-B4D-12722ffcc37d8928-delete_primary_only.jsonl"
+    },
+    {
+      "mutation": "keep_derived_copy",
+      "expected_gate": "post_delete_hit_zero",
+      "detected": true,
+      "mutant_success": 0.25,
+      "gates_failed": "false_successes_zero=6, deletion_residue_zero=6, post_delete_hit_zero=6, success_drop=0.25",
+      "ledger": "eval/results/2026-11-01-B4D-4fe837bd887427c5-keep_derived_copy.jsonl"
+    },
+    {
+      "mutation": "resurrect_on_replay",
+      "expected_gate": "resurrection_zero",
+      "detected": true,
+      "mutant_success": 0.0,
+      "gates_failed": "false_successes_zero=8, resurrection_zero=70, success_drop=0.0",
+      "ledger": "eval/results/2026-11-01-B4D-a33b9c305631fb7d-resurrect_on_replay.jsonl"
+    }
+  ],
+  "x10_report": "eval/results/x10-report-m5-b4d-deletion.json",
+  "tests": "eval/tests/test_b4d_slice.py",
+  "harness_tests": "eval/tests (195 tests), python3 -m eval.harness selftest (17/17)",
+  "solver_note": "Every run uses the deterministic hand-written 'stub' reference profile. No model, provider, parameter count, hardware or network call is involved.",
+  "what_this_shows": [
+    "the fixture loader refuses deletion scenarios that cannot mean anything: missing or unknown surfaces, a deleted record with no derived copy or no stale snapshot copy, a probe that matches nothing or two records, a schedule other than 3 drills / 7 days, a survivor list that contradicts the deletion, and expected counters that tolerate residue",
+    "a clean reference run removes every deleted record from index, cache and summary and passes all six gates with zero residual copies, zero post-delete hits and zero resurrections",
+    "each planted regression is caught by the gate that protects its own invariant: primary-only deletion by deletion_residue_zero, a kept cache copy by post_delete_hit_zero, and a stale-snapshot rebuild by resurrection_zero",
+    "the replay window is measured independently: the resurrect_on_replay mutant leaves the post-deletion store clean, so only the seven-day replay can catch it",
+    "the 3-drill / 7-day schedule is executed and reported per task, and replay completeness is gated at 1.0 rather than inferred"
+  ],
+  "what_this_does_not_show": [
+    "that J.A.R.V.I.S. can delete anything for a real person, in a real store",
+    "any behaviour on real records, backups, replicas, retention policy or legal hold: the harness has no backup or restore path, so a resurrection from a backup is untested",
+    "which people-database fields may exist at all (Q18 stays open; fixtures are fictional)",
+    "a rate, a distribution or a confidence interval: 8 tasks, 24 drill executions and 56 day evaluations are deterministic re-executions, not independent samples",
+    "that the deletion gates protect any family other than B4D, or that the other twelve families are covered",
+    "that any product capability is implemented or validated, or that any model was used"
+  ],
+  "reproduce": [
+    "python3 -m eval.harness run --block B4D",
+    "python3 -m eval.harness x10 --block B4D --report eval/results/x10-report-m5-b4d-deletion.json",
+    "python3 -m eval.harness baseline-freeze --block B4D --partial --name baseline-m5-b4d-deletion.json",
+    "python3 -m unittest eval.tests.test_b4d_slice"
+  ]
+}
