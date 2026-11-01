@@ -1,0 +1,337 @@
+{
+  "blocks": [
+    "B1",
+    "B2",
+    "B3",
+    "B8",
+    "B9",
+    "B10"
+  ],
+  "evidence": [
+    "eval/results/2026-11-01-B1-c8f3278eeeae8db6.jsonl",
+    "eval/results/2026-11-01-B2-1c68318a86cfbc5c.jsonl",
+    "eval/results/2026-11-01-B3-1a8b37452ed93024.jsonl",
+    "eval/results/2026-11-01-B8-81e906272029c170.jsonl",
+    "eval/results/2026-11-01-B9-44b3d3cdcf7f158e.jsonl",
+    "eval/results/2026-11-01-B10-38c140ce3469787f.jsonl",
+    "eval/results/2026-11-01-B1-bb9d087a9f057cb4.jsonl",
+    "eval/results/2026-11-01-B2-2c3c23aafc22be58.jsonl",
+    "eval/results/2026-11-01-B3-22ebb9c0a2bce00b.jsonl",
+    "eval/results/2026-11-01-B8-e6593a1dfec0c182.jsonl",
+    "eval/results/2026-11-01-B9-db96e6b42da2d305.jsonl",
+    "eval/results/2026-11-01-B10-ddd1e38eb434e2f3.jsonl",
+    "eval/results/2026-11-01-B1-8664e2837bf8a3ba.jsonl",
+    "eval/results/2026-11-01-B2-a0d8dc116fa0979c.jsonl",
+    "eval/results/2026-11-01-B3-d8db7e4451ef100b.jsonl",
+    "eval/results/2026-11-01-B8-352ceb00d67a552d.jsonl",
+    "eval/results/2026-11-01-B9-7490003058c21e1e.jsonl",
+    "eval/results/2026-11-01-B10-089b7899f6999513.jsonl",
+    "eval/results/2026-11-01-B1-848039d3f9e0bae8.jsonl",
+    "eval/results/2026-11-01-B2-08221bfb55e25fae.jsonl",
+    "eval/results/2026-11-01-B3-74757fabe3466f37.jsonl",
+    "eval/results/2026-11-01-B8-8b71ab8da51e53fd.jsonl",
+    "eval/results/2026-11-01-B9-9242ad42b655bba4.jsonl",
+    "eval/results/2026-11-01-B10-492028c5aa2b7474.jsonl"
+  ],
+  "git": {
+    "dirty": false,
+    "sha": "37681c626f3c",
+    "untracked": 0
+  },
+  "matrix": {
+    "oracle_ceiling": {
+      "B1": {
+        "attempts": 8,
+        "false_successes": 0,
+        "run_id": "c8f3278eeeae8db6",
+        "success_rate": 1.0,
+        "successes": 8
+      },
+      "B10": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "38c140ce3469787f",
+        "success_rate": 1.0,
+        "successes": 6
+      },
+      "B2": {
+        "attempts": 28,
+        "false_successes": 0,
+        "run_id": "1c68318a86cfbc5c",
+        "success_rate": 1.0,
+        "successes": 28
+      },
+      "B3": {
+        "attempts": 7,
+        "false_successes": 0,
+        "run_id": "1a8b37452ed93024",
+        "success_rate": 1.0,
+        "successes": 7
+      },
+      "B8": {
+        "attempts": 18,
+        "false_successes": 0,
+        "run_id": "81e906272029c170",
+        "success_rate": 1.0,
+        "successes": 18
+      },
+      "B9": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "44b3d3cdcf7f158e",
+        "success_rate": 1.0,
+        "successes": 6
+      }
+    },
+    "stub": {
+      "B1": {
+        "attempts": 8,
+        "false_successes": 0,
+        "run_id": "bb9d087a9f057cb4",
+        "success_rate": 1.0,
+        "successes": 8
+      },
+      "B10": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "ddd1e38eb434e2f3",
+        "success_rate": 1.0,
+        "successes": 6
+      },
+      "B2": {
+        "attempts": 28,
+        "false_successes": 0,
+        "run_id": "2c3c23aafc22be58",
+        "success_rate": 1.0,
+        "successes": 28
+      },
+      "B3": {
+        "attempts": 7,
+        "false_successes": 0,
+        "run_id": "22ebb9c0a2bce00b",
+        "success_rate": 1.0,
+        "successes": 7
+      },
+      "B8": {
+        "attempts": 18,
+        "false_successes": 0,
+        "run_id": "e6593a1dfec0c182",
+        "success_rate": 1.0,
+        "successes": 18
+      },
+      "B9": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "db96e6b42da2d305",
+        "success_rate": 1.0,
+        "successes": 6
+      }
+    },
+    "stub_naive": {
+      "B1": {
+        "attempts": 8,
+        "false_successes": 8,
+        "run_id": "8664e2837bf8a3ba",
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "B10": {
+        "attempts": 6,
+        "false_successes": 6,
+        "run_id": "089b7899f6999513",
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "B2": {
+        "attempts": 28,
+        "false_successes": 0,
+        "run_id": "a0d8dc116fa0979c",
+        "success_rate": 1.0,
+        "successes": 28
+      },
+      "B3": {
+        "attempts": 7,
+        "false_successes": 1,
+        "run_id": "d8db7e4451ef100b",
+        "success_rate": 0.8571,
+        "successes": 6
+      },
+      "B8": {
+        "attempts": 18,
+        "false_successes": 12,
+        "run_id": "352ceb00d67a552d",
+        "success_rate": 0.2222,
+        "successes": 4
+      },
+      "B9": {
+        "attempts": 6,
+        "false_successes": 6,
+        "run_id": "7490003058c21e1e",
+        "success_rate": 0.0,
+        "successes": 0
+      }
+    },
+    "stub_no_verify": {
+      "B1": {
+        "attempts": 8,
+        "false_successes": 8,
+        "run_id": "848039d3f9e0bae8",
+        "success_rate": 0.0,
+        "successes": 0
+      },
+      "B10": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "492028c5aa2b7474",
+        "success_rate": 1.0,
+        "successes": 6
+      },
+      "B2": {
+        "attempts": 28,
+        "false_successes": 0,
+        "run_id": "08221bfb55e25fae",
+        "success_rate": 1.0,
+        "successes": 28
+      },
+      "B3": {
+        "attempts": 7,
+        "false_successes": 1,
+        "run_id": "74757fabe3466f37",
+        "success_rate": 0.8571,
+        "successes": 6
+      },
+      "B8": {
+        "attempts": 18,
+        "false_successes": 6,
+        "run_id": "8b71ab8da51e53fd",
+        "success_rate": 0.6667,
+        "successes": 12
+      },
+      "B9": {
+        "attempts": 6,
+        "false_successes": 0,
+        "run_id": "9242ad42b655bba4",
+        "success_rate": 1.0,
+        "successes": 6
+      }
+    }
+  },
+  "min_spread_pp": 10.0,
+  "passed": true,
+  "rungs": [
+    "oracle_ceiling",
+    "stub",
+    "stub_naive",
+    "stub_no_verify"
+  ],
+  "spreads": [
+    {
+      "block": "B1",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B2",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B3",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B8",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B9",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B10",
+      "delta_pp": 0.0,
+      "lower": "stub",
+      "upper": "oracle_ceiling"
+    },
+    {
+      "block": "B1",
+      "delta_pp": 100.0,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B2",
+      "delta_pp": 0.0,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B3",
+      "delta_pp": 14.29,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B8",
+      "delta_pp": 77.78,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B9",
+      "delta_pp": 100.0,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B10",
+      "delta_pp": 100.0,
+      "lower": "stub_naive",
+      "upper": "stub"
+    },
+    {
+      "block": "B1",
+      "delta_pp": 0.0,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    },
+    {
+      "block": "B2",
+      "delta_pp": 0.0,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    },
+    {
+      "block": "B3",
+      "delta_pp": 0.0,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    },
+    {
+      "block": "B8",
+      "delta_pp": -44.45,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    },
+    {
+      "block": "B9",
+      "delta_pp": -100.0,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    },
+    {
+      "block": "B10",
+      "delta_pp": -100.0,
+      "lower": "stub_no_verify",
+      "upper": "stub_naive"
+    }
+  ]
+}
