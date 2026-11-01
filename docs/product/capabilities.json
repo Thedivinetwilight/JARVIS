@@ -1847,7 +1847,7 @@
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
         "task_set": "eval/tasks/b4d",
-        "tasks": 22,
+        "tasks": 27,
         "family_complete": false,
         "covers": [
           "C-02-AC3"
@@ -1866,36 +1866,44 @@
           "restore_recovery_zero",
           "restore_idempotency_zero",
           "restore_attempt_count_zero",
-          "restore_corruption_zero"
+          "restore_corruption_zero",
+          "restore_partial_write_zero",
+          "restore_rollback_zero"
         ],
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DFaultInjectionTests, ::B4DCorruptBackupTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DFaultInjectionTests, ::B4DCorruptBackupTests, ::B4DWriteStateModelTests, ::B4DMidWriteTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
           "eval/results/m5-b4d-retry-report.json",
           "eval/results/m5-b4d-faults-report.json",
+          "eval/results/m5-b4d-midwrite-report.json",
           "eval/results/x10-report-m5-b4d-faults.json",
+          "eval/results/x10-report-m5-b4d-midwrite.json",
           "eval/results/index.json"
         ],
         "baseline": [
           "eval/baselines/baseline-m5-b4d-restore.json",
           "eval/baselines/baseline-m5-b4d-retry.json",
-          "eval/baselines/baseline-m5-b4d-faults.json"
+          "eval/baselines/baseline-m5-b4d-faults.json",
+          "eval/baselines/baseline-m5-b4d-midwrite.json"
         ],
         "sample_counts": {
-          "tasks": 22,
-          "drill_executions": 66,
-          "replay_day_evaluations": 154,
-          "backups": 14,
-          "restore_events": 14,
-          "restore_attempts": 21,
+          "tasks": 27,
+          "drill_executions": 81,
+          "replay_day_evaluations": 189,
+          "backups": 19,
+          "restore_events": 19,
+          "restore_attempts": 31,
           "injected_restore_scenarios": 4,
           "injected_stops": 5,
+          "mid_write_scenarios": 5,
+          "mid_write_stops": 5,
+          "mid_write_candidates": 9,
           "corrupt_backups": 3,
-          "recovery_probes": 38,
-          "probes": 67,
-          "note": "deterministic executions, not independent samples; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations"
+          "recovery_probes": 58,
+          "probes": 87,
+          "note": "deterministic executions, not independent samples; the scripted interruptions, partial writes, retries and damaged backups are scenarios, not a distribution over restore implementations"
         },
-        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)"
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions between records and inside a record write, damaged backups; not the family, not a product memory system)"
       }
     ],
     "slice_suites": {

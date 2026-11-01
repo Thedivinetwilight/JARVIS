@@ -96,9 +96,11 @@
           "restore_attempt_count_zero",
           "restore_corruption_zero",
           "restore_idempotency_zero",
+          "restore_partial_write_zero",
           "restore_recovery_zero",
           "restore_residue_zero",
           "restore_resurrection_zero",
+          "restore_rollback_zero",
           "restore_survivor_zero",
           "resurrection_zero",
           "stale_assertion_zero",
@@ -224,7 +226,7 @@
         "block schema with a clock and five stores",
         "store simulator with index/cache copies",
         "per-task scorers",
-        "fourteen planted regressions and their gates",
+        "seventeen planted regressions and their gates",
         "deletion drills: three cycles, a seven-day replay and post-delete probes",
         "resumable restore attempts: interruption points, per-attempt state and a same-day retry",
         "evaluator-chosen interruptions: a deterministic stop schedule the fixture bounds but does not choose",
@@ -233,7 +235,7 @@
       "blockers": [
         "Q18"
       ],
-      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy. The second slice was extended twice: m5.4 scored interrupted partial restores and same-day retries, and m5.5 moved the interruption point from the fixture to the evaluator and added three damaged-backup classes. It still restores invented backups, its checksum is sha256 over a JSON document, and it still says nothing about any real retention, legal-hold or backup product.",
+      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence. The deletion slice also restores an invented backup taken before the deletion, so it exercises filtering and preservation, not any real retention or legal-hold policy. The second slice was extended three times: m5.4 scored interrupted partial restores and same-day retries, m5.5 moved the interruption point from the fixture to the evaluator and added three damaged-backup classes, and m5.6 added a record-write state model so an attempt can be interrupted inside a record rather than only between records. It still restores invented backups into a simulator, its checksum is sha256 over a JSON document, no write is torn at byte level or made durable, and it still says nothing about any real retention, legal-hold or backup product.",
       "implemented_slice": {
         "slice_id": "M5-B4-slice-1",
         "suite": "eval/tasks/b4",
@@ -275,10 +277,10 @@
       "implemented_slice_2": {
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.5",
-        "tasks": 22,
+        "taskset_version": "2026-Q4.1-m5.6",
+        "tasks": 27,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions between records and inside a record write, damaged backups; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
@@ -288,38 +290,46 @@
           "retried restore (evaluator-chosen): the harness picks the stop point from a candidate set the fixture declares, so the scenario is valid for every legal interruption point and the fixture cannot encode the answer (C-02-AC3)",
           "damaged backup: three corruption classes - a missing entry (repairable from the live store), an altered record identifier and invalid record metadata (both refused before anything is written) - detected from the declared digest rather than from a hint (C-02-AC3)",
           "pre-restore loss: survivors lost before the restore, six across the suite, are recovered by a complete restore and probed on the final state (C-02-AC3)",
-          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
+          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)",
+          "mid-write interruption: the harness stops a restore after part of a record has been written, so the store holds a partially applied record rather than a clean prefix; each record carries not started / partially applied / committed / rolled back, with its own copies enumerated (C-02-AC3)",
+          "partial recovery: under a resume policy the retry keeps the parts already there and finishes them; under a rollback policy the interrupted record is removed from every copy before the retry rewrites it, and both policies end in the same recovered state (C-02-AC3)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
           "real retention policy, legal hold, off-site replication, restore ordering across several days and concurrent restores",
           "corruption classes beyond the three synthetic ones (bit rot, truncated backups, wrong-key decryption, silent partial backups) and any real checksum or key-management path",
-          "how a real engine resumes an interrupted restore: the evaluator chooses where the attempt stops, but the stop is still a clean abort after a record, not a crash mid-write",
+          "how a real engine survives a crash mid-write: the evaluator stops the restore between two copy writes and the simulator records the partial state, but no write is torn at byte level, nothing is fsynced, and there is no journal, WAL or power-failure path",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 22,
+          "tasks": 27,
           "drills_per_task": 3,
-          "drill_executions": 66,
+          "drill_executions": 81,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 154,
-          "backups": 14,
-          "restore_events": 14,
-          "restore_day_evaluations": 14,
-          "restore_attempts": 21,
+          "replay_day_evaluations": 189,
+          "backups": 19,
+          "restore_events": 19,
+          "restore_day_evaluations": 19,
+          "restore_attempts": 31,
           "fixture_declared_retries": 4,
           "injected_restore_scenarios": 4,
           "injected_stops": 5,
+          "mid_write_scenarios": 5,
+          "mid_write_stops": 5,
+          "mid_write_candidates": 9,
+          "mid_write_part_boundaries": 30,
+          "record_writes": 47,
+          "write_parts": 144,
           "corrupt_backups": 3,
           "corrupt_refused": 2,
           "corrupt_repaired": 1,
-          "pre_restore_losses": 6,
-          "recovery_probes": 38,
-          "probes": 67,
-          "deleted_records": 26,
-          "surface_entries": 137,
-          "backup_entries": 94,
-          "note": "Deterministic executions, not independent samples: twenty-two scenarios re-run on a fixed schedule, with fourteen scripted backups, fourteen scripted restores and twenty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point with five stops in total, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations."
+          "pre_restore_losses": 16,
+          "recovery_probes": 58,
+          "probes": 87,
+          "deleted_records": 31,
+          "surface_entries": 182,
+          "backup_entries": 139,
+          "note": "Deterministic executions, not independent samples: twenty-seven scenarios re-run on a fixed schedule, with nineteen scripted backups, nineteen scripted restores and thirty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point between records with five stops in total, five stopped inside a record write at nine candidate boundaries, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, partial writes, retries and damaged backups are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -334,7 +344,9 @@
           "restore_recovery_zero",
           "restore_idempotency_zero",
           "restore_attempt_count_zero",
-          "restore_corruption_zero"
+          "restore_corruption_zero",
+          "restore_partial_write_zero",
+          "restore_rollback_zero"
         ],
         "mutations": {
           "delete_primary_only": "deletion_residue_zero",
@@ -350,25 +362,34 @@
           "accept_corrupt_backup": "restore_corruption_zero",
           "recover_loses_unrelated": "restore_survivor_zero",
           "falsely_claim_restore_complete": "restore_recovery_zero",
-          "recover_without_repair": "restore_recovery_zero"
+          "recover_without_repair": "restore_recovery_zero",
+          "replay_partial_write_twice": "restore_idempotency_zero",
+          "claim_rollback_without_reverting": "restore_rollback_zero",
+          "report_success_with_partial_record": "restore_partial_write_zero"
         },
         "preregistration": "embedded in eval/tasks/b4d/tasks.json",
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DWriteStateModelTests, ::B4DMidWriteTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
           "eval/results/m5-b4d-retry-report.json",
+          "eval/results/m5-b4d-midwrite-report.json",
           "eval/results/x10-report-m5-b4d-retry.json",
+          "eval/results/x10-report-m5-b4d-midwrite.json",
           "eval/results/index.json"
         ],
         "baseline": [
           "eval/baselines/baseline-m5-b4d-restore.json",
-          "eval/baselines/baseline-m5-b4d-retry.json"
+          "eval/baselines/baseline-m5-b4d-retry.json",
+          "eval/baselines/baseline-m5-b4d-midwrite.json"
         ],
-        "reference_score": "22/22 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
+        "reference_score": "27/27 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, zero partial-write residue, zero rollback errors, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
         "fault_schedule": {
           "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}')[:8], 16) % len(candidates), candidates sorted and unique inside 1..records-1, one or two stops, at least one retry, stops + retries <= the four-attempt limit shared by solver and loader",
           "gold": "the fixture declares only the candidate set, the number of stops and the retries; for every legal candidate the expected attempt count, the per-attempt completeness flags and the final recovered state are identical",
-          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record"
+          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record",
+          "mid_write_rule": "a separate mid-write schedule enumerates one point per (record, copy boundary) for records the live store has lost, and the fixture declares only which of those points are candidates; a point on a record that is still present is refused as unobservable, because rewriting a copy that is already there is idempotent",
+          "mid_write_gold": "the fixture states the per-record end state (interrupted count, rolled-back count, committed count) and the loader recomputes it from the schedule and the recovery policy, refusing the fixture if the two disagree",
+          "mid_write_solver_view": "the solver sees the recovery policy (resume or rollback) because that is the rule it must follow, but no candidate, no chosen boundary, no per-record state table and no gold write states"
         }
       }
     },
@@ -2053,10 +2074,10 @@
         "family": "B4",
         "slice_id": "M5-B4-slice-2",
         "suite": "eval/tasks/b4d",
-        "taskset_version": "2026-Q4.1-m5.5",
-        "tasks": 22,
+        "taskset_version": "2026-Q4.1-m5.6",
+        "tasks": 27,
         "family_complete": false,
-        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions, damaged backups; not the family, not a product memory system)",
+        "status": "implemented evaluator slice (deletion drills, backup restore, evaluator-injected interruptions between records and inside a record write, damaged backups; not the family, not a product memory system)",
         "covers": [
           "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
           "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
@@ -2066,38 +2087,46 @@
           "retried restore (evaluator-chosen): the harness picks the stop point from a candidate set the fixture declares, so the scenario is valid for every legal interruption point and the fixture cannot encode the answer (C-02-AC3)",
           "damaged backup: three corruption classes - a missing entry (repairable from the live store), an altered record identifier and invalid record metadata (both refused before anything is written) - detected from the declared digest rather than from a hint (C-02-AC3)",
           "pre-restore loss: survivors lost before the restore, six across the suite, are recovered by a complete restore and probed on the final state (C-02-AC3)",
-          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
+          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)",
+          "mid-write interruption: the harness stops a restore after part of a record has been written, so the store holds a partially applied record rather than a clean prefix; each record carries not started / partially applied / committed / rolled back, with its own copies enumerated (C-02-AC3)",
+          "partial recovery: under a resume policy the retry keeps the parts already there and finishes them; under a rollback policy the interrupted record is removed from every copy before the retry rewrites it, and both policies end in the same recovered state (C-02-AC3)"
         ],
         "not_covered": [
           "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
           "real retention policy, legal hold, off-site replication, restore ordering across several days and concurrent restores",
           "corruption classes beyond the three synthetic ones (bit rot, truncated backups, wrong-key decryption, silent partial backups) and any real checksum or key-management path",
-          "how a real engine resumes an interrupted restore: the evaluator chooses where the attempt stops, but the stop is still a clean abort after a record, not a crash mid-write",
+          "how a real engine survives a crash mid-write: the evaluator stops the restore between two copy writes and the simulator records the partial state, but no write is torn at byte level, nothing is fsynced, and there is no journal, WAL or power-failure path",
           "a real store, real data, a model, a server measurement or a network of any kind"
         ],
         "sample_counts": {
-          "tasks": 22,
+          "tasks": 27,
           "drills_per_task": 3,
-          "drill_executions": 66,
+          "drill_executions": 81,
           "replay_days_per_task": 7,
-          "replay_day_evaluations": 154,
-          "backups": 14,
-          "restore_events": 14,
-          "restore_day_evaluations": 14,
-          "restore_attempts": 21,
+          "replay_day_evaluations": 189,
+          "backups": 19,
+          "restore_events": 19,
+          "restore_day_evaluations": 19,
+          "restore_attempts": 31,
           "fixture_declared_retries": 4,
           "injected_restore_scenarios": 4,
           "injected_stops": 5,
+          "mid_write_scenarios": 5,
+          "mid_write_stops": 5,
+          "mid_write_candidates": 9,
+          "mid_write_part_boundaries": 30,
+          "record_writes": 47,
+          "write_parts": 144,
           "corrupt_backups": 3,
           "corrupt_refused": 2,
           "corrupt_repaired": 1,
-          "pre_restore_losses": 6,
-          "recovery_probes": 38,
-          "probes": 67,
-          "deleted_records": 26,
-          "surface_entries": 137,
-          "backup_entries": 94,
-          "note": "Deterministic executions, not independent samples: twenty-two scenarios re-run on a fixed schedule, with fourteen scripted backups, fourteen scripted restores and twenty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point with five stops in total, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, retries and damaged backups are scenarios, not a distribution over restore implementations."
+          "pre_restore_losses": 16,
+          "recovery_probes": 58,
+          "probes": 87,
+          "deleted_records": 31,
+          "surface_entries": 182,
+          "backup_entries": 139,
+          "note": "Deterministic executions, not independent samples: twenty-seven scenarios re-run on a fixed schedule, with nineteen scripted backups, nineteen scripted restores and thirty-one scripted restore attempts (four retried after a fixture-declared stop, four interrupted at an evaluator-chosen point between records with five stops in total, five stopped inside a record write at nine candidate boundaries, three run against a deliberately damaged backup). No confidence interval is implied and none may be computed from these counts; the scripted interruptions, partial writes, retries and damaged backups are scenarios, not a distribution over restore implementations."
         },
         "gates": [
           "deletion_residue_zero",
@@ -2112,18 +2141,23 @@
           "restore_recovery_zero",
           "restore_idempotency_zero",
           "restore_attempt_count_zero",
-          "restore_corruption_zero"
+          "restore_corruption_zero",
+          "restore_partial_write_zero",
+          "restore_rollback_zero"
         ],
-        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests, ::B4DBackupRestoreTests, ::B4DRetryRestoreTests, ::B4DWriteStateModelTests, ::B4DMidWriteTests",
         "evidence": [
           "eval/results/m5-b4d-restore-report.json",
           "eval/results/m5-b4d-retry-report.json",
+          "eval/results/m5-b4d-midwrite-report.json",
           "eval/results/x10-report-m5-b4d-retry.json",
+          "eval/results/x10-report-m5-b4d-midwrite.json",
           "eval/results/index.json"
         ],
         "baseline": [
           "eval/baselines/baseline-m5-b4d-restore.json",
-          "eval/baselines/baseline-m5-b4d-retry.json"
+          "eval/baselines/baseline-m5-b4d-retry.json",
+          "eval/baselines/baseline-m5-b4d-midwrite.json"
         ],
         "mutations": {
           "delete_primary_only": "deletion_residue_zero",
@@ -2139,13 +2173,19 @@
           "accept_corrupt_backup": "restore_corruption_zero",
           "recover_loses_unrelated": "restore_survivor_zero",
           "falsely_claim_restore_complete": "restore_recovery_zero",
-          "recover_without_repair": "restore_recovery_zero"
+          "recover_without_repair": "restore_recovery_zero",
+          "replay_partial_write_twice": "restore_idempotency_zero",
+          "claim_rollback_without_reverting": "restore_rollback_zero",
+          "report_success_with_partial_record": "restore_partial_write_zero"
         },
-        "reference_score": "22/22 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
+        "reference_score": "27/27 with zero resurrections, zero restore residue, zero lost survivors, zero duplicate effects, zero attempt-count mismatches, zero accepted corruption, zero partial-write residue, zero rollback errors, every recovery probe resolved and every refusal reported; a hand-written program, not a model",
         "fault_schedule": {
           "rule": "stop = int(sha256(f'{task}:{salt}:{attempt}')[:8], 16) % len(candidates), candidates sorted and unique inside 1..records-1, one or two stops, at least one retry, stops + retries <= the four-attempt limit shared by solver and loader",
           "gold": "the fixture declares only the candidate set, the number of stops and the retries; for every legal candidate the expected attempt count, the per-attempt completeness flags and the final recovered state are identical",
-          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record"
+          "solver_view": "the solver receives the candidate bounds and nothing else: no salt, no chosen stop, no expected outcome; it learns of an interruption only when the harness refuses the next record",
+          "mid_write_rule": "a separate mid-write schedule enumerates one point per (record, copy boundary) for records the live store has lost, and the fixture declares only which of those points are candidates; a point on a record that is still present is refused as unobservable, because rewriting a copy that is already there is idempotent",
+          "mid_write_gold": "the fixture states the per-record end state (interrupted count, rolled-back count, committed count) and the loader recomputes it from the schedule and the recovery policy, refusing the fixture if the two disagree",
+          "mid_write_solver_view": "the solver sees the recovery policy (resume or rollback) because that is the rule it must follow, but no candidate, no chosen boundary, no per-record state table and no gold write states"
         }
       }
     ]

@@ -22,13 +22,14 @@ import math
 import re
 from typing import Any
 
-from .. import restore_integrity
+from .. import restore_integrity, write_state
 from ..faults import RESTORE_ATTEMPT_LIMIT
 from ..planning import validate_assignment
 from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, DERIVED_SURFACES,
                       METADATA_FIELDS, NEXT_STEP_VOCABULARY, record_is_complete,
                       record_is_expired)
-from ..tools import (BudgetExceeded, PolicyError, RestoreInterrupted, ToolError,
+from ..tools import (BudgetExceeded, PolicyError, RecordWriteInterrupted,
+                     RestoreInterrupted, ToolError,
                      ToolTimeout, ValidationError)
 from .base import SolveResult, ToolContext, call_with_retry
 
@@ -600,6 +601,145 @@ class StubSolver:
             return {"record_id": rid, "claim": definition["claim"],
                     "valid_from": definition["valid_from"], "metadata": dict(metadata)}
 
+        # -- record writes: one state machine, one log ----------------------
+        write_log: list[dict[str, Any]] = []
+        write_states: dict[str, str] = {}
+        pending_parts: dict[str, int] = {}
+        partial_seen: set[str] = set()
+        recovery = str((task.get("restore_policy") or {}).get("recovery", "resume"))
+        mid_write = bool(task.get("restore_faults")
+                         and task["restore_faults"].get("kind") == "interrupt_mid_write")
+        replay_partial = ctx.mutated("replay_partial_write_twice")
+        claim_rollback = ctx.mutated("claim_rollback_without_reverting")
+        partial_success = ctx.mutated("report_success_with_partial_record")
+
+        def position_of(surface: str, entry_id: str) -> int | None:
+            for position, entry in enumerate(surfaces[surface]):
+                if entry["entry_id"] == entry_id:
+                    return position
+            return None
+
+        def apply_part(rid: str, part: str, *, duplicate: bool) -> None:
+            if part == write_state.RECORD_PART:
+                if duplicate and rid in records:
+                    # Re-applying the record part is idempotent by construction.
+                    return
+                records.setdefault(rid, restored_record(rid))
+                return
+            for entry in held_surfaces[part]:
+                if entry.get("record_id") != rid:
+                    continue
+                if duplicate:
+                    surfaces[part].append(dict(entry))
+                    continue
+                position = position_of(part, entry["entry_id"])
+                if position is None:
+                    surfaces[part].append(dict(entry))
+                else:
+                    surfaces[part][position] = dict(entry)
+
+        def revert_parts(rid: str, applied: list[str], record_was_present: bool) -> None:
+            """Undo the parts this write applied, leaving earlier state alone."""
+            if write_state.RECORD_PART in applied and not record_was_present:
+                records.pop(rid, None)
+            for part in applied:
+                if part == write_state.RECORD_PART:
+                    continue
+                ids = {entry["entry_id"] for entry in held_surfaces[part]
+                       if entry.get("record_id") == rid}
+                surfaces[part] = [entry for entry in surfaces[part]
+                                  if entry.get("entry_id") not in ids]
+
+        def write_record(rid: str, index: int) -> tuple[bool, bool]:
+            """Write one record part by part.
+
+            Returns ``(wrote_anything, interrupted)``. The parts that land before
+            an interruption stay in the store unless this scenario's policy is
+            rollback, in which case the write is undone and reported as rolled
+            back. Both policies end with the same final state; what differs is
+            the state the partial write passes through, and that is what the
+            rollback gate audits.
+            """
+            if write_states.get(rid) == write_state.COMMITTED:
+                # A committed write is terminal: re-applying it in a later
+                # attempt is exactly the duplicate effect this model forbids.
+                return False, False
+            include_record = unfiltered or rid not in deleted
+            include_entries = unfiltered or skips_tombstones or rid not in deleted
+            if not (include_record or include_entries):
+                return False, False
+            ordered = write_state.parts(rid, held_surfaces)
+            already = pending_parts.get(rid, 0)
+            # A retry that replays a partial write starts again from the first
+            # part instead of resuming; that is the regression under test.
+            start = 0 if replay_partial else already
+            before = write_states.get(rid, write_state.NOT_STARTED)
+            plan = list(range(start, len(ordered)))
+            if partial_success and rid in partial_seen and len(plan) > 1:
+                # Commits the write while its last part never lands: the record
+                # comes back without one of the copies the backup holds.
+                plan = plan[:-1]
+            applied_now: list[str] = []
+            record_was_present = rid in records
+            interrupted = False
+            for part_index in plan:
+                part = ordered[part_index]
+                if part == write_state.RECORD_PART and not include_record:
+                    applied_now.append(part)
+                    continue
+                if part != write_state.RECORD_PART and not include_entries:
+                    applied_now.append(part)
+                    continue
+                try:
+                    ctx.restore_write_step(index, rid, part_index, len(ordered))
+                except RecordWriteInterrupted:
+                    interrupted = True
+                    break
+                duplicate = replay_partial and part_index < already
+                apply_part(rid, part, duplicate=duplicate)
+                if part != write_state.RECORD_PART and not duplicate:
+                    write_log_ids.add((part, rid))
+                applied_now.append(part)
+
+            if interrupted:
+                applied_count = len(applied_now)
+                if applied_count == 0:
+                    # Stopped before a single part landed: nothing to undo, and
+                    # the write is still where it started.
+                    write_log.append({"record": rid, "attempt": index, "from": before,
+                                      "to": before, "parts": []})
+                    return False, True
+                write_log.append({"record": rid, "attempt": index, "from": before,
+                                  "to": write_state.PARTIALLY_APPLIED,
+                                  "parts": list(applied_now)})
+                write_states[rid] = write_state.PARTIALLY_APPLIED
+                partial_seen.add(rid)
+                if recovery == "rollback":
+                    if not claim_rollback:
+                        revert_parts(rid, applied_now, record_was_present)
+                    # A rollback that is reported but not performed keeps the
+                    # parts in the store: the attempt snapshot exposes it.
+                    write_log.append({"record": rid, "attempt": index,
+                                      "from": write_state.PARTIALLY_APPLIED,
+                                      "to": write_state.ROLLED_BACK, "parts": []})
+                    write_log.append({"record": rid, "attempt": index,
+                                      "from": write_state.ROLLED_BACK,
+                                      "to": write_state.NOT_STARTED, "parts": []})
+                    write_states[rid] = write_state.NOT_STARTED
+                    pending_parts[rid] = 0 if not claim_rollback else applied_count
+                else:
+                    pending_parts[rid] = applied_count
+                return True, True
+
+            committed_parts = list(applied_now)
+            write_log.append({"record": rid, "attempt": index, "from": before,
+                              "to": write_state.COMMITTED, "parts": committed_parts})
+            write_states[rid] = write_state.COMMITTED
+            pending_parts[rid] = 0
+            return True, False
+
+        write_log_ids: set[tuple[str, str]] = set()
+
         def apply_attempt(attempt_decl: dict[str, Any], index: int,
                           duplicate: bool) -> dict[str, Any]:
             """Apply one attempt; returns the attempt log the scorer audits."""
@@ -615,8 +755,8 @@ class StubSolver:
                     interrupted = True
                     break
                 try:
-                    # The evaluator may stop this attempt here; the solver is not
-                    # told where, or whether a stop exists at all.
+                    # The evaluator may stop this attempt between records; the
+                    # solver is not told where, or whether a stop exists at all.
                     ctx.restore_step(index, len(processed))
                 except RestoreInterrupted:
                     if ctx.mutated("ignore_injected_stop"):
@@ -626,24 +766,26 @@ class StubSolver:
                         claimed_complete = ctx.mutated("falsely_claim_restore_complete")
                         break
                 processed.append(rid)
-                if unfiltered or rid not in deleted:
-                    records.setdefault(rid, restored_record(rid))
-                if unfiltered or skips_tombstones or rid not in deleted:
-                    for name in DERIVED_SURFACES:
-                        by_entry = {entry["entry_id"]: position
-                                    for position, entry in enumerate(surfaces[name])}
-                        for entry in held_surfaces[name]:
-                            if entry.get("record_id") != rid:
-                                continue
-                            if duplicate:
-                                # Retrying from the beginning re-appends instead of resuming.
-                                surfaces[name].append(dict(entry))
-                                continue
-                            if entry["entry_id"] in by_entry:
-                                surfaces[name][by_entry[entry["entry_id"]]] = dict(entry)
-                            else:
-                                by_entry[entry["entry_id"]] = len(surfaces[name])
-                                surfaces[name].append(dict(entry))
+                if duplicate:
+                    # Retrying from the beginning re-appends derived entries the
+                    # first attempt already wrote, under the same filtering the
+                    # restore applies: the deleted record stays filtered out.
+                    if unfiltered or rid not in deleted:
+                        records.setdefault(rid, restored_record(rid))
+                    if unfiltered or skips_tombstones or rid not in deleted:
+                        for name in DERIVED_SURFACES:
+                            for entry in held_surfaces[name]:
+                                if entry.get("record_id") == rid:
+                                    surfaces[name].append(dict(entry))
+                    continue
+                wrote, stopped = write_record(rid, index)
+                if stopped:
+                    interrupted = True
+                    if recovery == "resume":
+                        claimed_complete = ctx.mutated("falsely_claim_restore_complete")
+                    break
+                if not wrote:
+                    continue
             if drops_unrelated or (lose_unrelated and corruption_note is not None):
                 # The restore "cleans up" a surviving record it did not expect.
                 survivors_held = sorted(set(held) - deleted)
@@ -687,6 +829,8 @@ class StubSolver:
                             break
                 restore_log = {"backup_id": backup["backup_id"], "day": day,
                                "attempts": restore_attempts,
+                               "writes": list(write_log),
+                               "recovery": recovery,
                                "corrupt_backup": corruption_note,
                                "restored_metadata": {rid: dict(record["metadata"])
                                                      for rid, record in records.items()}}

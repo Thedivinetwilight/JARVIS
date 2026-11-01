@@ -47,6 +47,16 @@ class ToolContext:
         """Mediated progress check inside a restore attempt (see Executor.restore_step)."""
         self.executor.restore_step(attempt, processed)
 
+    def restore_write_step(self, attempt: int, record: str, part_index: int,
+                           total_parts: int) -> None:
+        """Mediated progress check inside one record write.
+
+        See :meth:`Executor.restore_write_step`. A solver that skips it cannot be
+        interrupted mid-write, and a scenario expecting a mid-write interruption
+        will report that its write state never reached ``partially_applied``.
+        """
+        self.executor.restore_write_step(attempt, record, part_index, total_parts)
+
     def mutated(self, name: str) -> bool:
         return name in self.mutations
 

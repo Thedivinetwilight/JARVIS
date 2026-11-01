@@ -218,6 +218,33 @@ MUTATIONS |= {
         expected_gate="restore_recovery_zero",
         phase_requirement="Product spec C-02-AC3: a repaired backup must leave the derived state whole",
     ),
+    "replay_partial_write_twice": Mutation(
+        name="replay_partial_write_twice",
+        block="B4D",
+        description=("replays a partially applied record write from its first part on the retry, "
+                     "re-appending the derived entries the interrupted attempt already wrote"),
+        expected_gate="restore_idempotency_zero",
+        phase_requirement=("Product spec C-02-AC3: resuming a half-written record must not "
+                           "duplicate the parts that already landed"),
+    ),
+    "claim_rollback_without_reverting": Mutation(
+        name="claim_rollback_without_reverting",
+        block="B4D",
+        description=("reports a partially applied write as rolled back while its parts are still "
+                     "in the store"),
+        expected_gate="restore_rollback_zero",
+        phase_requirement=("Product spec C-02-AC3: a rolled-back write leaves no part of itself "
+                           "behind, and the report may not claim otherwise"),
+    ),
+    "report_success_with_partial_record": Mutation(
+        name="report_success_with_partial_record",
+        block="B4D",
+        description=("commits a record without writing its last derived copy and reports the "
+                     "restore as complete"),
+        expected_gate="restore_partial_write_zero",
+        phase_requirement=("Product spec C-02-AC3: a record is restored when the record and every "
+                           "copy it had are restored, not when the record alone is back"),
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

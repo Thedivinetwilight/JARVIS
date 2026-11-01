@@ -34,6 +34,7 @@ import unittest
 from pathlib import Path
 
 from eval.harness import faults as faults_mod
+from eval.harness import write_state
 from eval.harness import gates as gates_mod
 from eval.harness import restore_integrity
 from eval.harness.config import Thresholds
@@ -69,14 +70,18 @@ def _redigest(task: dict) -> dict:
     return task
 
 
-def _solve(task: dict, stops: dict[int, int] | None = None) -> dict:
+def _solve(task: dict, stops: dict | None = None) -> dict:
     """Run the reference solver on one task, optionally with forced stop points."""
     injection = faults_mod.injection(task) if task.get("restore_faults") else None
     if stops is not None:
         injection = dict(injection or {}, stops=dict(stops))
+    kind = (injection or {}).get("kind")
     solver = build_solver("stub", ())
     executor = Executor(World(), policy={}, faults={},
-                        restore_stops=(injection or {}).get("stops"),
+                        restore_stops=(injection or {}).get("stops")
+                        if kind == "interrupt_after_records" else None,
+                        restore_writes=(injection or {}).get("stops")
+                        if kind == "interrupt_mid_write" else None,
                         restore_injection=injection)
     ctx = ToolContext(executor, {}, (), task["id"])
     return solver.solve(solver_view(task, "B4D"), ctx).notes
@@ -147,7 +152,7 @@ class B4DFixtureTests(unittest.TestCase):
 
     def test_backup_scenarios_declare_a_backup_before_the_deletion(self):
         backed = [task for task in self.taskset.tasks if task.get("backup")]
-        self.assertEqual(len(backed), 14, "expected fourteen restore scenarios")
+        self.assertEqual(len(backed), 19, "expected nineteen restore scenarios")
         for task in backed:
             backup = task["backup"]
             taken = parse_timestamp(backup["taken_at"])
@@ -189,12 +194,15 @@ class B4DFixtureTests(unittest.TestCase):
                     "overdeleted", "unreported_states", "restore_resurrections",
                     "restore_dropped", "restore_residue", "restore_unrecovered",
                     "restore_duplicate_effects", "restore_attempt_mismatch",
-                    "restore_corrupt_accepted"):
+                    "restore_corrupt_accepted", "restore_partial_residue",
+                    "restore_rollback_errors"):
             self.assertEqual(summary[key], 0, key)
         self.assertEqual(summary["replay_completeness"], 1.0)
-        self.assertEqual(summary["restore_events"], 14)
-        self.assertEqual(summary["restore_attempts"], 21)
-        self.assertEqual(summary["restore_injected_stops"], 5)
+        self.assertEqual(summary["restore_events"], 19)
+        self.assertEqual(summary["restore_attempts"], 31)
+        self.assertEqual(summary["restore_injected_stops"], 10)
+        self.assertEqual(summary["restore_mid_write_stops"], 5)
+        self.assertEqual(summary["restore_rollbacks"], 2)
         self.assertEqual(summary["restore_corrupt_backups"], 3)
         self.assertEqual(summary["restore_rejected"], 2)
         self.assertEqual(summary["restore_repaired"], 1)
@@ -359,7 +367,8 @@ class B4DGatesTests(unittest.TestCase):
                                    "resurrections", "overdeleted", "restore_resurrections",
                                    "restore_dropped", "restore_residue", "restore_unrecovered",
                                    "restore_duplicate_effects", "restore_attempt_mismatch",
-                                   "restore_corrupt_accepted", "unreported_states"})
+                                   "restore_corrupt_accepted", "restore_partial_residue",
+                                   "restore_rollback_errors", "unreported_states"})
         for _, gate in gates_mod.BLOCK_METRIC_GATES["B4D"]:
             self.assertTrue(gate.endswith("_zero"), gate)
             self.assertEqual(self._gates()[gate].status, "pass")
@@ -1041,11 +1050,17 @@ class B4DFaultInjectionTests(unittest.TestCase):
         cls.clean = run_block(cls.taskset, solver_name="stub")
         cls.by_id = {record.task_id: record for record in cls.clean.records}
         cls.injected = [task for task in cls.taskset.tasks if task.get("restore_faults")]
+        cls.between = [task for task in cls.injected
+                       if task["restore_faults"]["kind"] == "interrupt_after_records"]
+        cls.mid_write = [task for task in cls.injected
+                         if task["restore_faults"]["kind"] == "interrupt_mid_write"]
 
     # -- the schedule is the evaluator's, not the fixture's ------------------
-    def test_four_scenarios_are_injected_and_two_fixture_retried(self):
-        self.assertEqual(len(self.injected), 4)
-        self.assertEqual(sum(task["restore_faults"]["stops"] for task in self.injected), 5)
+    def test_nine_scenarios_are_injected_and_four_fixture_retried(self):
+        self.assertEqual(len(self.between), 4)
+        self.assertEqual(sum(task["restore_faults"]["stops"] for task in self.between), 5)
+        self.assertEqual(len(self.mid_write), 5)
+        self.assertEqual(sum(task["restore_faults"]["stops"] for task in self.mid_write), 5)
         fixture_retried = [task for task in self.taskset.tasks
                            if len(task.get("backup", {}).get("attempts") or []) > 1]
         self.assertEqual(len(fixture_retried), 4)
@@ -1057,18 +1072,34 @@ class B4DFaultInjectionTests(unittest.TestCase):
             self.assertEqual(first, second, task["id"])
             spec = task["restore_faults"]
             self.assertEqual(sorted(first["stops"]), list(range(1, spec["stops"] + 1)))
+            mid_write = spec["kind"] == "interrupt_mid_write"
+            points = faults_mod.write_points(task)
             for stop in first["stops"].values():
-                self.assertIn(stop, spec["candidates"], task["id"])
+                # A between-record schedule stops at a record count; a mid-write
+                # schedule resolves its candidate into a (record, part) point.
+                chosen = stop.get("candidate") if mid_write else stop
+                self.assertIn(chosen, spec["candidates"], task["id"])
+                if mid_write:
+                    self.assertEqual(stop, dict(points[chosen - 1], candidate=chosen), task["id"])
             self.assertEqual(first["expected_attempts"], spec["stops"] + spec["retries"])
             self.assertEqual(first["expected_complete"],
                              [False] * spec["stops"] + [True] * spec["retries"])
 
     def test_every_candidate_leaves_work_undone(self):
-        for task in self.injected:
+        for task in self.between:
             held = task["backup"]["contents"]["records"]
             for stop in task["restore_faults"]["candidates"]:
                 self.assertGreaterEqual(stop, 1, task["id"])
                 self.assertLess(stop, len(held), task["id"])
+        for task in self.mid_write:
+            points = faults_mod.write_points(task)
+            self.assertTrue(points, task["id"])
+            for candidate in task["restore_faults"]["candidates"]:
+                point = points[candidate - 1]
+                ordered = write_state.parts(point["record"],
+                                            task["backup"]["contents"]["surfaces"])
+                self.assertGreaterEqual(point["after_parts"], 1, task["id"])
+                self.assertLess(point["after_parts"], len(ordered), task["id"])
 
     def test_the_solver_never_sees_the_schedule_or_the_gold_state(self):
         for task in self.injected + [t for t in self.taskset.tasks if t["id"] == "b4d-020"]:
@@ -1105,7 +1136,12 @@ class B4DFaultInjectionTests(unittest.TestCase):
         for task in self.injected:
             spec = task["restore_faults"]
             candidates = spec["candidates"]
-            stop_sets = [{1: stop} for stop in candidates]
+            if spec["kind"] == "interrupt_mid_write":
+                points = faults_mod.write_points(task)
+                stop_sets = [{1: dict(points[candidate - 1], candidate=candidate)}
+                             for candidate in candidates]
+            else:
+                stop_sets = [{1: stop} for stop in candidates]
             if spec["stops"] == 2:
                 stop_sets = [{1: first, 2: second}
                              for first in candidates for second in candidates]
@@ -1570,6 +1606,488 @@ class B4DCorruptBackupTests(unittest.TestCase):
 
 
 
+class B4DWriteStateModelTests(unittest.TestCase):
+    """The record-write state machine itself, independent of any fixture."""
+
+    def test_the_four_states_are_the_documented_set(self):
+        self.assertEqual(write_state.STATES,
+                         ("not_started", "partially_applied", "committed", "rolled_back"))
+        self.assertEqual(write_state.TERMINAL, ("committed",))
+
+    def test_a_committed_write_is_terminal(self):
+        self.assertEqual(write_state.TRANSITIONS["committed"], frozenset())
+        self.assertFalse(write_state.valid_transition("committed", "committed"))
+        self.assertFalse(write_state.valid_transition("committed", "partially_applied"))
+        self.assertIn("terminal", write_state.transition_error("committed", "committed"))
+
+    def test_partially_applied_may_commit_or_roll_back_but_nothing_else(self):
+        self.assertEqual(write_state.TRANSITIONS["partially_applied"],
+                         frozenset({"committed", "rolled_back"}))
+        self.assertFalse(write_state.valid_transition("partially_applied", "partially_applied"))
+        # A write cannot be rolled back before it ever started.
+        self.assertFalse(write_state.valid_transition("not_started", "rolled_back"))
+
+    def test_partial_state_follows_from_how_many_parts_landed(self):
+        self.assertEqual(write_state.state_after(0, 3), write_state.NOT_STARTED)
+        self.assertEqual(write_state.state_after(1, 3), write_state.PARTIALLY_APPLIED)
+        self.assertEqual(write_state.state_after(2, 3), write_state.PARTIALLY_APPLIED)
+        self.assertEqual(write_state.state_after(3, 3), write_state.COMMITTED)
+
+    def test_parts_follow_the_copies_the_backup_holds(self):
+        surfaces = {"index": [{"entry_id": "i-r2", "record_id": "r2"}],
+                    "cache": [],
+                    "summary": [{"entry_id": "s-r2", "record_id": "r2"}]}
+        self.assertEqual(write_state.parts("r2", surfaces), ["record", "index", "summary"])
+        self.assertEqual(write_state.part_boundaries("r2", surfaces), [1, 2])
+        surfaces["cache"] = [{"entry_id": "c-r2", "record_id": "r2"}]
+        self.assertEqual(write_state.parts("r2", surfaces),
+                         ["record", "index", "cache", "summary"])
+        self.assertEqual(write_state.part_boundaries("r2", surfaces), [1, 2, 3])
+
+    def test_legal_points_are_ordered_and_deterministic(self):
+        surfaces = {"index": [{"entry_id": "i-r1", "record_id": "r1"},
+                              {"entry_id": "i-r2", "record_id": "r2"}],
+                    "cache": [{"entry_id": "c-r2", "record_id": "r2"}],
+                    "summary": [{"entry_id": "s-r1", "record_id": "r1"}]}
+        points = write_state.legal_points(["r2", "r1"], surfaces)
+        # r2 holds record/index/cache, so parts 1 and 2 are the only stopping points;
+        # applying the third part would be a committed write, not an interruption.
+        self.assertEqual(points, [{"record": "r1", "after_parts": 1},
+                                  {"record": "r1", "after_parts": 2},
+                                  {"record": "r2", "after_parts": 1},
+                                  {"record": "r2", "after_parts": 2}])
+        self.assertEqual(points, write_state.legal_points(["r1", "r2"], surfaces))
+
+    def test_describe_partial_says_what_is_in_the_store(self):
+        surfaces = {"index": [{"entry_id": "i-r2", "record_id": "r2"}],
+                    "cache": [{"entry_id": "c-r2", "record_id": "r2"}],
+                    "summary": []}
+        described = write_state.describe_partial("r2", 2, surfaces)
+        self.assertEqual(described["state"], write_state.PARTIALLY_APPLIED)
+        self.assertTrue(described["record_present"])
+        self.assertEqual(described["applied"], ["record", "index"])
+        self.assertEqual(described["missing"], ["cache"])
+        self.assertEqual(described["entries"], ["i-r2"])
+
+    def test_a_legal_resume_chain_validates(self):
+        chain = [{"from": "not_started", "to": "partially_applied", "parts": ["record"]},
+                 {"from": "partially_applied", "to": "committed",
+                  "parts": ["index", "cache"]}]
+        self.assertEqual(write_state.validate_chain("r2", chain), [])
+
+    def test_a_legal_rollback_chain_validates(self):
+        chain = [{"from": "not_started", "to": "partially_applied", "parts": ["record"]},
+                 {"from": "partially_applied", "to": "rolled_back", "parts": []},
+                 {"from": "rolled_back", "to": "not_started", "parts": []},
+                 {"from": "not_started", "to": "committed",
+                  "parts": ["record", "index", "cache"]}]
+        self.assertEqual(write_state.validate_chain("r2", chain), [])
+
+    def test_an_impossible_sequence_is_named(self):
+        double_commit = [{"from": "not_started", "to": "committed", "parts": []},
+                         {"from": "committed", "to": "committed", "parts": []}]
+        reasons = write_state.validate_chain("r2", double_commit)
+        self.assertTrue(any("terminal" in reason for reason in reasons), reasons)
+        skip_to_rollback = [{"from": "not_started", "to": "rolled_back", "parts": []}]
+        self.assertTrue(write_state.validate_chain("r2", skip_to_rollback))
+        out_of_order = [{"from": "partially_applied", "to": "committed", "parts": []}]
+        self.assertTrue(any("starts from" in reason
+                            for reason in write_state.validate_chain("r2", out_of_order)))
+        self.assertEqual(write_state.validate_chain("r2", []), ["r2: no write reported"])
+
+    def test_an_unknown_state_is_not_a_transition(self):
+        self.assertFalse(write_state.valid_transition("not_started", "half_written"))
+        self.assertIn("not a write state",
+                      write_state.transition_error("not_started", "half_written"))
+
+
+class B4DMidWriteTests(unittest.TestCase):
+    """Interruption inside a record write, and what the retry has to do about it."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.taskset = load_tasksets(REPO / "eval" / "tasks")["B4D"]
+        cls.clean = run_block(cls.taskset, solver_name="stub")
+        cls.by_id = {record.task_id: record for record in cls.clean.records}
+        cls.mid = [task for task in cls.taskset.tasks
+                   if (task.get("restore_faults") or {}).get("kind") == "interrupt_mid_write"]
+        cls.resume = [task for task in cls.mid if task["restore_policy"]["recovery"] == "resume"]
+        cls.rollback = [task for task in cls.mid
+                        if task["restore_policy"]["recovery"] == "rollback"]
+
+    # -- the schedule -----------------------------------------------------
+    def test_five_scenarios_split_across_both_policies(self):
+        self.assertEqual(len(self.mid), 5)
+        self.assertEqual((len(self.resume), len(self.rollback)), (3, 2))
+        for task in self.mid:
+            self.assertEqual(task["restore_faults"]["stops"], 1)
+            self.assertEqual(task["restore_faults"]["retries"], 1)
+            self.assertEqual(task["expected"]["restore_attempts"], 2)
+
+    def test_interruption_lands_on_a_record_the_store_lost(self):
+        """A rewrite of a copy that is already there is invisible, so it is not a scenario.
+
+        The fixture is refused unless every candidate names a record the live store
+        does not hold; this test pins the property on the shipped fixtures.
+        """
+        for task in self.mid:
+            lost = set(task["pre_restore_missing"])
+            points = faults_mod.write_points(task)
+            self.assertTrue(points, task["id"])
+            for point in points:
+                self.assertIn(point["record"], lost, task["id"])
+                self.assertNotIn(point["record"], task["delete"], task["id"])
+
+    def test_candidate_set_is_a_strict_subset_bound_by_the_fixture(self):
+        for task in self.mid:
+            candidates = task["restore_faults"]["candidates"]
+            points = faults_mod.write_points(task)
+            self.assertEqual(candidates, sorted(set(candidates)), task["id"])
+            self.assertLessEqual(max(candidates), len(points), task["id"])
+
+    def test_injection_resolves_the_candidate_into_a_write_point(self):
+        for task in self.mid:
+            injection = faults_mod.injection(task)
+            points = faults_mod.write_points(task)
+            self.assertEqual(injection["kind"], "interrupt_mid_write")
+            self.assertEqual(injection["recovery"], task["restore_policy"]["recovery"])
+            chosen = injection["stops"][1]
+            self.assertEqual(chosen["candidate"],
+                             task["restore_faults"]["candidates"][0]
+                             if len(task["restore_faults"]["candidates"]) == 1 else chosen["candidate"])
+            self.assertEqual(chosen["record"], points[chosen["candidate"] - 1]["record"])
+            self.assertEqual(chosen["after_parts"],
+                             points[chosen["candidate"] - 1]["after_parts"])
+            self.assertEqual(injection["expected_complete"], [False, True])
+
+    def test_the_solver_sees_the_policy_but_not_the_schedule_or_the_gold(self):
+        for task in self.mid:
+            view = solver_view(task, "B4D")
+            self.assertIn("restore_policy", view, task["id"])
+            self.assertEqual(view["restore_policy"], task["restore_policy"])
+            self.assertNotIn("restore_faults", view, task["id"])
+            self.assertNotIn("expected", view, task["id"])
+            self.assertNotIn("write_states", json.dumps(view), task["id"])
+            self.assertNotIn("pre_restore_missing", json.dumps(view.get("expected", {})), task["id"])
+
+    def test_the_corruption_recipe_and_the_chosen_point_are_unreachable_from_the_view(self):
+        task = next(t for t in self.mid)
+        serialised = json.dumps(solver_view(task, "B4D"))
+        for leaked in ("salt", '"stops"', "after_parts", "candidate", "rolled_back",
+                       "partially_applied", "write_states"):
+            self.assertNotIn(leaked, serialised, leaked)
+
+    # -- the clean run ----------------------------------------------------
+    def test_each_scenario_reports_two_attempts_one_incomplete(self):
+        for task in self.mid:
+            record = self.by_id[task["id"]]
+            self.assertTrue(record.success, task["id"])
+            self.assertEqual(record.metrics["restore_attempts"], 2, task["id"])
+            states = record.detail["restore_attempts"]
+            self.assertEqual([state["complete"] for state in states], [False, True], task["id"])
+            self.assertEqual(record.metrics["restore_partial_residue"], 0, task["id"])
+            self.assertEqual(record.metrics["restore_rollback_errors"], 0, task["id"])
+
+    def test_exactly_one_write_is_left_partial_and_the_policy_decides_its_fate(self):
+        for task in self.mid:
+            record = self.by_id[task["id"]]
+            writes = record.detail["restore_writes"]
+            self.assertEqual(len(writes["partial_writes"]), 1, task["id"])
+            interrupted = writes["partial_writes"][0]
+            expected_rollbacks = 1 if task["restore_policy"]["recovery"] == "rollback" else 0
+            self.assertEqual(writes["rollbacks"], expected_rollbacks, task["id"])
+            self.assertEqual(record.metrics["restore_rollbacks"], expected_rollbacks, task["id"])
+            # The interrupted write is the one the injection named.
+            injection = record.detail["restore_injection"]
+            stops = injection["stops"]
+            chosen = stops[1] if 1 in stops else stops["1"]
+            self.assertEqual(chosen["record"], interrupted, task["id"])
+
+    def test_a_rolled_back_write_is_absent_from_the_attempt_it_stopped_in(self):
+        for task in self.rollback:
+            notes = _solve(task)
+            attempt = notes["restore"]["attempts"][0]
+            interrupted = self.by_id[task["id"]].detail["restore_writes"]["partial_writes"][0]
+            self.assertNotIn(interrupted, attempt["records_after"], task["id"])
+            held_ids = {entry["entry_id"]
+                        for surface in attempt["surfaces_after"].values()
+                        for entry in surface if entry["record_id"] == interrupted}
+            self.assertEqual(held_ids, set(), task["id"])
+
+    def test_a_resumed_write_keeps_its_parts_and_finishes_on_the_retry(self):
+        for task in self.resume:
+            notes = _solve(task)
+            interrupted = self.by_id[task["id"]].detail["restore_writes"]["partial_writes"][0]
+            after_first = notes["restore"]["attempts"][0]
+            self.assertIn(interrupted, after_first["records_after"], task["id"])
+            chain = [entry for entry in notes["restore"]["writes"]
+                     if entry["record"] == interrupted]
+            self.assertEqual([entry["to"] for entry in chain],
+                             ["partially_applied", "committed"], task["id"])
+
+    def test_both_policies_end_in_the_same_recovered_state(self):
+        for task in self.resume + self.rollback:
+            notes = _solve(task)
+            final = notes["restore"]["attempts"][-1]
+            deleted = set(task["delete"])
+            held = set(task["backup"]["contents"]["records"]) - deleted
+            self.assertEqual(set(final["records_after"]), held, task["id"])
+            self.assertFalse(set(final["records_after"]) & deleted, task["id"])
+            for surface, entries in task["backup"]["contents"]["surfaces"].items():
+                wanted = {entry["entry_id"] for entry in entries
+                          if entry["record_id"] in held}
+                present = {entry["entry_id"] for entry in final["surfaces_after"][surface]}
+                self.assertTrue(wanted <= present, f"{task['id']} {surface}")
+
+    def test_the_policy_changes_the_path_not_the_end_state(self):
+        """The same task at the same chosen point, judged as both engines."""
+        task = copy.deepcopy(self.resume[0])
+        candidate = task["restore_faults"]["candidates"][0]
+        point = faults_mod.write_points(task)[candidate - 1]
+        stops = {1: dict(point, candidate=candidate)}
+        resumed = _solve(task, stops)
+        rolled_task = copy.deepcopy(task)
+        rolled_task["restore_policy"] = {"recovery": "rollback"}
+        rolled = _solve(rolled_task, stops)
+
+        self.assertEqual(resumed["restore"]["attempts"][-1]["records_after"],
+                         rolled["restore"]["attempts"][-1]["records_after"])
+        self.assertEqual(resumed["restore"]["attempts"][-1]["surfaces_after"],
+                         rolled["restore"]["attempts"][-1]["surfaces_after"])
+        self.assertFalse(any(entry["to"] == "rolled_back"
+                             for entry in resumed["restore"]["writes"]))
+        self.assertTrue(any(entry["to"] == "rolled_back"
+                            for entry in rolled["restore"]["writes"]))
+        for notes, candidate_task in ((resumed, task), (rolled, rolled_task)):
+            injection = dict(faults_mod.injection(candidate_task), stops=dict(stops))
+            scored = score_b4d(candidate_task,
+                               SolveResult(status="done", message="", notes=notes), injection)
+            self.assertTrue(scored["success"], scored["metrics"])
+
+    def test_deleted_records_stay_filtered_and_unrelated_records_survive_recovery(self):
+        for task in self.mid:
+            notes = _solve(task)
+            deleted = set(task["delete"])
+            untouched = (set(task["backup"]["contents"]["records"]) - deleted
+                         - set(task["pre_restore_missing"]))
+            attempt = notes["restore"]["attempts"][0]
+            for surface, entries in attempt["surfaces_after"].items():
+                self.assertFalse({entry["record_id"] for entry in entries} & deleted,
+                                 f"{task['id']} {surface} holds a deleted record during recovery")
+            for rid in untouched:
+                self.assertIn(rid, attempt["records_after"], task["id"])
+
+    # -- planted regressions ----------------------------------------------
+    def test_replaying_a_partial_write_twice_fails_idempotency_only(self):
+        gates, mutant = _mutant_gates(self.taskset, self.clean, "replay_partial_write_twice")
+        self.assertEqual(MUTATIONS["replay_partial_write_twice"].expected_gate,
+                         "restore_idempotency_zero")
+        self.assertEqual(gates["restore_idempotency_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_duplicate_effects"], 0)
+        self.assertEqual(mutant.summary["restore_partial_residue"], 0)
+        self.assertEqual(mutant.summary["restore_unrecovered"], 0)
+
+    def test_claiming_rollback_without_reverting_fails_the_rollback_gate_only(self):
+        gates, mutant = _mutant_gates(self.taskset, self.clean,
+                                      "claim_rollback_without_reverting")
+        self.assertEqual(MUTATIONS["claim_rollback_without_reverting"].expected_gate,
+                         "restore_rollback_zero")
+        self.assertEqual(gates["restore_rollback_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_rollback_errors"], 0)
+        # The retry overwrites the parts it finds, so the final store is clean:
+        # the failure is the false report, not residue.
+        self.assertEqual(mutant.summary["restore_partial_residue"], 0)
+        self.assertEqual(mutant.summary["restore_duplicate_effects"], 0)
+
+    def test_reporting_success_with_a_partial_record_fails_the_partial_write_gate_only(self):
+        gates, mutant = _mutant_gates(self.taskset, self.clean,
+                                      "report_success_with_partial_record")
+        self.assertEqual(MUTATIONS["report_success_with_partial_record"].expected_gate,
+                         "restore_partial_write_zero")
+        self.assertEqual(gates["restore_partial_write_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_partial_residue"], 0)
+        self.assertEqual(mutant.summary["restore_rollback_errors"], 0)
+        self.assertEqual(mutant.summary["restore_duplicate_effects"], 0)
+
+    def test_a_retry_that_never_finishes_leaves_the_restore_incomplete(self):
+        gates, mutant = _mutant_gates(self.taskset, self.clean, "abandon_partial_restore")
+        self.assertEqual(gates["restore_recovery_zero"].status, "fail")
+        self.assertGreater(mutant.summary["restore_unrecovered"], 0)
+        self.assertGreater(mutant.summary["restore_partial_residue"], 0)
+
+    def test_the_partial_write_gate_does_not_fire_on_a_family_without_restores(self):
+        b4_clean = run_block(load_tasksets(REPO / "eval" / "tasks")["B4"],
+                             solver_name="stub").summary
+        fired = {result.gate for result in
+                 gates_mod.evaluate_block("B4", b4_clean, b4_clean, Thresholds())}
+        self.assertNotIn("restore_partial_write_zero", fired)
+        self.assertNotIn("restore_rollback_zero", fired)
+
+    # -- the counters stay distinguishable at the scorer --------------------
+    def test_partial_residue_can_fail_without_any_rollback_error(self):
+        task = self.mid[0]
+        notes = _solve(task)
+        survivor = sorted(set(task["backup"]["contents"]["records"])
+                          - set(task["delete"])
+                          - set(notes["restore"]["writes"][0]["record"]))[0]
+        # Drop one copy of an untouched survivor from the final state only.
+        last = notes["restore"]["attempts"][-1]
+        victim = next(entry["entry_id"]
+                      for entries in last["surfaces_after"].values()
+                     for entry in entries if entry["record_id"] == survivor)
+        for entries in last["surfaces_after"].values():
+            entries[:] = [entry for entry in entries if entry["entry_id"] != victim]
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_partial_residue"], 0)
+        self.assertEqual(scored["metrics"]["restore_rollback_errors"], 0)
+        self.assertFalse(scored["success"])
+
+    def test_a_rollback_error_can_fail_without_any_partial_residue(self):
+        """A resume that is judged against a rollback-policy task fails one gate."""
+        task = copy.deepcopy(self.rollback[0])
+        resumer = copy.deepcopy(task)
+        resumer["restore_policy"] = {"recovery": "resume"}
+        notes = _solve(resumer)
+        self.assertFalse(any(entry["to"] == "rolled_back"
+                             for entry in notes["restore"]["writes"]))
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_rollback_errors"], 0)
+        self.assertEqual(scored["metrics"]["restore_partial_residue"], 0)
+        self.assertFalse(scored["success"])
+
+    # -- malformed reports fail closed, they do not crash the scorer ------
+    def test_an_illegal_transition_is_counted_not_raised(self):
+        task = self.mid[0]
+        notes = _solve(task)
+        notes["restore"]["writes"].append(
+            copy.deepcopy(next(entry for entry in notes["restore"]["writes"]
+                               if entry["to"] == "committed")))
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_rollback_errors"], 0)
+        self.assertFalse(scored["success"])
+
+    def test_an_unknown_write_part_is_counted_not_raised(self):
+        task = self.mid[0]
+        notes = _solve(task)
+        notes["restore"]["writes"][0]["parts"] = ["telepathy"]
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_rollback_errors"], 0)
+
+    def test_a_write_log_that_is_not_a_list_fails_closed(self):
+        task = self.mid[0]
+        notes = _solve(task)
+        notes["restore"]["writes"] = {"record": "r2"}
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_rollback_errors"], 0)
+        self.assertFalse(scored["success"])
+
+    def test_a_missing_write_log_fails_a_mid_write_scenario(self):
+        task = self.mid[0]
+        notes = _solve(task)
+        del notes["restore"]["writes"]
+        scored = score_b4d(task, SolveResult(status="done", message="", notes=notes))
+        self.assertGreater(scored["metrics"]["restore_rollback_errors"], 0)
+        self.assertFalse(scored["success"])
+
+    # -- fail-closed fixture validation ------------------------------------
+    def _variant(self, mutate, tid: str | None = None) -> dict:
+        payload = copy.deepcopy(_payload("B4D"))
+        target = next(t for t in payload["tasks"] if t["id"] == (tid or self.mid[0]["id"]))
+        mutate(payload, target)
+        return payload
+
+    def _assert_refused(self, payload: dict, needle: str):
+        with self.assertRaises(TaskSetError) as caught:
+            _load_variant(payload)
+        self.assertIn(needle, str(caught.exception))
+
+    def test_a_mid_write_scenario_without_a_policy_is_refused(self):
+        def mutate(payload, task):
+            del task["restore_policy"]
+
+        self._assert_refused(self._variant(mutate), "declares no restore_policy")
+
+    def test_an_unknown_recovery_policy_is_refused(self):
+        def mutate(payload, task):
+            task["restore_policy"]["recovery"] = "hope"
+
+        self._assert_refused(self._variant(mutate), "neither")
+
+    def test_a_policy_on_a_between_record_task_is_refused(self):
+        def mutate(payload, task):
+            task["restore_policy"] = {"recovery": "resume"}
+
+        self._assert_refused(self._variant(mutate, "b4d-016"),
+                             "without a mid-write schedule")
+
+    def test_two_mid_write_stops_are_refused(self):
+        def mutate(payload, task):
+            task["restore_faults"]["stops"] = 2
+            task["expected"]["restore_attempts"] = 3
+            task["expected"]["write_states"]["interrupted"] = 2
+
+        self._assert_refused(self._variant(mutate), "interrupts the first attempt once")
+
+    def test_a_candidate_outside_the_legal_points_is_refused(self):
+        def mutate(payload, task):
+            task["restore_faults"]["candidates"] = [1, 99]
+
+        self._assert_refused(self._variant(mutate), "legal mid-write interruption point")
+
+    def test_a_mid_write_scenario_with_nothing_observable_is_refused(self):
+        def mutate(payload, task):
+            task["pre_restore_missing"] = []
+            task["recovery_probes"] = [probe for probe in task["recovery_probes"]
+                                       if probe["expect"] == "absent"]
+
+        self._assert_refused(self._variant(mutate), "idempotent")
+
+    def test_missing_gold_write_states_are_refused(self):
+        def mutate(payload, task):
+            del task["expected"]["write_states"]
+
+        self._assert_refused(self._variant(mutate), "no expected.write_states")
+
+    def test_inconsistent_gold_write_states_are_refused(self):
+        def mutate(payload, task):
+            task["expected"]["write_states"]["rolled_back"] = 1
+
+        self._assert_refused(self._variant(mutate), "schedule and policy produce")
+
+    def test_an_unknown_gold_write_state_is_refused(self):
+        def mutate(payload, task):
+            task["expected"]["write_states"]["abandoned"] = 1
+
+        self._assert_refused(self._variant(mutate), "unknown state(s)")
+
+    def test_a_malformed_fault_kind_is_refused(self):
+        def mutate(payload, task):
+            task["restore_faults"]["kind"] = "interrupt_halfway"
+
+        self._assert_refused(self._variant(mutate), "not supported")
+
+    def test_unsorted_mid_write_candidates_are_refused(self):
+        def mutate(payload, task):
+            task["restore_faults"]["candidates"] = [2, 1]
+
+        self._assert_refused(self._variant(mutate), "not sorted")
+
+    def test_a_non_synthetic_mid_write_scenario_is_refused(self):
+        def mutate(payload, task):
+            payload["synthetic"] = False
+            payload["data_class"] = "real"
+
+        self._assert_refused(self._variant(mutate), "synthetic")
+
+    def test_a_mid_write_scenario_still_needs_a_retry_path(self):
+        def mutate(payload, task):
+            task["restore_faults"]["retries"] = 0
+            task["expected"]["restore_attempts"] = 1
+
+        self._assert_refused(self._variant(mutate), "a retry path is required")
+
+
+
 class B4DMutationRegistryTests(unittest.TestCase):
     def test_the_three_required_regressions_are_registered(self):
         expected = {"delete_primary_only": "deletion_residue_zero",
@@ -1621,14 +2139,13 @@ class B4DCliTests(unittest.TestCase):
             payload = json.loads(report.read_text(encoding="utf-8"))
             self.assertEqual(payload["scope"], ["B4D"])
             names = {row["mutation"] for row in payload["rows"]}
-            self.assertEqual(names, {"delete_primary_only", "keep_derived_copy",
-                                     "resurrect_on_replay", "restore_without_filter",
-                                     "restore_drops_unrelated", "restore_skips_tombstones",
-                                     "retry_from_scratch", "retry_without_filter",
-                                     "abandon_partial_restore", "ignore_injected_stop",
-                                     "accept_corrupt_backup", "recover_loses_unrelated",
-                                     "falsely_claim_restore_complete",
-                                     "recover_without_repair"})
+            declared = {name for name, mutation in MUTATIONS.items()
+                        if mutation.block == "B4D"}
+            self.assertEqual(names, declared)
+            self.assertEqual(len(names), 17)
+            self.assertIn("replay_partial_write_twice", names)
+            self.assertIn("claim_rollback_without_reverting", names)
+            self.assertIn("report_success_with_partial_record", names)
             for row in payload["rows"]:
                 self.assertTrue(row["detected"], row)
                 self.assertIn(row["expected_gate"], row["gates_failed"])
@@ -1688,15 +2205,18 @@ class B4DDocBookkeepingTests(unittest.TestCase):
         for key in ("tasks", "drill_executions", "replay_day_evaluations", "probes",
                     "deleted_records", "surface_entries", "backups", "restore_events"):
             self.assertEqual(samples[key], fixture[key], key)
-        self.assertEqual(samples["tasks"], 22)
-        self.assertEqual(samples["drill_executions"], 66)
-        self.assertEqual(samples["replay_day_evaluations"], 154)
-        self.assertEqual(samples["backups"], 14)
-        self.assertEqual(samples["restore_events"], 14)
-        self.assertEqual(samples["restore_attempts"], 21)
+        self.assertEqual(samples["tasks"], 27)
+        self.assertEqual(samples["drill_executions"], 81)
+        self.assertEqual(samples["replay_day_evaluations"], 189)
+        self.assertEqual(samples["backups"], 19)
+        self.assertEqual(samples["restore_events"], 19)
+        self.assertEqual(samples["restore_attempts"], 31)
         self.assertEqual(samples["fixture_declared_retries"], 4)
         self.assertEqual(samples["injected_restore_scenarios"], 4)
         self.assertEqual(samples["injected_stops"], 5)
+        self.assertEqual(samples["mid_write_scenarios"], 5)
+        self.assertEqual(samples["mid_write_stops"], 5)
+        self.assertEqual(samples["mid_write_candidates"], 9)
         self.assertEqual(samples["corrupt_backups"], 3)
         self.assertIn("Deterministic executions", samples["note"])
         self.assertIn("not independent samples", samples["note"])
@@ -1714,8 +2234,9 @@ class B4DDocBookkeepingTests(unittest.TestCase):
         entry = next(e for e in self.coverage["entries"] if e["ac"] == "C-02-AC3")
         self.assertEqual(entry["status"], "slice_built")
         self.assertEqual(entry["slice"]["suite"], "eval/tasks/b4d")
-        self.assertEqual(entry["slice"]["tasks"], 22)
-        self.assertEqual(entry["slice"]["sample_counts"]["restore_attempts"], 21)
+        self.assertEqual(entry["slice"]["tasks"], 27)
+        self.assertEqual(entry["slice"]["sample_counts"]["restore_attempts"], 31)
+        self.assertEqual(entry["slice"]["sample_counts"]["mid_write_stops"], 5)
         self.assertEqual(entry["slice"]["sample_counts"]["corrupt_backups"], 3)
         self.assertTrue(entry["slice"]["not_covered"].strip())
         for ac in ("C-02-AC1", "C-02-AC2"):

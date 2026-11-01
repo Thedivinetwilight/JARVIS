@@ -10,6 +10,7 @@ from typing import Any
 from .planning import validate_assignment
 from .solvers.stub import verify_world
 from .restore_integrity import expected_handling as expected_handling_for
+from . import write_state
 from .taskset import (DERIVED_SURFACES, FORBIDDEN_NEXT_STEPS, METADATA_FIELDS,
                       NEXT_STEP_VOCABULARY, entry_matches_probe, record_is_complete,
                       record_is_expired)
@@ -535,10 +536,15 @@ def score_b4d(task: dict[str, Any], result: Any,
     restore_duplicate_effects = 0
     restore_attempt_mismatch = 0
     restore_corrupt_accepted = 0
+    restore_partial_residue = 0
+    restore_rollback_errors = 0
+    restore_mid_write_stops = 0
+    restore_rollbacks = 0
     restore_applied = 0
     attempts_reported = 0
     attempt_detail: list[dict[str, Any]] = []
     corrupt_detail: dict[str, Any] = {}
+    write_detail: dict[str, Any] = {}
     reported_records: set[str] = set()
     if reports_state:
         entries = [entry for name in DERIVED_SURFACES for entry in surfaces.get(name, [])]
@@ -667,6 +673,128 @@ def score_b4d(task: dict[str, Any], result: Any,
                                   "reported": report,
                                   "reasons": reasons}
 
+            # -- record writes: partial states, rollback and residue ----------
+            # The store is the evidence: a copy with no record behind it, or a
+            # record missing a copy the backup holds, is a write that stopped
+            # somewhere, whatever the report says. The log is audited on top of
+            # that, because a rollback that is claimed and not performed leaves a
+            # store that looks fine only until the next attempt overwrites it.
+            held_surfaces_gold = backup["contents"].get("surfaces") or {}
+            write_entries = restore.get("writes")
+            mid_write = ((task.get("restore_faults") or {}).get("kind")
+                         == "interrupt_mid_write")
+            rollback_reasons: list[str] = []
+            if mid_write and not isinstance(write_entries, list):
+                rollback_reasons.append("no write log for a mid-write scenario")
+            if write_entries is not None and not isinstance(write_entries, list):
+                rollback_reasons.append("write log is not a list")
+            chains: dict[str, list[dict[str, Any]]] = {}
+            for entry in write_entries if isinstance(write_entries, list) else []:
+                if not isinstance(entry, dict):
+                    rollback_reasons.append("write entry is not an object")
+                    continue
+                chains.setdefault(str(entry.get("record")), []).append(entry)
+
+            attempts_by_number = {attempt.get("attempt"): attempt for attempt in attempts}
+            partial_records: set[str] = set()
+            for rid, chain in sorted(chains.items()):
+                rollback_reasons.extend(write_state.validate_chain(rid, chain))
+                ordered = write_state.parts(rid, held_surfaces_gold)
+                for entry in chain:
+                    unknown = set(entry.get("parts") or []) - set(ordered)
+                    if unknown:
+                        rollback_reasons.append(
+                            f"{rid}: unknown write part(s) {sorted(unknown)}")
+                    if entry.get("to") == write_state.PARTIALLY_APPLIED:
+                        partial_records.add(rid)
+                    if entry.get("to") != write_state.ROLLED_BACK:
+                        continue
+                    snapshot = attempts_by_number.get(entry.get("attempt")) or {}
+                    before_present = rid in {str(item) for item in
+                                             (snapshot.get("records_before") or [])}
+                    after_present = rid in {str(item) for item in
+                                            (snapshot.get("records_after") or [])}
+
+                    def ids(prefix: str) -> set[str]:
+                        return {name_entry.get("entry_id")
+                                for name in DERIVED_SURFACES
+                                for name_entry in (snapshot.get(prefix) or {}).get(name, [])
+                                if name_entry.get("record_id") == rid}
+
+                    # A rollback puts the record back exactly where the attempt
+                    # found it: same presence, and none of the parts the attempt
+                    # itself wrote. An entry the live store already had is not
+                    # residue of this write.
+                    new_parts = ids("surfaces_after") - ids("surfaces_before")
+                    if after_present != before_present or new_parts:
+                        rollback_reasons.append(
+                            f"{rid}: rollback claimed in attempt {entry.get('attempt')} but the "
+                            f"attempt left {len(new_parts)} new part(s) and presence "
+                            f"{before_present}->{after_present}")
+
+            policy = str((task.get("restore_policy") or {}).get("recovery", "resume"))
+            for rid in sorted(partial_records):
+                chain = chains[rid]
+                rolled_back = any(entry.get("to") == write_state.ROLLED_BACK
+                                  for entry in chain)
+                if policy == "rollback" and not rolled_back:
+                    rollback_reasons.append(
+                        f"{rid}: a partial write was resumed under a rollback policy")
+                if policy == "resume" and rolled_back:
+                    rollback_reasons.append(
+                        f"{rid}: a partial write was rolled back under a resume policy")
+
+            if mid_write and gold_outcome != "rejected":
+                held_survivors_gold = surviving & {str(rid) for rid in backup["contents"]["records"]}
+                for rid in sorted(held_survivors_gold):
+                    chain = chains.get(rid) or []
+                    if not chain:
+                        rollback_reasons.append(f"{rid}: no write reported")
+                    elif chain[-1].get("to") != write_state.COMMITTED:
+                        rollback_reasons.append(
+                            f"{rid}: final write state is {chain[-1].get('to')!r}, not committed")
+                if injection:
+                    expected_partial = len(injection["stops"])
+                    if len(partial_records) != expected_partial:
+                        rollback_reasons.append(
+                            f"{len(partial_records)} partial write(s) for "
+                            f"{expected_partial} injected interruption(s)")
+
+            # A copy of a record the final store does not hold, or a record the
+            # backup holds copies for but the store does not: a write stopped
+            # part way. Both counts skip damaged backups, because copying damage
+            # into this gate would make "partial write" and "corrupt backup"
+            # indistinguishable -- the corruption gate owns that case.
+            missing_parts: list[str] = []
+            if gold_outcome != "rejected" and corruption is None:
+                final_ids = {entry.get("entry_id") for _, entry in final_entries}
+                for rid in sorted(held_survivors & final_after):
+                    for surface in DERIVED_SURFACES:
+                        for entry in held_surfaces_gold.get(surface, []):
+                            if (entry.get("record_id") == rid
+                                    and entry.get("entry_id") not in final_ids):
+                                missing_parts.append(str(entry.get("entry_id")))
+            dangling_parts: list[str] = []
+            if corruption is None:
+                dangling_parts = sorted({str(entry.get("record_id")) for _, entry in final_entries
+                                         if str(entry.get("record_id")) not in final_after
+                                         and str(entry.get("record_id")) not in deleted})
+            restore_partial_residue = len(missing_parts) + len(dangling_parts)
+            restore_rollback_errors = len(rollback_reasons)
+            restore_mid_write_stops = len(injection["stops"]) if (
+                injection and injection.get("kind") == "interrupt_mid_write") else 0
+            restore_rollbacks = sum(1 for chain in chains.values() for entry in chain
+                                    if entry.get("to") == write_state.ROLLED_BACK)
+            write_detail = {"policy": policy,
+                            "writes": len(chains),
+                            "attempts_with_writes": sorted({entry.get("attempt") for chain in
+                                                            chains.values() for entry in chain}),
+                            "partial_writes": sorted(partial_records),
+                            "rollbacks": restore_rollbacks,
+                            "reasons": rollback_reasons,
+                            "missing_parts": sorted(missing_parts),
+                            "dangling_records": dangling_parts}
+
     schedule_complete = (len(drills or []) == required_drills
                          and len(replay or []) == required_days)
     restore_complete = backup is None or restore_applied == 1
@@ -678,7 +806,8 @@ def score_b4d(task: dict[str, Any], result: Any,
                and restore_resurrections == 0 and restore_dropped == 0
                and restore_residue == 0 and restore_unrecovered == 0
                and restore_duplicate_effects == 0 and restore_attempt_mismatch == 0
-               and restore_corrupt_accepted == 0)
+               and restore_corrupt_accepted == 0 and restore_partial_residue == 0
+               and restore_rollback_errors == 0)
 
     return {
         "success": success,
@@ -695,6 +824,10 @@ def score_b4d(task: dict[str, Any], result: Any,
             "restore_duplicate_effects": restore_duplicate_effects,
             "restore_attempt_mismatch": restore_attempt_mismatch,
             "restore_corrupt_accepted": restore_corrupt_accepted,
+            "restore_partial_residue": restore_partial_residue,
+            "restore_rollback_errors": restore_rollback_errors,
+            "restore_mid_write_stops": restore_mid_write_stops,
+            "restore_rollbacks": restore_rollbacks,
             "restore_injected_stops": len(injection["stops"]) if injection else 0,
             "restore_corrupt_backups": 1 if corruption is not None else 0,
             # A solver may omit the report, or report `null`; treat both as "no
@@ -734,6 +867,7 @@ def score_b4d(task: dict[str, Any], result: Any,
                                           "salt": injection["salt"]}
                                          if injection else None),
                    "restore_corruption": corrupt_detail,
+                   "restore_writes": write_detail,
                    "restore_unrecovered_records": restore_unrecovered_records,
                    "recovery_probe_failures": recovery_probe_failures,
                    "restore_records_after": sorted(

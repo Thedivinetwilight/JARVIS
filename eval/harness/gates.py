@@ -36,6 +36,8 @@ BLOCK_METRIC_GATES: dict[str, tuple[tuple[str, str], ...]] = {
             ("restore_duplicate_effects", "restore_idempotency_zero"),
             ("restore_attempt_mismatch", "restore_attempt_count_zero"),
             ("restore_corrupt_accepted", "restore_corruption_zero"),
+            ("restore_partial_residue", "restore_partial_write_zero"),
+            ("restore_rollback_errors", "restore_rollback_zero"),
             ("unreported_states", "deletion_report_zero")),
 }
 

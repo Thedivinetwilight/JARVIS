@@ -19,9 +19,11 @@ tools (`calendar.create_event`, `mail.send`, `files.write/append/delete`, `memor
 `memory.retrieve_current`), skills (`corpus.retrieve`, `document.extract_fields`, `source.reconcile`,
 `schedule.assign`, `skill.apply`, `memory.consolidate`, `explain.limitation`), the verifier and the approval
 policy. `memory.restore_backup` is the third M5-era entry: it simulates a backup restore that filters
-deleted records, keeps unrelated ones, can be interrupted at a point the harness chooses (the tool call
-fails with `RestoreInterrupted` and a retry resumes on the same day), and refuses or repairs a damaged
-backup; it backs the B4D deletion / restore slice. All of them still simulate nothing that exists in a product. Each entry declares:
+deleted records, keeps unrelated ones, can be interrupted at a point the harness chooses — between two
+records or inside one, leaving the record partially applied with the copies written so far — and refuses
+or repairs a damaged backup. The call fails with `RestoreInterrupted`; a retry resumes on the same day,
+either finishing the record it left half-written or removing it from every copy first, and the harness
+scores the final state rather than the interruption; it backs the B4D deletion / restore slice. All of them still simulate nothing that exists in a product. Each entry declares:
 
 | Field | Why |
 |---|---|

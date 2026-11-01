@@ -189,6 +189,11 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "restore_corrupt_backups": int(total_of("restore_corrupt_backups")),
         "restore_rejected": int(total_of("restore_rejected")),
         "restore_repaired": int(total_of("restore_repaired")),
+        # M5 slice 4: mid-write interruption and transactional recovery (B4D).
+        "restore_partial_residue": int(total_of("restore_partial_residue")),
+        "restore_rollback_errors": int(total_of("restore_rollback_errors")),
+        "restore_mid_write_stops": int(total_of("restore_mid_write_stops")),
+        "restore_rollbacks": int(total_of("restore_rollbacks")),
         "replay_complete": int(total_of("replay_complete")),
         "replay_tasks": sum(1 for r in records if r.metrics.get("replay_complete") is not None),
         "citations": int(total_of("citations")),
@@ -252,8 +257,12 @@ def run_task(task: dict[str, Any], *, block: str, solver_name: str,
     policy, faults, budget = _task_setup(task)
     world = World()
     injection = faults_mod.injection(task) if block == "B4D" else None
+    kind = (injection or {}).get("kind")
     executor = Executor(world, policy=policy, faults=faults, call_budget=budget,
-                        restore_stops=(injection or {}).get("stops"),
+                        restore_stops=(injection or {}).get("stops")
+                        if kind == "interrupt_after_records" else None,
+                        restore_writes=(injection or {}).get("stops")
+                        if kind == "interrupt_mid_write" else None,
                         restore_injection=injection)
 
     from .solvers.base import ToolContext

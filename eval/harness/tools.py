@@ -59,6 +59,17 @@ class RestoreInterrupted(ToolError):
     """
 
 
+class RecordWriteInterrupted(RestoreInterrupted):
+    """The harness stopped a single record write between two of its parts.
+
+    Raised by :meth:`Executor.restore_write_step` after the record itself (or
+    some of its derived copies) has been written and before the rest, so the
+    write is left ``partially_applied``. The solver is told which record it was
+    writing and how many parts landed; it is not told whether this was the last
+    interruption, and it cannot see the schedule that produced it.
+    """
+
+
 @dataclass
 class World:
     """In-memory state shared by the synthetic tools."""
@@ -92,6 +103,7 @@ class Executor:
                  faults: list[dict[str, Any]] | None = None,
                  call_budget: int = 50,
                  restore_stops: dict[int, int] | None = None,
+                 restore_writes: dict[int, dict[str, Any]] | None = None,
                  restore_injection: dict[str, Any] | None = None) -> None:
         self.world = world
         self.policy = policy or {}
@@ -100,9 +112,13 @@ class Executor:
         #: before the attempt is aborted. Chosen in `faults.injection`, never
         #: visible in the task the solver receives.
         self.restore_stops = dict(restore_stops or {})
+        #: Evaluator-chosen mid-write interruption points: attempt number ->
+        #: {"record": id, "after_parts": n}. Chosen in `faults.injection`.
+        self.restore_writes = dict(restore_writes or {})
         self.restore_injection = restore_injection
         self.restore_steps = 0
         self.restore_interruptions = 0
+        self.restore_write_interruptions = 0
         self.call_budget = call_budget
         self.calls = 0
         self.audit: list[dict[str, Any]] = []
@@ -129,6 +145,27 @@ class Executor:
             self.restore_interruptions += 1
             raise RestoreInterrupted(
                 f"restore attempt {attempt} stopped after {stop} record(s)")
+
+    def restore_write_step(self, attempt: int, record: str, part_index: int,
+                           total_parts: int) -> None:
+        """Ask the harness whether one record write may apply its next part.
+
+        Called by the solver before applying part ``part_index`` (0-based) of the
+        write for ``record`` in attempt ``attempt``. Raises
+        ``RecordWriteInterrupted`` when the evaluator decided this write stops
+        here, leaving the record partially applied. A solver that never asks
+        cannot be interrupted mid-write, and that is itself reportable: the
+        scenario names the policy it is testing.
+        """
+        self.restore_steps += 1
+        point = self.restore_writes.get(int(attempt))
+        if not point or point.get("record") != str(record):
+            return
+        if int(part_index) >= int(point["after_parts"]):
+            self.restore_write_interruptions += 1
+            raise RecordWriteInterrupted(
+                f"restore attempt {attempt} stopped inside the write of {record} after "
+                f"{point['after_parts']} of {total_parts} part(s)")
 
     # -- public API -------------------------------------------------------
     def call(self, tool: str, args: dict[str, Any], *,

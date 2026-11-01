@@ -12,7 +12,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from . import restore_integrity
+from . import restore_integrity, write_state
 from .config import sha256_obj
 from .faults import RESTORE_ATTEMPT_LIMIT
 
@@ -325,7 +325,8 @@ PROBE_NORM = re.compile(r"[^a-z0-9]+")
 B4D_ZERO_COUNTERS = ("residual_copies", "post_delete_hits", "resurrections", "overdeleted",
                      "restore_resurrections", "restore_dropped", "restore_residue",
                      "restore_unrecovered", "restore_duplicate_effects",
-                     "restore_attempt_mismatch", "restore_corrupt_accepted")
+                     "restore_attempt_mismatch", "restore_corrupt_accepted",
+                     "restore_partial_residue", "restore_rollback_errors")
 
 
 def parse_timestamp(value: Any) -> datetime | None:
@@ -1032,6 +1033,7 @@ def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
     tid = task["id"]
     spec = task["restore_faults"]
     expected = task["expected"]
+    held_surfaces = task["backup"]["contents"].get("surfaces") or {}
     if not isinstance(spec, dict):
         raise TaskSetError(f"{directory}: B4D task {tid} restore_faults must be an object")
     if task["backup"].get("attempts"):
@@ -1042,9 +1044,12 @@ def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
         raise TaskSetError(
             f"{directory}: B4D task {tid} combines a damaged backup with injected interruptions; "
             "the two failures must stay separable")
-    if spec.get("kind", "interrupt_after_records") != "interrupt_after_records":
+    kind = spec.get("kind", "interrupt_after_records")
+    if kind not in {"interrupt_after_records", "interrupt_mid_write"}:
         raise TaskSetError(
-            f"{directory}: B4D task {tid} fault kind {spec.get('kind')!r} is not supported")
+            f"{directory}: B4D task {tid} fault kind {kind!r} is not supported; an interruption "
+            "lands between records or inside one")
+    mid_write = kind == "interrupt_mid_write"
     salt = spec.get("salt")
     if not isinstance(salt, str) or not salt.strip():
         raise TaskSetError(f"{directory}: B4D task {tid} restore_faults needs a non-empty salt")
@@ -1063,6 +1068,21 @@ def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
         if isinstance(stop, bool) or not isinstance(stop, int):
             raise TaskSetError(
                 f"{directory}: B4D task {tid} fault candidate {stop!r} is not an integer")
+        if mid_write:
+            lost = set(task.get("pre_restore_missing") or [])
+            observable = [rid for rid in restored if rid in lost]
+            if not observable:
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} interrupts inside a record write but the store "
+                    "still holds every record it restores; rewriting a copy that is already there "
+                    "is idempotent, so a partial write would leave nothing to observe")
+            points = write_state.legal_points(observable, held_surfaces)
+            if stop < 1 or stop > len(points):
+                raise TaskSetError(
+                    f"{directory}: B4D task {tid} fault candidate {stop} is outside the "
+                    f"{len(points)} legal mid-write interruption point(s) this backup offers")
+            _validate_b4d_write_point(directory, task, points[stop - 1])
+            continue
         if stop < 1 or stop >= len(held):
             raise TaskSetError(
                 f"{directory}: B4D task {tid} fault candidate {stop} stops after {stop} of "
@@ -1072,6 +1092,11 @@ def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
         raise TaskSetError(
             f"{directory}: B4D task {tid} declares stops={stops!r}; one or two injected stops are "
             "supported")
+    if mid_write and stops != 1:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} declares {stops} mid-write stops; a mid-write schedule "
+            "interrupts the first attempt once, because which records a later attempt writes "
+            "depends on where the first stop landed")
     retries = spec.get("retries")
     if isinstance(retries, bool) or not isinstance(retries, int) or retries < 1:
         raise TaskSetError(
@@ -1095,6 +1120,91 @@ def _validate_b4d_faults(directory: Path, task: dict[str, Any], held: list[str],
     if not restored:
         raise TaskSetError(
             f"{directory}: B4D task {tid} has a retry path with nothing to recover")
+    _validate_b4d_recovery_policy(directory, task, restored, mid_write)
+
+
+def _validate_b4d_write_point(directory: Path, task: dict[str, Any],
+                              point: dict[str, Any]) -> None:
+    """One candidate interruption point must leave a write genuinely half-done."""
+    tid = task["id"]
+    if not isinstance(point, dict) or "record" not in point or "after_parts" not in point:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} resolves a candidate to {point!r}, which is not an "
+            "interruption point")
+    surface_map = task["backup"]["contents"].get("surfaces") or {}
+    ordered = write_state.parts(str(point["record"]), surface_map)
+    applied = point["after_parts"]
+    if isinstance(applied, bool) or not isinstance(applied, int):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} interrupts after {applied!r} part(s), which is not a "
+            "count")
+    if applied < 1 or applied >= len(ordered):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} interrupts after {applied} of {len(ordered)} part(s) of "
+            f"{point['record']}; that is not a partial write")
+    if write_state.state_after(applied, len(ordered)) != write_state.PARTIALLY_APPLIED:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} interruption point leaves {point['record']} in "
+            f"{write_state.state_after(applied, len(ordered))!r}, not partially applied")
+
+
+def _validate_b4d_recovery_policy(directory: Path, task: dict[str, Any], restored: list[str],
+                                  mid_write: bool) -> None:
+    """A mid-write scenario states whether the engine resumes or rolls back.
+
+    The policy is visible to the solver (it is a property of the engine under
+    test, not of the injection) and the gold write counts follow from it, so a
+    fixture that states one policy and expects the other's write states is
+    refused rather than scored against a contradiction.
+    """
+    tid = task["id"]
+    policy = task.get("restore_policy")
+    if not mid_write:
+        if policy is not None:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} declares a restore policy without a mid-write "
+                "schedule; there is no partially applied write to recover from")
+        return
+    if not isinstance(policy, dict):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} interrupts inside a write but declares no restore_policy; "
+            "resume and rollback are different behaviours and the scenario must say which one it "
+            "measures")
+    recovery = policy.get("recovery")
+    if recovery not in {"resume", "rollback"}:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_policy recovery {recovery!r} is neither "
+            "'resume' nor 'rollback'")
+    if set(policy) - {"recovery"}:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} restore_policy has unknown key(s) "
+            f"{sorted(set(policy) - {'recovery'})}")
+    gold = task["expected"].get("write_states")
+    if not isinstance(gold, dict):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} has no expected.write_states; a mid-write scenario "
+            "without a gold write state cannot be scored")
+    unknown = set(gold) - {"interrupted", "rolled_back", "committed"}
+    if unknown:
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} expected.write_states names unknown state(s) "
+            f"{sorted(unknown)}")
+    stops = task["restore_faults"]["stops"]
+    want = {"interrupted": stops,
+            "rolled_back": stops if recovery == "rollback" else 0,
+            "committed": len(restored)}
+    for key, value in want.items():
+        if key not in gold:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expected.write_states is missing {key!r}")
+        if isinstance(gold[key], bool) or not isinstance(gold[key], int) or gold[key] != value:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expects write_states.{key}={gold[key]!r} but its "
+                f"schedule and policy produce {value}")
+    for state in gold.values():
+        if isinstance(state, bool) or not isinstance(state, int) or state < 0:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expected.write_states holds a non-count value")
 
 
 def _validate_b4d_backup(directory: Path, task: dict[str, Any], record_ids: set[str],
