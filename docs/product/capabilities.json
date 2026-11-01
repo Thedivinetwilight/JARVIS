@@ -2,7 +2,7 @@
   "spec_version": "1.1.0",
   "published": "2026-11-01",
   "title": "J.A.R.V.I.S. product capability specification (normative requirements)",
-  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists. M5 added two evaluator slices (B4, B16) that run in the harness; they are evaluation code, not delivered J.A.R.V.I.S. features, and they do not change any capability status.",
+  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists. M5 added three evaluator suites (B4 metadata/expiry, B4D deletion drills, B16 limitation explanation) that run in the harness; they are evaluation code, not delivered J.A.R.V.I.S. features, and they do not change any capability status.",
   "status_vocabulary": {
     "specified": "requirement written and reviewable; no implementation and no product validation",
     "specified \u00b7 harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
@@ -1725,15 +1725,16 @@
     }
   ],
   "evaluation_backlog": {
-    "version": "1.1.0",
+    "version": "1.2.0",
     "published": "2026-11-01",
-    "status_statement": "Planning only, plus two evaluator slices. B4 (memory metadata and expiry) and B16 (limitation explanation) now have 12 task fixtures each, four live gates each and five planted regressions; the other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
+    "status_statement": "Planning only, plus three evaluator suites. B4 now has two slices: metadata/expiry (12 task fixtures) and deletion drills (8 task fixtures, 3 drills each, a 7-day replay, 19 post-delete probes); B16 (limitation explanation): 12 fixtures. The other twelve families have no task set. No family is implemented, no product capability is validated, and the slices involve no model, server, personal data or network access.",
     "documents": {
       "crosswalk": "docs/product/family-crosswalk.md",
       "backlog_markdown": "docs/product/family-backlog.md",
       "backlog_json": "docs/product/family-backlog.json",
       "ac_coverage": "docs/product/ac-coverage.json",
-      "coverage_matrix": "docs/product/coverage-matrix.md"
+      "coverage_matrix": "docs/product/coverage-matrix.md",
+      "deletion_report": "eval/results/m5-b4d-deletion-report.json"
     },
     "families": {
       "planned": 14,
@@ -1755,19 +1756,21 @@
         "B20"
       ],
       "planned_tasks": 458,
-      "planted_regressions": 45,
+      "planted_regressions": 46,
       "with_partial_slice": 2,
       "slices_built": [
-        "B4",
-        "B16"
-      ]
+        "b4",
+        "b4d",
+        "b16"
+      ],
+      "slices_total": 3
     },
     "acceptance_criteria": {
-      "planned_suite": 28,
+      "planned_suite": 27,
       "named_audit": 9,
       "human_review": 3,
       "blocked_owner_input": 6,
-      "slice_built": 4,
+      "slice_built": 5,
       "total": 50,
       "with_objective_protocol": 47,
       "human_review_only": [
@@ -1835,8 +1838,56 @@
           "eval/results/index.json"
         ],
         "baseline": "eval/baselines/baseline-m5-slices.json"
+      },
+      {
+        "family": "B4",
+        "suite_block": "B4D",
+        "slice_id": "M5-B4-slice-2",
+        "suite": "eval/tasks/b4d",
+        "task_set": "eval/tasks/b4d",
+        "tasks": 8,
+        "family_complete": false,
+        "covers": [
+          "C-02-AC3"
+        ],
+        "partial_coverage": [],
+        "gates": [
+          "deletion_residue_zero",
+          "post_delete_hit_zero",
+          "resurrection_zero",
+          "overdeletion_zero",
+          "deletion_report_zero",
+          "deletion_replay_completeness"
+        ],
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests",
+        "evidence": [
+          "eval/results/m5-b4d-deletion-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-b4d-deletion.json",
+        "sample_counts": {
+          "tasks": 8,
+          "drill_executions": 24,
+          "replay_day_evaluations": 56,
+          "probes": 19,
+          "note": "deterministic executions, not independent samples"
+        }
       }
-    ]
+    ],
+    "slice_suites": {
+      "B4": {
+        "suite": "eval/tasks/b4",
+        "family": "B4"
+      },
+      "B4D": {
+        "suite": "eval/tasks/b4d",
+        "family": "B4"
+      },
+      "B16": {
+        "suite": "eval/tasks/b16",
+        "family": "B16"
+      }
+    }
   },
   "partial_slice_families": [
     "B4",

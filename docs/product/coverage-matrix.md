@@ -11,7 +11,7 @@
 | Capability | Requirement area | Planned evaluation | Current evidence | M5 disposition |
 |---|---|---|---|---|
 | C-01 | Preferences and personal context | B13, B4, B7 | B10 tests synthetic memory consolidation only; the M5 B4 slice now tests metadata rejection and expiry on 12 synthetic tasks, but no preference-application or durable-memory product test exists | B4 metadata/expiry slice built; preference application (B13) and deletion still planned; Q18 open |
-| C-02 | Knowledge stores and people database | B4, B7 | B10 synthetic consolidation only; the M5 B4 slice rejects incomplete writes (8 cases) and excludes or labels expired facts across 12 synthetic tasks; no deletion, disclosure or real-store test | B4 metadata/expiry slice built; deletion (C-02-AC3), disclosure (B7) and field policy still needed; Q18 open |
+| C-02 | Knowledge stores and people database | B4, B7 | B10 synthetic consolidation only; the M5 B4 slices reject incomplete writes (8 cases), exclude or label expired facts across 12 synthetic tasks, and delete records plus their index, cache and summary copies across 8 deletion scenarios with a 3-drill / 7-day replay; no disclosure or real-store test | B4 metadata/expiry and deletion slices built; disclosure (B7) and field policy still needed; Q18 open |
 | C-03 | Voice-first, no chat box, multilingual, latency | B6, B19, G-UX | No voice/audio/model/server measurements | Mapping set; B6/B19 and UI audit needed; target language list Q19 and server budget Q20 block measurements |
 | C-04 | Speech and authorized-speaker verification | B11, B7 | No local audio, speaker verification, false-accept/reject, or deletion tests | Mapping set; B11/B7 needed; hardware/microphone conditions must be specified |
 | C-05 | Personal assistant for calls | B12, B7 | No call integration or call simulation evidence | Mapping set; B12/B7 needed; jurisdiction Q17, call modes Q22, and P-1 Q23 remain open |
@@ -128,7 +128,7 @@ These are blockers when the product roadmap says they are blockers; they are not
 - [x] Freeze the canonical B4–B7 family naming/crosswalk — published as [`family-crosswalk.md`](family-crosswalk.md); review requested, no historical record edited.
 - [x] Map every acceptance criterion to a task type, named audit or human review — [`ac-coverage.json`](ac-coverage.json) and §8.
 - [x] Write the per-family implementation backlog for B4–B7 and B11–B20 — [`family-backlog.md`](family-backlog.md), generated from `family-backlog.json`.
-- [x] Build the first family task sets and gates from the backlog — B4 (metadata/expiry) and B16 (limitation explanation) slices built and gated on synthetic fixtures; see §9. No family is marked `implemented`.
+- [x] Build the first family task sets and gates from the backlog — B4 (metadata/expiry, then deletion) and B16 (limitation explanation) slices built and gated on synthetic fixtures; see §9. No family is marked `implemented`.
 - [ ] Build the remaining planned families: B5, B6, B7, B11–B15, B17–B20.
 - [ ] Owner supplies first-year priority and success objective (Q13/Q14/A7).
 - [ ] Owner decides whether interaction data may be used (Q15).
@@ -142,7 +142,7 @@ These are blockers when the product roadmap says they are blockers; they are not
 
 ## 8. Criterion-level coverage (C-01…C-12 × acceptance criteria)
 
-All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts: `slice_built` 4, `planned_suite` 28, `named_audit` 9, `human_review` 3, `blocked_owner_input` 6. 47 of 50 have an objective protocol (an implemented slice, a behavioural suite or a named audit); 3 rely on human judgement and therefore have no automatable measurable test — C-08-AC1, C-09-AC2, C-10-AC3. 6 cannot produce a valid result until owner input arrives (Q17, Q19, Q20, Q24) or owner-held retrospective records exist (C-08-AC3); G-O1 stays blocked regardless. Four criteria now have a built slice (C-02-AC1, C-02-AC2, C-09-AC1, C-09-AC3), which means part of their metric runs in the harness — not that the capability is validated. No criterion is marked validated, and no status here is evidence of capability.
+All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts: `slice_built` 5, `planned_suite` 27, `named_audit` 9, `human_review` 3, `blocked_owner_input` 6. 47 of 50 have an objective protocol (an implemented slice, a behavioural suite or a named audit); 3 rely on human judgement and therefore have no automatable measurable test — C-08-AC1, C-09-AC2, C-10-AC3. 6 cannot produce a valid result until owner input arrives (Q17, Q19, Q20, Q24) or owner-held retrospective records exist (C-08-AC3); G-O1 stays blocked regardless. Five criteria now have a built slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3), which means part of their metric runs in the harness — not that the capability is validated. No criterion is marked validated, and no status here is evidence of capability.
 
 | Status | Meaning |
 |---|---|
@@ -163,7 +163,7 @@ All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts
 | **C-02 — Persistent memory and knowledge stores** | | | | |
 | C-02-AC1 | B4 | family | slice_built | — |
 | C-02-AC2 | B4 | family | slice_built | — |
-| C-02-AC3 | B4 | family | planned_suite | — |
+| C-02-AC3 | B4 | family | slice_built | — |
 | C-02-AC4 | B7 | family | planned_suite | — |
 | **C-03 — Voice-first interaction and multilingual coverage** | | | | |
 | C-03-AC1 | G-UX | audit | named_audit | — |
@@ -224,26 +224,29 @@ All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts
 ### 8.2 What this mapping shows
 
 - Every capability has at least one planned suite or audit; no capability is unmapped.
-- Four criteria now have a built slice: C-02-AC1 and C-02-AC2 (B4), and C-09-AC1 and C-09-AC3 (B16). Each slice covers part of its metric;
+- Five criteria now have a built slice: C-02-AC1, C-02-AC2 and C-02-AC3 (B4, two slices), and C-09-AC1 and C-09-AC3 (B16). Each slice covers part of its metric;
   none of them covers a real system.
 - Five criteria ride on B7 (adversarial), and four of those are zero-tolerance: injection, approval bypass, disclosure and scope escalation.
   B7, B12, B14 and B17 each carry five criteria, so they are the highest-leverage families still to build.
 - Six criteria are blocked on owner input, and three on human judgement; these are the honest gaps, not scheduling choices.
 - Eight capabilities (C-01, C-02, C-04, C-06, C-07, C-09, C-10, C-12) have no criterion blocked by owner input, so their suites can be built and pre-registered now.
 
-**Current conclusion:** the coverage mapping is complete at criterion level and the B4–B7 naming conflict is resolved by crosswalk. M5 is still not complete: no family task set, gate, fixture or measurement exists, and the owner inputs above are outstanding. G-O1 remains blocked; no model recommendation is justified by this document.
+**Current conclusion:** the coverage mapping is complete at criterion level and the B4–B7 naming conflict is resolved by crosswalk. M5 is still not complete: twelve of the fourteen families have no task set, and the owner inputs above are outstanding. G-O1 remains blocked; no model recommendation is justified by this document.
 
-## 9. Implemented evaluator slices (B4, B16)
+## 9. Implemented evaluator slices (B4, B4D, B16)
 
-Two small suites exist as code. They are evaluator work, not product features, and nothing below changes a capability status.
+Three small suites exist as code, in two families. They are evaluator work, not product features, and nothing below changes a capability status.
 
 | Slice | Suite | Tasks | Live gates | Planted regressions | Covers | Does not cover |
 |---|---|---:|---|---|---|---|
 | M5-B4-slice-1 | `eval/tasks/b4` | 12 | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` | C-02-AC1, C-02-AC2; C-01-AC2 partial | deletion (C-02-AC3), supersession, Q18 field policy, any real store |
+| M5-B4-slice-2 | `eval/tasks/b4d` | 8 | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay` | C-02-AC3 (3 deletion drills and a 7-day replay over 8 scenarios) | Q18 field policy, retention/backup, any real store |
 | M5-B16-slice-1 | `eval/tasks/b16` | 12 | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` | `suppress_explanation`, `misattribute_cause` | C-09-AC1 (12 of 90 scenarios), C-09-AC3; C-09-AC2 structural only | taxonomy validity against real failures, expert action review, explanation quality |
 
-**What a passing slice shows.** The evaluator can separate correct behaviour from a specific, named way of getting it wrong: accepting an incomplete memory record, serving an expired fact as current, dropping a stale label, returning a blocked or partial outcome without a cause, or blaming a cause that is not limiting. Each is a planted regression caught by its own gate, not by an unrelated success drop.
+**What a passing slice shows.** The evaluator can separate correct behaviour from a specific, named way of getting it wrong: accepting an incomplete memory record, serving an expired fact as current, dropping a stale label, deleting the primary record but leaving derived copies, leaving the answer cache serving a deleted record, resurrecting a deleted record from a stale snapshot during replay, returning a blocked or partial outcome without a cause, or blaming a cause that is not limiting. Each is a planted regression caught by its own gate, not by an unrelated success drop.
 
-**What a passing slice does not show.** That J.A.R.V.I.S. has memory, has a limitation-explanation capability, or would behave well on real records or real failures. The solver is a deterministic hand-written program, the fixtures are invented, the thresholds are applied to a 12-task suite (so the published >=95% bound is only satisfiable at 12/12), and no model, server, personal record or network call is involved. G-O1 stays blocked and Q13–Q24 stay open.
+**Sample counts for the deletion slice, stated plainly.** 8 synthetic scenarios × 3 deletion drills = 24 drill executions; 8 × 7 replay days = 56 day evaluations; 19 post-delete probes; 10 deleted records; 43 derived-surface entries. These are deterministic re-executions on a fixed schedule, not independent samples: they bound nothing statistically and no confidence interval may be computed from them. What they do establish is that each named failure is detectable, and that the 3-drill / 7-day schedule is actually executed and reported rather than asserted.
 
-**Provenance.** Pre-registration, task counts, scoring rules, thresholds and mutation→gate mapping are stored inside each `eval/tasks/*/tasks.json`; the fixture loader refuses a slice that omits them or whose gold labels contradict its own scenario. Evidence: [`../results/m5-slices-report.json`](../../eval/results/m5-slices-report.json) and the `*-B4-*.jsonl` / `*-B16-*.jsonl` ledgers.
+**What a passing slice does not show.** That J.A.R.V.I.S. has memory, has a limitation-explanation capability, deletes anything for a real person, or would behave well on real records or real failures. The solver is a deterministic hand-written program, the fixtures are invented, the thresholds are applied to 8- and 12-task suites (so a published >=95% bound is only satisfiable at 12/12), and no model, server, personal record, backup or network call is involved. The deletion slice has no retention policy, no backup/restore path and no legal-hold case, so compliance with any real deletion obligation is untested. G-O1 stays blocked and Q13–Q24 stay open.
+
+**Provenance.** Pre-registration, task counts, scoring rules, thresholds, sample counts and mutation→gate mapping are stored inside each `eval/tasks/*/tasks.json`; the fixture loader refuses a slice that omits them or whose gold labels contradict its own scenario. Evidence: [`../results/m5-slices-report.json`](../../eval/results/m5-slices-report.json) and the `*-B4-*.jsonl` / `*-B16-*.jsonl` ledgers for the first two slices; [`../results/m5-b4d-deletion-report.json`](../../eval/results/m5-b4d-deletion-report.json) and the `*-B4D-*.jsonl` ledgers for the deletion slice. Baselines: `eval/baselines/baseline-m5-slices.json` and `eval/baselines/baseline-m5-b4d-deletion.json`.

@@ -13,6 +13,7 @@ the gate that protects the invariant it breaks:
 | **B9** | skill reuse (applying a stored, under-specified skill) | 6 | 1 |
 | **B10** | memory evolution (trust, supersession, expiry) | 6 | 1 |
 | **B4** | memory metadata and expiry: required fields, rejection, stale exclusion/labelling | 12 | M5 slice |
+| **B4D** | deletion drills: record and derived copies removed, no post-delete hit, no resurrection over a 7-day replay | 8 | M5 slice |
 | **B16** | limitation explanation: nine cause classes, no silent failure, safe next step | 12 | M5 slice |
 
 ## Where this sits (revision R1, 2026-11-01)
@@ -53,29 +54,44 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
   than stronger behaviour, and the `family_regression` gate fails when one family collapses while the
   aggregate improves.
 
-## M5 slices (B4, B16)
+## M5 slices (B4, B4D, B16)
 
-Two product families now have a first, deliberately small evaluator suite. They are **slices**, not the
-families and not product features: `B4` (memory metadata and expiry) and `B16` (limitation explanation),
-12 synthetic tasks each, pre-registered inside their own `tasks.json`.
+Two product families now have deliberately small evaluator suites: three **slices**, not the families and
+not product features. `B4` (memory metadata and expiry), `B4D` (deletion drills, the second B4 slice) and
+`B16` (limitation explanation), 12 / 8 / 12 synthetic tasks, each pre-registered inside its own `tasks.json`.
 
 | Slice | Gates that must pass | Planted regressions (each caught by its own gate) |
 |---|---|---|
 | B4 `eval/tasks/b4` | `metadata_completeness_zero`, `stale_assertion_zero`, `stale_label_zero`, `stale_handling_threshold` (>=0.95, C-02-AC2) | `accept_incomplete_record`, `serve_expired_fact`, `drop_stale_label` |
+| B4D `eval/tasks/b4d` | `deletion_residue_zero`, `post_delete_hit_zero`, `resurrection_zero`, `overdeletion_zero`, `deletion_report_zero`, `deletion_replay_completeness` (1.0, C-02-AC3) | `delete_primary_only`, `keep_derived_copy`, `resurrect_on_replay` |
 | B16 `eval/tasks/b16` | `silent_failure_zero`, `cause_attribution_zero`, `unsafe_advice_zero`, `cause_accuracy_threshold` (>=0.95, C-09-AC1) | `suppress_explanation`, `misattribute_cause` |
+
+The deletion slice reports its schedule instead of implying a rate: 8 scenarios, 3 deletion drills each
+(24 executions), 7 replay days each (56 day evaluations), 19 post-delete probes, 10 deleted records and 43
+derived-surface entries. Those are deterministic re-executions, not independent samples, and no confidence
+interval follows from them. Residue and post-delete hits are measured on the store *after* the deletion
+cycle; resurrections are measured only on what returns during the replay, so a copy that was never removed
+cannot be counted as a resurrection.
 
 Three properties are worth knowing before quoting a number:
 
 - **The bound is not rounded down.** With 12 tasks, a >=95% bound is only satisfiable at 12/12. The gate applies
   the published number, so a single failure fails the slice; a larger suite is what would make 95% meaningful.
+  The deletion slice has no rate at all: every gate is zero-tolerance, and replay completeness must be 1.0
+  because C-02-AC3 fixes the schedule at 3 drills and 7 days.
 - **The fixtures police themselves.** The loader refuses a B4 record that invents a metadata field, a fixture
-  that accepts an incomplete record, an expired record with no declared stale handling, and a B16 task whose
-  gold cause contradicts its own conditions or whose "valid" next step would violate permissions.
+  that accepts an incomplete record, an expired record with no declared stale handling, a B4D scenario with a
+  missing or unknown surface, a deleted record with no derived or snapshot copy, a probe that matches nothing
+  or two records, a schedule other than 3 drills / 7 days, a surviving-record list that contradicts the
+  deletion, and a B16 task whose gold cause contradicts its own conditions or whose "valid" next step would
+  violate permissions.
 - **A slice is not a capability.** The solver is a deterministic hand-written program, the fixtures are
   invented, and no model, server, personal record or network call is involved.
 
 Evidence: `results/m5-slices-report.json` plus the `*-B4-*.jsonl` and `*-B16-*.jsonl` ledgers;
-`baselines/baseline-m5-slices.json` freezes the clean B4/B16 summaries.
+`baselines/baseline-m5-slices.json` freezes the clean B4/B16 summaries. The deletion slice has its own
+evidence — `results/m5-b4d-deletion-report.json` and the `*-B4D-*.jsonl` ledgers — and its own baseline,
+`baselines/baseline-m5-b4d-deletion.json`, so the earlier two slices' evidence is untouched.
 
 ## What this harness does **not** measure
 
@@ -86,7 +102,8 @@ Evidence: `results/m5-slices-report.json` plus the `*-B4-*.jsonl` and `*-B16-*.j
   demonstrated headroom above the reference program.
 - It does not evaluate the unfinished families B5–B7, B11–B15 or B17–B20 (multimodal, voice, adversarial,
   speaker verification, telephony, preferences, self-evolution, invention, canon parity, smart home,
-  connectors), long-horizon tasks, or real user data. B4 and B16 exist only as the slices described above.
+  connectors), long-horizon tasks, or real user data. B4, B4D and B16 exist only as the slices described
+  above; the deletion slice has no retention policy, no backup/restore and no legal-hold case.
   Every fixture is synthetic and the loader refuses anything else.
 - It does not call any model, network service or real calendar/mail/filesystem. There is no
   network-capable import anywhere under `eval/harness` and a self-check enforces that.
@@ -116,9 +133,9 @@ eval/
                      idempotency, fault injection and credential redaction
     solvers/
       base.py        Solver protocol, ToolContext, single idempotent retry
-      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10, B4, B16)
+      stub.py        reference / naive / no-verify profiles (B1-B3, B8-B10, B4, B4D, B16)
       ladder.py      the X-13 rungs, including the gold-reading oracle probe
-      mutations.py   the fourteen planted regressions used by X-10
+      mutations.py   the seventeen planted regressions used by X-10
     scorers.py       per-family scoring; pure functions of fixture + result + world
     runner.py        task x repeat execution, budgets, record hashing, per-subfamily summary
     ledger.py        JSONL result ledger, index, frozen baseline
@@ -126,7 +143,8 @@ eval/
     gates.py         zero-tolerance invariants, regression thresholds, family_regression
     selftest.py      17 self-checks of the harness itself
     cli.py           command line entry point
-  tasks/             synthetic fixtures: b1/{corpus,tasks}.json, b2/, b3/, b4/, b8/, b9/, b10/, b16/
+  tasks/             synthetic fixtures: b1/{corpus,tasks}.json, b2/, b3/, b4/, b4d/, b8/, b9/,
+                     b10/, b16/
   registry/          capabilities.json (evaluator-owned) + README
   baselines/         baseline-a-stub.json (Stage 0), baseline-b-stage1.json (six families),
                      baseline-m5-slices.json (B4/B16)

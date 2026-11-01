@@ -1,5 +1,5 @@
 {
-  "coverage_version": "1.1.0",
+  "coverage_version": "1.2.0",
   "published": "2026-11-01",
   "basis": {
     "spec": "1.1.0",
@@ -7,7 +7,7 @@
     "backlog": "family-backlog.json",
     "crosswalk": "family-crosswalk.md"
   },
-  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing is executed and nothing here is evidence of product capability; no criterion is marked validated.",
+  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing here is evidence of product capability and no criterion is marked validated. Five criteria now have a built evaluator slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3); a built slice is small, synthetic and deterministic.",
   "status_vocabulary": {
     "planned_suite": "an evaluation family or task type is named; no task set exists yet",
     "named_audit": "measurement is an audit, inventory review or egress probe rather than a task outcome",
@@ -109,10 +109,23 @@
       "task_types": [
         "deletion propagation"
       ],
-      "status": "planned_suite",
+      "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Three deletion drills plus replay."
+      "note": "B4 deletion drills. M5 built the deletion slice (M5-B4-slice-2); see docs/product/coverage-matrix.md section 9.",
+      "slice": {
+        "suite": "eval/tasks/b4d",
+        "tasks": 8,
+        "covers": "delete one or more records from index, cache and summary; post-delete probes; three deletion drills and a seven-day replay with zero resurrections",
+        "sample_counts": {
+          "tasks": 8,
+          "drill_executions": 24,
+          "replay_day_evaluations": 56,
+          "probes": 19,
+          "note": "deterministic executions, not independent samples"
+        },
+        "not_covered": "people-database field policy (Q18), retention/backup policy, a real store or real data"
+      }
     },
     {
       "ac": "C-02-AC4",
@@ -764,11 +777,11 @@
     "criteria_total": 50,
     "capabilities_total": 12,
     "by_status": {
-      "planned_suite": 28,
+      "planned_suite": 27,
       "named_audit": 9,
       "human_review": 3,
       "blocked_owner_input": 6,
-      "slice_built": 4
+      "slice_built": 5
     },
     "with_objective_protocol": 47,
     "human_review_only": [
@@ -927,6 +940,7 @@
     "slice_built": [
       "C-02-AC1",
       "C-02-AC2",
+      "C-02-AC3",
       "C-09-AC1",
       "C-09-AC3"
     ]

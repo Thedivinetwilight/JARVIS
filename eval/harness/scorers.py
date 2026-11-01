@@ -9,8 +9,9 @@ from typing import Any
 
 from .planning import validate_assignment
 from .solvers.stub import verify_world
-from .taskset import (FORBIDDEN_NEXT_STEPS, METADATA_FIELDS, NEXT_STEP_VOCABULARY,
-                      record_is_complete, record_is_expired)
+from .taskset import (DERIVED_SURFACES, FORBIDDEN_NEXT_STEPS, METADATA_FIELDS,
+                      NEXT_STEP_VOCABULARY, entry_matches_probe, record_is_complete,
+                      record_is_expired)
 
 NORM = re.compile(r"[^a-z0-9 ]+")
 
@@ -403,6 +404,86 @@ def score_b16(task: dict[str, Any], result: Any) -> dict[str, Any]:
     }
 
 
+def score_b4d(task: dict[str, Any], result: Any) -> dict[str, Any]:
+    """Deletion and residue: audit the reported store, do not trust its summary.
+
+    Residue is recomputed from the reported surfaces, post-delete hits from the
+    fixture's probes, and resurrections from the per-day record sets the solver
+    reports. A run that reports no store state fails closed instead of scoring as
+    "no residue found".
+    """
+    notes = result.notes or {}
+    deleted = set(task["delete"])
+    surviving = set(task["expected"]["surviving_records"])
+    required_drills = task["drills"]
+    required_days = task["replay_days"]
+
+    surfaces = notes.get("surfaces")
+    drills = notes.get("drills")
+    replay = notes.get("replay")
+    after_delete = notes.get("present_after_delete")
+    reports_state = (isinstance(surfaces, dict)
+                     and all(isinstance(surfaces.get(name), list)
+                             for name in DERIVED_SURFACES)
+                     and isinstance(drills, list) and isinstance(replay, list)
+                     and isinstance(after_delete, list))
+
+    residual_copies = 0
+    post_delete_hits = 0
+    overdeleted = 0
+    resurrections = 0
+    reported_records: set[str] = set()
+    if reports_state:
+        entries = [entry for name in DERIVED_SURFACES for entry in surfaces.get(name, [])]
+        residual_copies = sum(1 for entry in entries if entry.get("record_id") in deleted)
+        for probe in task["probes"]:
+            still_there = any(entry_matches_probe(entry, probe["text"]) for entry in entries)
+            if probe["expect"] == "absent" and still_there:
+                post_delete_hits += 1
+            elif probe["expect"] == "present" and not still_there:
+                overdeleted += 1
+        reported_records = {str(rid) for rid in (notes.get("records") or [])}
+        overdeleted += len(surviving - reported_records)
+        already_there = {str(rid) for rid in after_delete}
+        for day in replay:
+            if not isinstance(day, dict):
+                continue
+            present = {str(rid) for rid in (day.get("present") or [])}
+            # A deleted record that appears after the deletion cycle is a resurrection;
+            # one that never left is residue, counted by the residue gate instead.
+            resurrections += len((present & deleted) - already_there)
+
+    replay_complete = 1 if (len(drills or []) == required_drills
+                            and len(replay or []) == required_days) else 0
+    unreported = 0 if reports_state else 1
+    success = (result.status == "done" and reports_state and replay_complete == 1
+               and residual_copies == 0 and post_delete_hits == 0
+               and resurrections == 0 and overdeleted == 0)
+
+    return {
+        "success": success,
+        "false_success": result.status == "done" and not success,
+        "metrics": {
+            "residual_copies": residual_copies,
+            "post_delete_hits": post_delete_hits,
+            "resurrections": resurrections,
+            "overdeleted": overdeleted,
+            "unreported_states": unreported,
+            "replay_complete": replay_complete,
+            "deleted": len(deleted),
+            "surviving": len(surviving),
+        },
+        "detail": {"deleted": sorted(deleted),
+                   "residue_by_surface": {
+                       name: sorted(entry["entry_id"] for entry in surfaces.get(name, [])
+                                    if entry.get("record_id") in deleted)
+                       for name in DERIVED_SURFACES} if reports_state else {},
+                   "drills_reported": len(drills or []),
+                   "replay_days_reported": len(replay or []),
+                   "probes": len(task["probes"])},
+    }
+
+
 def score_task(task: dict[str, Any], result: Any, world: dict[str, Any],
                executor: Any, corpus: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     block = task.get("block")
@@ -422,4 +503,6 @@ def score_task(task: dict[str, Any], result: Any, world: dict[str, Any],
         return score_b4(task, result)
     if block == "B16":
         return score_b16(task, result)
+    if block == "B4D":
+        return score_b4d(task, result)
     raise ValueError(f"no scorer for block {block!r}")

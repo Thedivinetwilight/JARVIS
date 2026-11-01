@@ -24,7 +24,7 @@ from .solvers.ladder import LADDER_ORDER
 from .solvers.mutations import MUTATIONS, blocks as mutation_blocks
 from .taskset import load_tasksets
 
-BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16")
+BLOCKS = ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16")
 LADDER = LADDER_ORDER
 
 MUTATION_BLOCKS = mutation_blocks()
@@ -146,14 +146,20 @@ def cmd_x10(args: argparse.Namespace) -> int:
     baseline_path = Path(args.baseline)
     baseline = load_baseline(baseline_path) if baseline_path.is_file() else None
 
-    needed = sorted(set(MUTATION_BLOCKS.values()))
+    scope = tuple(args.block) if args.block else None
+    if scope:
+        unknown = sorted(set(scope) - {MUTATION_BLOCKS[name] for name in MUTATIONS})
+        if unknown:
+            return _fail(f"X-10: no planted regression belongs to {unknown}")
+    names = [name for name in MUTATIONS if not scope or MUTATION_BLOCKS[name] in scope]
+    needed = sorted({MUTATION_BLOCKS[name] for name in names})
     clean = {block: run_block(sets[block], solver_name="stub", git_sha=sha,
                               git_dirty=dirty, git_untracked=untracked,
                               repeats=DEFAULT_REPEATS.get(block, 1))
              for block in needed}
     rows = []
     undetected = []
-    for name in MUTATIONS:
+    for name in names:
         block = MUTATION_BLOCKS[name]
         mutant = run_block(sets[block], solver_name="stub", mutations=(name,),
                            git_sha=sha, git_dirty=dirty, git_untracked=untracked,
@@ -187,13 +193,18 @@ def cmd_x10(args: argparse.Namespace) -> int:
               f"{row['gates_failed']}")
     if args.report:
         Path(args.report).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.report).write_text(json.dumps({"rows": rows}, indent=2) + "\n",
+        Path(args.report).write_text(json.dumps({"scope": list(scope) if scope else "all",
+                                                  "rows": rows}, indent=2) + "\n",
                                      encoding="utf-8")
         print(f"wrote {args.report}")
     if undetected:
         return _fail("X-10 FAILED: regressions not caught by their expected gate: "
                      f"{undetected}")
-    print("X-10 PASSED: every planted regression was caught by its expected gate")
+    if scope:
+        print(f"X-10 PASSED for {', '.join(scope)}: every planted regression in scope was "
+              "caught by its expected gate")
+    else:
+        print("X-10 PASSED: every planted regression was caught by its expected gate")
     return 0
 
 
@@ -365,6 +376,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_scorecard)
 
     p = sub.add_parser("x10", help="planted-regression test (must detect all regressions)")
+    p.add_argument("--block", action="append",
+                   help="limit to a family's regressions (repeatable); the default runs all")
     p.add_argument("--results", default="eval/results")
     p.add_argument("--baseline", default="eval/baselines/baseline-a-stub.json")
     p.add_argument("--report", default="eval/results/x10-report.json")

@@ -1,10 +1,10 @@
 {
-  "registry_version": "1.1.0",
+  "registry_version": "1.2.0",
   "stage": "Stage 1 (revision R1)",
   "synthetic": true,
   "data_class": "synthetic",
   "evaluator_owned": true,
-  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1 / M5 slices). M5 adds the memory-metadata and limitation-explanation simulators used by B4 and B16.",
+  "note": "Capability registry for the evaluation harness. Evaluator-owned: the system under test never writes this file, and a change to it changes the run identity. Cost profiles are synthetic (no model calls in Stage 1 / M5 slices). M5 slice 2 adds the deletion and derived-surface rebuild simulators used by B4D.",
   "capabilities": [
     {
       "capability_id": "calendar.create_event",
@@ -623,6 +623,84 @@
       "owner": "project-owner (unassigned at M5)",
       "families": [
         "B16"
+      ]
+    },
+    {
+      "capability_id": "memory.delete_record",
+      "kind": "tool",
+      "purpose": "Delete a memory record and report which derived copies were removed.",
+      "contract": {
+        "preconditions": [
+          "store holds the record",
+          "deletion request names the record id"
+        ],
+        "postconditions": [
+          "the record is absent from the primary store",
+          "the deletion is reported per surface"
+        ],
+        "args_schema": {
+          "record_id": "str"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.1,
+        "p95_ms": 1.0,
+        "synthetic": true
+      },
+      "idempotency": "natural",
+      "failure_modes": [
+        "primary_only_delete",
+        "residue_unreported",
+        "wrong_record_deleted"
+      ],
+      "tests": [
+        "eval/tests/test_b4d_slice.py::B4DScoringTests::test_primary_only_delete_leaves_residue",
+        "eval/tests/test_b4d_slice.py::B4DScoringTests::test_deletion_residue_gate_fails_closed"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B4D"
+      ]
+    },
+    {
+      "capability_id": "memory.rebuild_derived",
+      "kind": "skill",
+      "purpose": "Rebuild indexes, caches and summaries from live records during replay, never from a stale snapshot.",
+      "contract": {
+        "preconditions": [
+          "a snapshot or live record set is available"
+        ],
+        "postconditions": [
+          "derived surfaces contain no deleted record",
+          "replay over the retention window re-derives nothing deleted"
+        ],
+        "args_schema": {
+          "days": "int",
+          "snapshot": "records"
+        }
+      },
+      "cost_profile": {
+        "usd_per_call": 0.0,
+        "p50_ms": 0.2,
+        "p95_ms": 2.0,
+        "synthetic": true
+      },
+      "idempotency": "natural",
+      "failure_modes": [
+        "resurrection_from_snapshot",
+        "stale_summary_reappears",
+        "replay_not_executed"
+      ],
+      "tests": [
+        "eval/tests/test_b4d_slice.py::B4DScoringTests::test_resurrect_on_replay_is_caught",
+        "eval/tests/test_b4d_slice.py::B4DGatesTests::test_replay_completeness_gate_requires_all_days"
+      ],
+      "evidence": "docs/product/capability-specification.md",
+      "owner": "project-owner (unassigned at M5)",
+      "families": [
+        "B4D"
       ]
     }
   ]

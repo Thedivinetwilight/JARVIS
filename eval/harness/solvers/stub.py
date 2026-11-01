@@ -23,8 +23,9 @@ import re
 from typing import Any
 
 from ..planning import validate_assignment
-from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, METADATA_FIELDS,
-                      NEXT_STEP_VOCABULARY, record_is_complete, record_is_expired)
+from ..taskset import (CAUSE_CONDITIONS, CONDITION_BASELINE, DERIVED_SURFACES,
+                      METADATA_FIELDS, NEXT_STEP_VOCABULARY, record_is_complete,
+                      record_is_expired)
 from ..tools import (BudgetExceeded, PolicyError, ToolError, ToolTimeout,
                      ValidationError)
 from .base import SolveResult, ToolContext, call_with_retry
@@ -91,7 +92,7 @@ class StubSolver:
         handler = {
             "B1": self._solve_b1, "B2": self._solve_b2, "B3": self._solve_b3,
             "B8": self._solve_b8, "B9": self._solve_b9, "B10": self._solve_b10,
-            "B4": self._solve_b4, "B16": self._solve_b16,
+            "B4": self._solve_b4, "B16": self._solve_b16, "B4D": self._solve_b4d,
         }.get(block)
         if handler is None:
             return SolveResult(status="failed", message=f"unsupported block {block!r}")
@@ -461,6 +462,74 @@ class StubSolver:
                  "accepted_count": len(stored), "rejected_count": len(rejected)}
         return SolveResult(status="done" if stored else "partial", message=message,
                            notes=notes, steps=1)
+
+    # -- B4D: deletion drills and residue ---------------------------------
+    def _solve_b4d(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:
+        """Delete a record and every derived copy, then survive a 7-day replay.
+
+        The store keeps one primary record set plus three derived surfaces. The
+        reference program removes the record and every surface entry that names
+        it, and rebuilds from live records only. The naive profile deletes the
+        primary record and nothing else, which is the classic cache-invalidation
+        bug; the mutations isolate each failure separately.
+        """
+        deleted = set(task["delete"])
+        records = {record["record_id"]: record for record in task["records"]}
+        surfaces = {name: [dict(entry) for entry in entries]
+                    for name, entries in task["surfaces"].items()}
+
+        naive = self.profile == "naive"
+        primary_only = naive or ctx.mutated("delete_primary_only")
+        keep_cache = ctx.mutated("keep_derived_copy")
+        if not primary_only:
+            for name in list(surfaces):
+                if keep_cache and name == "cache":
+                    continue
+                surfaces[name] = [entry for entry in surfaces[name]
+                                  if entry["record_id"] not in deleted]
+        for rid in deleted:
+            records.pop(rid, None)
+
+        def present_ids() -> list[str]:
+            ids = set(records)
+            for entries in surfaces.values():
+                for entry in entries:
+                    if entry["record_id"] in deleted:
+                        ids.add(entry["record_id"])
+            return sorted(ids)
+
+        def residue() -> int:
+            return sum(1 for entries in surfaces.values() for entry in entries
+                       if entry["record_id"] in deleted)
+
+        drills = [{"drill": index, "residue": residue()}
+                  for index in range(1, task["drills"] + 1)]
+
+        # The store as it stands one deletion cycle later: this is what the residue
+        # and post-delete-retrieval gates audit. Resurrections are a *replay* metric,
+        # so a copy that was never removed is residue, not a resurrection.
+        surfaces_after_delete = {name: [dict(entry) for entry in entries]
+                                 for name, entries in surfaces.items()}
+        present_after_delete = present_ids()
+
+        replay = []
+        for day in range(1, task["replay_days"] + 1):
+            if naive or ctx.mutated("resurrect_on_replay"):
+                # Consolidation rebuilds the derived surfaces from the stale snapshot,
+                # which still contains the deleted record's copies.
+                surfaces = {name: [dict(entry) for entry in entries]
+                            for name, entries in task["snapshot"].items()}
+            replay.append({"day": day, "present": present_ids()})
+
+        return SolveResult(
+            status="done",
+            message=("deleted " + ", ".join(sorted(deleted))
+                     + " from the store and " + ", ".join(DERIVED_SURFACES)),
+            notes={"records": sorted(records), "surfaces": surfaces_after_delete,
+                   "surfaces_after_replay": surfaces, "present_after_delete":
+                   present_after_delete, "drills": drills, "replay": replay,
+                   "deleted": sorted(deleted), "residue": residue()},
+            steps=1)
 
     # -- B16: limitation explanation --------------------------------------
     def _solve_b16(self, task: dict[str, Any], ctx: ToolContext) -> SolveResult:

@@ -19,7 +19,7 @@ DEFAULT_SEED = 1729
 
 # Repeats per block. Phase 8 defines pass^k for B2 (dual-control tool use).
 DEFAULT_REPEATS = {"B1": 1, "B2": 4, "B3": 1, "B8": 1, "B9": 1, "B10": 1,
-                   "B4": 1, "B16": 1}
+                   "B4": 1, "B4D": 1, "B16": 1}
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,9 @@ class Thresholds:
     #: correct cause classification. Both are published bounds, not tuning knobs.
     min_stale_handling: float = 0.95
     min_cause_accuracy: float = 0.95
+    #: C-02-AC3 fixes the deletion schedule at 3 drills and a 7-day replay, so a run
+    #: that executes fewer cannot be called complete at any threshold below 1.0.
+    min_replay_completeness: float = 1.0
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

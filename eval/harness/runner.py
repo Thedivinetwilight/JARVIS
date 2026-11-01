@@ -166,6 +166,14 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
         "spurious_causes": int(total_of("spurious_causes")),
         "cause_required": int(total_of("cause_required")),
         "cause_correct": int(total_of("cause_correct")),
+        # M5 slice 2: deletion drills and residue (B4D).
+        "residual_copies": int(total_of("residual_copies")),
+        "post_delete_hits": int(total_of("post_delete_hits")),
+        "resurrections": int(total_of("resurrections")),
+        "overdeleted": int(total_of("overdeleted")),
+        "unreported_states": int(total_of("unreported_states")),
+        "replay_complete": int(total_of("replay_complete")),
+        "replay_tasks": sum(1 for r in records if r.metrics.get("replay_complete") is not None),
         "citations": int(total_of("citations")),
         "supported_citations": int(total_of("supported_citations")),
         "mean_citation_precision": (sum(precisions) / len(precisions)) if precisions else None,
@@ -178,6 +186,12 @@ def summarize(records: list[ResultRecord]) -> dict[str, Any]:
                                 if stale_required else None),
         "cause_accuracy": (total_of("cause_correct") / cause_required
                            if cause_required else None),
+        "replay_completeness": (sum(1 for r in records
+                                    if r.metrics.get("replay_complete") == 1)
+                                / sum(1 for r in records
+                                      if r.metrics.get("replay_complete") is not None)
+                                if any(r.metrics.get("replay_complete") is not None
+                                       for r in records) else None),
         "by_subfamily": by_subfamily,
         "total_cost_usd": round(sum(r.cost_usd for r in records), 6),
         "cost_is_synthetic": all(r.cost_is_synthetic for r in records),
@@ -238,7 +252,7 @@ def run_block(taskset: TaskSet, *, solver_name: str = "stub",
     repeats = repeats if repeats is not None else config.repeats.get(taskset.block, 1)
     if repeats < 1:
         raise RunnerError("repeats must be >= 1")
-    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"}:
+    if taskset.block not in {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"}:
         raise RunnerError(f"unsupported block {taskset.block!r}")
 
     try:

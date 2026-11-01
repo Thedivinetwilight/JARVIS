@@ -42,7 +42,7 @@ def _builtin_sets():
 class RegistryTests(unittest.TestCase):
     def test_registry_is_valid_and_covers_the_fixtures(self):
         registry = load_registry()
-        self.assertEqual(registry.version, "1.1.0")
+        self.assertEqual(registry.version, "1.2.0")
         self.assertEqual(validate_registry(registry, list(_builtin_sets().values())), [])
 
     def test_registry_requires_synthetic_and_evaluator_owned(self):

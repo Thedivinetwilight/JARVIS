@@ -233,8 +233,11 @@ class FamilyRealityTests(unittest.TestCase):
         built = set(load_tasksets(REPO / "eval" / "tasks"))
         slices = set(spec["partial_slice_families"])
         existing = set(spec["existing_families"])
-        self.assertEqual(existing | slices, built,
+        declared = existing | set(spec["evaluation_backlog"]["slice_suites"])
+        self.assertEqual(declared, built,
                          "a task set exists that the index calls neither existing nor a slice")
+        self.assertEqual({entry["family"] for entry in
+                          spec["evaluation_backlog"]["slice_suites"].values()}, slices)
         self.assertFalse(existing & slices)
         self.assertFalse(slices & set(spec["existing_families"]))
         for fid in slices:
@@ -482,9 +485,19 @@ class EvaluationBacklogTests(unittest.TestCase):
     def test_backlog_covers_every_planned_family_and_claims_nothing_finished(self):
         self.assertEqual(set(self.families), set(self.spec["planned_families"]))
         built = set(load_tasksets(REPO / "eval" / "tasks"))
-        sliced = {fid for fid, family in self.families.items() if family.get("implemented_slice")}
+        sliced = {fid for fid, family in self.families.items()
+                  if family.get("implemented_slice") or family.get("implemented_slice_2")}
         self.assertEqual(sliced, set(self.spec.get("partial_slice_families", [])))
-        self.assertEqual(sliced, set(built) - set(self.spec["existing_families"]))
+        # A block on disk must be either an existing family or a declared slice suite;
+        # a family with two slices declares two suite blocks.
+        declared = set(self.spec["existing_families"])
+        declared |= set(self.spec["evaluation_backlog"]["slice_suites"])
+        self.assertEqual(set(built), declared)
+        self.assertEqual(len(self.spec["evaluation_backlog"]["slice_suites"]),
+                         self.spec["evaluation_backlog"]["families"]["slices_total"])
+        self.assertEqual({entry["family"] for entry in
+                          self.spec["evaluation_backlog"]["slice_suites"].values()},
+                         set(self.spec["partial_slice_families"]))
         for fid, family in self.families.items():
             with self.subTest(family=fid):
                 self.assertEqual(family["status"], "planned",
@@ -548,7 +561,8 @@ class EvaluationBacklogTests(unittest.TestCase):
         """A gate may only be described as live if it exists, and only as planned if it does not."""
         gates_source = (REPO / "eval" / "harness" / "gates.py").read_text(encoding="utf-8")
         live = {gate for family in self.families.values()
-                for gate in family.get("implemented_slice", {}).get("gates", [])}
+                for key in ("implemented_slice", "implemented_slice_2")
+                for gate in family.get(key, {}).get("gates", [])}
         planned = {gate for family in self.families.values()
                    for gate in family["scoring"]["gates"]}
         self.assertTrue(live, "no slice gate is declared")
@@ -578,14 +592,17 @@ class EvaluationBacklogTests(unittest.TestCase):
     def test_slices_are_backed_by_real_files_and_gates(self):
         summary = self.spec["evaluation_backlog"]
         slices = summary["slices"]
-        self.assertEqual(len(slices), summary["families"]["with_partial_slice"])
+        self.assertEqual(len(slices), summary["families"]["slices_total"])
         self.assertEqual({item["family"] for item in slices},
                          set(self.spec["partial_slice_families"]))
+        self.assertEqual({item.get("suite_block", item["family"]) for item in slices},
+                         set(summary["slice_suites"]))
         built = load_tasksets(REPO / "eval" / "tasks")
         for item in slices:
-            with self.subTest(slice=item["family"]):
-                self.assertIn(item["family"], built, "slice has no task set on disk")
-                self.assertEqual(len(built[item["family"]]), item["tasks"])
+            block = item.get("suite_block", item["family"])
+            with self.subTest(slice=block):
+                self.assertIn(block, built, "slice has no task set on disk")
+                self.assertEqual(len(built[block]), item["tasks"])
                 self.assertFalse(item["family_complete"],
                                  "a slice may not claim a finished family")
                 self.assertTrue((REPO / item["tests"].split("::")[0]).is_file())
@@ -610,7 +627,7 @@ class EvaluationBacklogTests(unittest.TestCase):
             slice_id = self.families[fid]["implemented_slice"]["slice_id"]
             self.assertIn(slice_id, matrix)
             self.assertIn(slice_id, backlog)
-        for needle in ("eval/tasks/b4", "eval/tasks/b16"):
+        for needle in ("eval/tasks/b4", "eval/tasks/b4d", "eval/tasks/b16"):
             self.assertIn(needle, matrix)
             self.assertIn(needle, backlog)
 

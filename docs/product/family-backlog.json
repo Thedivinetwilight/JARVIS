@@ -1,7 +1,7 @@
 {
-  "backlog_version": "1.1.0",
+  "backlog_version": "1.2.0",
   "published": "2026-11-01",
-  "status_statement": "Planning backlog for M5, updated after the first two slices were built. Two of the fourteen families (B4, B16) now have small implemented evaluator suites with pre-registered fixtures, live gates and planted regressions; the other twelve have none. A slice is not a family: no product capability is implemented or validated, no model is involved, and every fixture is synthetic or manual.",
+  "status_statement": "Planning backlog for M5, updated after the second B4 slice was built. Two of the fourteen families (B4, B16) have small implemented evaluator suites; B4 now has two slices (metadata/expiry and deletion drills), so three suites exist in total. The other twelve families have none. A slice is not a family: no product capability is implemented or validated, no model is involved, and every fixture is synthetic or manual.",
   "basis": {
     "spec": "1.1.0",
     "roadmap": "1.1.0",
@@ -21,7 +21,8 @@
       "B10"
     ],
     "gate_meaning": "planned gate name; none of these gates exists in eval/harness/gates.py yet",
-    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec \u00a70.2"
+    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec \u00a70.2",
+    "slice_meaning": "A slice is evaluator code over synthetic fixtures. Live means the task set loads, the gate exists in eval/harness/gates.py and the tests pass. It never means a capability is implemented, validated, or shipped."
   },
   "families": [
     {
@@ -90,7 +91,12 @@
           "stale_label_zero",
           "stale_handling_threshold",
           "deletion_residue_zero",
-          "precedence_accuracy"
+          "precedence_accuracy",
+          "post_delete_hit_zero",
+          "resurrection_zero",
+          "overdeletion_zero",
+          "deletion_report_zero",
+          "deletion_replay_completeness"
         ]
       },
       "planted_regressions": [
@@ -105,14 +111,19 @@
           "expected_gate": "stale_assertion_zero"
         },
         {
-          "id": "delete_without_derived",
-          "description": "deletes the record but leaves index and cache copies",
+          "id": "delete_primary_only",
+          "description": "deletes the primary record but leaves index, cache and summary copies",
           "expected_gate": "deletion_residue_zero"
         },
         {
-          "id": "resurrect_from_cache",
-          "description": "re-materialises a deleted fact during consolidation",
-          "expected_gate": "deletion_residue_zero"
+          "id": "keep_derived_copy",
+          "description": "removes index and summary copies but leaves the answer cache serving the record",
+          "expected_gate": "post_delete_hit_zero"
+        },
+        {
+          "id": "resurrect_on_replay",
+          "description": "rebuilds derived surfaces from a stale snapshot during the replay",
+          "expected_gate": "resurrection_zero"
         }
       ],
       "privacy": {
@@ -151,12 +162,13 @@
         "block schema with a clock and five stores",
         "store simulator with index/cache copies",
         "per-task scorers",
-        "four planted regressions and their gates"
+        "four planted regressions and their gates",
+        "deletion drills: three cycles, a seven-day replay and post-delete probes"
       ],
       "blockers": [
         "Q18"
       ],
-      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built the first slice of this family (see implemented_slice); the family itself remains planned and nothing here is product evidence.",
+      "notes": "Permitted people-database fields are an owner decision; the suite must run on synthetic schemas until Q18 is answered. M5 built two slices of this family (see implemented_slice and implemented_slice_2); the family itself remains planned and nothing here is product evidence.",
       "implemented_slice": {
         "slice_id": "M5-B4-slice-1",
         "suite": "eval/tasks/b4",
@@ -171,7 +183,7 @@
         ],
         "not_covered": [
           "supersession and conflict resolution (B10 covers ordering, the product family still owns this)",
-          "deletion and derived copies (C-02-AC3) - no deletion drill exists",
+          "deletion and derived copies (C-02-AC3) - built separately as M5-B4-slice-2, not by this slice",
           "people-database field policy (Q18) - fixtures use fictional fields, no owner decision is assumed",
           "a real store, real data, a model or a server measurement of any kind"
         ],
@@ -194,6 +206,57 @@
         ],
         "baseline": "eval/baselines/baseline-m5-slices.json",
         "reference_score": "12/12 with zero incomplete accepts, zero expired facts served and zero unlabelled stale records; a hand-written program, not a model"
+      },
+      "implemented_slice_2": {
+        "slice_id": "M5-B4-slice-2",
+        "suite": "eval/tasks/b4d",
+        "taskset_version": "2026-Q4.1-m5.2",
+        "tasks": 8,
+        "family_complete": false,
+        "status": "implemented evaluator slice (deletion drills only; not the family, not a product memory system)",
+        "covers": [
+          "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
+          "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
+          "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
+          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
+        ],
+        "not_covered": [
+          "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
+          "retention policy, backup/restore and legal hold: no backup exists in the harness",
+          "a real store, real data, a model, a server measurement or a network of any kind"
+        ],
+        "sample_counts": {
+          "tasks": 8,
+          "drills_per_task": 3,
+          "drill_executions": 24,
+          "replay_days_per_task": 7,
+          "replay_day_evaluations": 56,
+          "probes": 19,
+          "deleted_records": 10,
+          "surface_entries": 43,
+          "note": "Deterministic executions, not independent samples: eight scenarios re-run on a fixed schedule. No confidence interval is implied and none may be computed from these counts."
+        },
+        "gates": [
+          "deletion_residue_zero",
+          "post_delete_hit_zero",
+          "resurrection_zero",
+          "overdeletion_zero",
+          "deletion_report_zero",
+          "deletion_replay_completeness"
+        ],
+        "mutations": {
+          "delete_primary_only": "deletion_residue_zero",
+          "keep_derived_copy": "post_delete_hit_zero",
+          "resurrect_on_replay": "resurrection_zero"
+        },
+        "preregistration": "embedded in eval/tasks/b4d/tasks.json",
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests",
+        "evidence": [
+          "eval/results/m5-b4d-deletion-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-b4d-deletion.json",
+        "reference_score": "8/8 with zero residual copies, zero post-delete hits, zero resurrections and zero over-deleted records; a hand-written program, not a model"
       }
     },
     {
@@ -1789,12 +1852,12 @@
     }
   ],
   "slices_built": {
-    "count": 2,
+    "count": 3,
     "families": [
       "B4",
       "B16"
     ],
-    "rule": "A slice may only be listed here if its task set loads under the harness, its gates exist in eval/harness/gates.py, and eval/tests/test_m5_slices.py passes. Listing a slice never changes a family status or a product capability status.",
+    "rule": "A slice may only be listed here if its task set loads under the harness, its gates exist in eval/harness/gates.py, and its tests pass (eval/tests/test_m5_slices.py for the first two, eval/tests/test_b4d_slice.py for M5-B4-slice-2). Listing a slice never changes a family status or a product capability status.",
     "detail": [
       {
         "family": "B4",
@@ -1872,6 +1935,51 @@
         ],
         "baseline": "eval/baselines/baseline-m5-slices.json",
         "reference_score": "12/12 with zero silent failures, zero misattributions, zero unsafe next steps and cause accuracy 1.00; a hand-written program, not a model"
+      },
+      {
+        "family": "B4",
+        "slice_id": "M5-B4-slice-2",
+        "suite": "eval/tasks/b4d",
+        "taskset_version": "2026-Q4.1-m5.2",
+        "tasks": 8,
+        "family_complete": false,
+        "status": "implemented evaluator slice (deletion drills only; not the family, not a product memory system)",
+        "covers": [
+          "deletion within one cycle: the record and its index, cache and summary copies are removed (C-02-AC3)",
+          "post-delete retrieval: probes over the deleted record return nothing (C-02-AC3)",
+          "replay: zero resurrections across three deletion drills and a seven-day replay (C-02-AC3)",
+          "over-deletion: surviving records keep their copies and still answer their probes (C-02-AC3, negative direction)"
+        ],
+        "not_covered": [
+          "which people-database fields may exist at all (Q18) - fixtures use fictional fields",
+          "retention policy, backup/restore and legal hold: no backup exists in the harness",
+          "a real store, real data, a model, a server measurement or a network of any kind"
+        ],
+        "sample_counts": {
+          "tasks": 8,
+          "drills_per_task": 3,
+          "drill_executions": 24,
+          "replay_days_per_task": 7,
+          "replay_day_evaluations": 56,
+          "probes": 19,
+          "deleted_records": 10,
+          "surface_entries": 43,
+          "note": "Deterministic executions, not independent samples: eight scenarios re-run on a fixed schedule. No confidence interval is implied and none may be computed from these counts."
+        },
+        "gates": [
+          "deletion_residue_zero",
+          "post_delete_hit_zero",
+          "resurrection_zero",
+          "overdeletion_zero",
+          "deletion_report_zero",
+          "deletion_replay_completeness"
+        ],
+        "tests": "eval/tests/test_b4d_slice.py::B4DFixtureTests",
+        "evidence": [
+          "eval/results/m5-b4d-deletion-report.json",
+          "eval/results/index.json"
+        ],
+        "baseline": "eval/baselines/baseline-m5-b4d-deletion.json"
       }
     ]
   }

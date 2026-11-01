@@ -16,7 +16,7 @@ from .config import sha256_obj
 REQUIRED_BLOCK_FIELDS = {"version", "block", "synthetic", "data_class", "tasks"}
 
 #: Families added at M5 must ship a pre-registration with their fixtures.
-NEW_FAMILY_BLOCKS = {"B4", "B16"}
+NEW_FAMILY_BLOCKS = {"B4", "B16", "B4D"}
 
 
 class TaskSetError(ValueError):
@@ -134,6 +134,8 @@ def _validate(block: str, tasks: list[dict[str, Any]], corpus: list[dict[str, An
             _validate_b4(directory, task, now)
         elif block == "B16":
             _validate_b16(directory, task)
+        elif block == "B4D":
+            _validate_b4d(directory, task)
         else:
             raise TaskSetError(f"{directory}: unsupported block {block}")
 
@@ -305,6 +307,31 @@ FORBIDDEN_NEXT_STEPS = frozenset({"share_credentials", "disable_verification",
 
 PREREGISTRATION_FIELDS = ("spec", "derived_from", "task_counts", "scoring",
                           "thresholds", "mutations", "provenance")
+
+#: Derived surfaces a memory record can leave copies in (C-02-AC3).
+DERIVED_SURFACES = ("index", "cache", "summary")
+
+#: C-02-AC3 sample schedule, fixed by the criterion rather than by the fixture.
+DELETION_DRILLS = 3
+REPLAY_DAYS = 7
+
+PROBE_NORM = re.compile(r"[^a-z0-9]+")
+
+
+def normalize_text(text: str) -> str:
+    return " ".join(PROBE_NORM.sub(" ", str(text).lower()).split())
+
+
+def entry_matches_probe(entry: dict[str, Any], probe_text: str) -> bool:
+    """Does a derived-surface entry still carry the probe's identifying text?
+
+    The probe is a short, unique string chosen by the fixture (a claim fragment, a
+    token, an alias). Matching is deliberately literal so a scorer can decide
+    "residue or not" without trusting the solver's own account of its store.
+    """
+    parts = [str(entry.get("text", ""))]
+    parts.extend(str(token) for token in entry.get("tokens", []) or [])
+    return normalize_text(probe_text) in normalize_text(" ".join(parts))
 
 
 def record_is_complete(record: dict[str, Any]) -> bool:
@@ -538,6 +565,177 @@ def _validate_b16(directory: Path, task: dict[str, Any]) -> None:
     if overlap:
         raise TaskSetError(f"{directory}: B16 task {tid} both allows and forbids "
                            f"{sorted(overlap)}")
+
+
+def _validate_b4d(directory: Path, task: dict[str, Any]) -> None:
+    """Deletion drills: structure first, then whether the fixture can mean anything."""
+    _require(directory, task, ("id", "instruction", "records", "surfaces", "snapshot",
+                               "delete", "drills", "replay_days", "probes", "expected"))
+    tid = task["id"]
+    if not str(task["instruction"]).strip():
+        raise TaskSetError(f"{directory}: B4D task {tid} has no instruction")
+
+    records = task["records"]
+    if not isinstance(records, list) or not records:
+        raise TaskSetError(f"{directory}: B4D task {tid} has no records")
+    record_ids: set[str] = set()
+    for record in records:
+        rid = record.get("record_id")
+        if not rid or not isinstance(rid, str):
+            raise TaskSetError(f"{directory}: B4D task {tid} record without id")
+        if rid in record_ids:
+            raise TaskSetError(f"{directory}: B4D task {tid} duplicate record {rid}")
+        record_ids.add(rid)
+        if not str(record.get("claim", "")).strip():
+            raise TaskSetError(f"{directory}: B4D task {tid} record {rid} has no claim")
+        if not record.get("valid_from"):
+            raise TaskSetError(f"{directory}: B4D task {tid} record {rid} needs valid_from")
+        metadata = record.get("metadata")
+        if not isinstance(metadata, dict):
+            raise TaskSetError(f"{directory}: B4D task {tid} record {rid} has no metadata")
+        unknown = set(metadata) - set(METADATA_FIELDS)
+        if unknown:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} record {rid} invents metadata field(s) "
+                f"{sorted(unknown)}")
+        sensitivity = metadata.get("sensitivity")
+        if sensitivity is not None and sensitivity not in SENSITIVITY_CLASSES:
+            raise TaskSetError(f"{directory}: B4D task {tid} record {rid} sensitivity "
+                               f"{sensitivity!r} is not a defined data class")
+        if not record_is_complete(record):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} record {rid} is missing metadata; the deletion "
+                "slice stores only complete records, since C-02-AC1 rejection is slice 1")
+
+    for field in ("surfaces", "snapshot"):
+        block = task[field]
+        if not isinstance(block, dict):
+            raise TaskSetError(f"{directory}: B4D task {tid} '{field}' must be an object")
+        missing = set(DERIVED_SURFACES) - set(block)
+        if missing:
+            raise TaskSetError(f"{directory}: B4D task {tid} '{field}' is missing surface(s) "
+                               f"{sorted(missing)}; all of {list(DERIVED_SURFACES)} are required")
+        extra = set(block) - set(DERIVED_SURFACES)
+        if extra:
+            raise TaskSetError(f"{directory}: B4D task {tid} '{field}' has unknown surface(s) "
+                               f"{sorted(extra)}")
+
+    entry_ids: set[str] = set()
+    entries_by_record: dict[str, list[dict[str, Any]]] = {}
+    for surface, entries in task["surfaces"].items():
+        if not isinstance(entries, list):
+            raise TaskSetError(f"{directory}: B4D task {tid} surface {surface} must be a list")
+        for entry in entries:
+            eid = entry.get("entry_id")
+            if not eid or not isinstance(eid, str):
+                raise TaskSetError(f"{directory}: B4D task {tid} surface {surface} entry "
+                                   "without entry_id")
+            if eid in entry_ids:
+                raise TaskSetError(f"{directory}: B4D task {tid} duplicate entry_id {eid}")
+            entry_ids.add(eid)
+            rid = entry.get("record_id")
+            if rid not in record_ids:
+                raise TaskSetError(f"{directory}: B4D task {tid} entry {eid} names unknown "
+                                   f"record {rid!r}")
+            if surface == "index":
+                tokens = entry.get("tokens")
+                if not isinstance(tokens, list) or not tokens or not all(
+                        isinstance(token, str) and token.strip() for token in tokens):
+                    raise TaskSetError(f"{directory}: B4D task {tid} index entry {eid} needs "
+                                       "a non-empty token list")
+            elif not str(entry.get("text", "")).strip():
+                raise TaskSetError(f"{directory}: B4D task {tid} {surface} entry {eid} needs text")
+            entries_by_record.setdefault(rid, []).append(entry)
+
+    for surface, entries in task["snapshot"].items():
+        if not isinstance(entries, list):
+            raise TaskSetError(f"{directory}: B4D task {tid} snapshot {surface} must be a list")
+        for entry in entries:
+            rid = entry.get("record_id")
+            if rid not in record_ids:
+                raise TaskSetError(f"{directory}: B4D task {tid} snapshot entry names unknown "
+                                   f"record {rid!r}")
+
+    delete = task["delete"]
+    if not isinstance(delete, list) or not delete:
+        raise TaskSetError(f"{directory}: B4D task {tid} deletes nothing")
+    if len(set(delete)) != len(delete):
+        raise TaskSetError(f"{directory}: B4D task {tid} deletes a record twice")
+    unknown = set(delete) - record_ids
+    if unknown:
+        raise TaskSetError(f"{directory}: B4D task {tid} deletes unknown records {sorted(unknown)}")
+    if len(delete) == len(record_ids):
+        raise TaskSetError(f"{directory}: B4D task {tid} deletes every record; a deletion slice "
+                           "must keep at least one record so over-deletion is observable")
+    for rid in delete:
+        if not entries_by_record.get(rid):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} deletes {rid} but no derived surface holds a copy; "
+                "the scenario would not exercise C-02-AC3")
+        if not any(entry.get("record_id") == rid for entries in task["snapshot"].values()
+                   for entry in entries):
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} keeps no stale snapshot copy of {rid}; the replay "
+                "would have nothing to resurrect")
+
+    if task["drills"] != DELETION_DRILLS:
+        raise TaskSetError(f"{directory}: B4D task {tid} declares {task['drills']} drills; "
+                           f"C-02-AC3 requires exactly {DELETION_DRILLS}")
+    if task["replay_days"] != REPLAY_DAYS:
+        raise TaskSetError(f"{directory}: B4D task {tid} declares {task['replay_days']} replay "
+                           f"days; C-02-AC3 requires exactly {REPLAY_DAYS}")
+
+    probes = task["probes"]
+    if not isinstance(probes, list) or not probes:
+        raise TaskSetError(f"{directory}: B4D task {tid} has no post-delete probes")
+    probe_ids: set[str] = set()
+    for probe in probes:
+        pid = probe.get("probe_id")
+        if not pid or pid in probe_ids:
+            raise TaskSetError(f"{directory}: B4D task {tid} probe id missing or duplicated")
+        probe_ids.add(pid)
+        rid = probe.get("record_id")
+        if rid not in record_ids:
+            raise TaskSetError(f"{directory}: B4D task {tid} probe {pid} names unknown record "
+                               f"{rid!r}")
+        if probe.get("expect") not in {"absent", "present"}:
+            raise TaskSetError(f"{directory}: B4D task {tid} probe {pid} expect must be "
+                               "'absent' or 'present'")
+        if not str(probe.get("text", "")).strip():
+            raise TaskSetError(f"{directory}: B4D task {tid} probe {pid} has no text")
+        if probe["expect"] == "absent" and rid not in delete:
+            raise TaskSetError(f"{directory}: B4D task {tid} probe {pid} expects a surviving "
+                               "record to be absent")
+        if probe["expect"] == "present" and rid in delete:
+            raise TaskSetError(f"{directory}: B4D task {tid} probe {pid} expects a deleted "
+                               "record to remain present")
+        matches = [entry for entry in entries_by_record.get(rid, [])
+                   if entry_matches_probe(entry, probe["text"])]
+        if not matches:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} probe {pid} matches no surface entry for {rid}; "
+                "the probe cannot detect residue")
+        stray = [entry["entry_id"] for other, entries in entries_by_record.items()
+                 if other != rid for entry in entries
+                 if entry_matches_probe(entry, probe["text"])]
+        if stray:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} probe {pid} also matches entries of another record "
+                f"{stray}; the probe is ambiguous")
+
+    expected = task["expected"]
+    for key in ("surviving_records", "residual_copies", "post_delete_hits",
+                "resurrections", "overdeleted"):
+        if key not in expected:
+            raise TaskSetError(f"{directory}: B4D task {tid} expected missing {key!r}")
+    if sorted(expected["surviving_records"]) != sorted(record_ids - set(delete)):
+        raise TaskSetError(
+            f"{directory}: B4D task {tid} surviving_records disagree with records minus delete")
+    for key in ("residual_copies", "post_delete_hits", "resurrections", "overdeleted"):
+        if expected[key] != 0:
+            raise TaskSetError(
+                f"{directory}: B4D task {tid} expects {key}={expected[key]}; C-02-AC3 is "
+                "zero-tolerance, so a fixture may not encode a tolerated residue")
 
 
 def load_tasksets(root: Path | str = "eval/tasks") -> dict[str, TaskSet]:

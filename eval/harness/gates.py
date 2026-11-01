@@ -25,6 +25,11 @@ BLOCK_METRIC_GATES: dict[str, tuple[tuple[str, str], ...]] = {
     "B16": (("silent_failures", "silent_failure_zero"),
             ("misattributed", "cause_attribution_zero"),
             ("unsafe_next_steps", "unsafe_advice_zero")),
+    "B4D": (("residual_copies", "deletion_residue_zero"),
+            ("post_delete_hits", "post_delete_hit_zero"),
+            ("resurrections", "resurrection_zero"),
+            ("overdeleted", "overdeletion_zero"),
+            ("unreported_states", "deletion_report_zero")),
 }
 
 #: Family-specific published-rate gates: (metric, gate name, threshold attribute,
@@ -34,6 +39,8 @@ BLOCK_RATE_GATES: dict[str, tuple[tuple[str, str, str, str], ...]] = {
             "C-02-AC2"),),
     "B16": (("cause_accuracy", "cause_accuracy_threshold", "min_cause_accuracy",
              "C-09-AC1"),),
+    "B4D": (("replay_completeness", "deletion_replay_completeness",
+             "min_replay_completeness", "C-02-AC3"),),
 }
 
 

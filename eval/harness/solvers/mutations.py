@@ -115,6 +115,27 @@ MUTATIONS |= {
         expected_gate="silent_failure_zero",
         phase_requirement="Product spec C-09-AC3: every failed or partial outcome carries a cause explanation",
     ),
+    "delete_primary_only": Mutation(
+        name="delete_primary_only",
+        block="B4D",
+        description="deletes the primary record but leaves its index, cache and summary entries behind",
+        expected_gate="deletion_residue_zero",
+        phase_requirement="Product spec C-02-AC3: deletion removes the record and its derived copies"
+    ),
+    "keep_derived_copy": Mutation(
+        name="keep_derived_copy",
+        block="B4D",
+        description="removes index and summary copies but leaves the answer cache serving the deleted record",
+        expected_gate="post_delete_hit_zero",
+        phase_requirement="Product spec C-02-AC3: after deletion, retrieval must not surface the record"
+    ),
+    "resurrect_on_replay": Mutation(
+        name="resurrect_on_replay",
+        block="B4D",
+        description="replays nightly consolidation from a stale snapshot and re-derives the deleted record",
+        expected_gate="resurrection_zero",
+        phase_requirement="Product spec C-02-AC3: zero resurrections across 3 deletion drills and a 7-day replay"
+    ),
     "misattribute_cause": Mutation(
         name="misattribute_cause",
         block="B16",

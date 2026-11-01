@@ -66,7 +66,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_tasksets() -> str:
         sets = load_tasksets(Path("eval/tasks"))
-        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"}, \
+        assert set(sets) == {"B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"}, \
             f"unexpected blocks {sorted(sets)}"
         for block, ts in sets.items():
             assert ts.tasks, f"{block} has no tasks"
@@ -83,7 +83,7 @@ def run_selftest(verbose: bool = True) -> int:
 
     def check_deterministic() -> str:
         detail = []
-        for block in ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B16"):
+        for block in ("B1", "B2", "B3", "B8", "B9", "B10", "B4", "B4D", "B16"):
             first = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             second = run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
             assert _hashes(first) == _hashes(second), f"{block} hashes differ between runs"
@@ -172,7 +172,7 @@ def run_selftest(verbose: bool = True) -> int:
     def check_evaluator_isolation() -> str:
         before = evaluator_digest(".")
         before_sha = registry_sha()
-        for block in ("B1", "B8", "B9", "B10", "B4", "B16"):
+        for block in ("B1", "B8", "B9", "B10", "B4", "B4D", "B16"):
             run_block(check_tasksets_sets[block], git_sha=sha, git_dirty=dirty)
         run_block(check_taskset_sets_b9(), mutations=("disable_skill_reuse",),
                   git_sha=sha, git_dirty=dirty)

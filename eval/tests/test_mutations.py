@@ -16,9 +16,10 @@ class MutationRegistryTests(unittest.TestCase):
             "false_successes_zero", "approval_violations_zero", "duplicate_writes_zero",
             "unauthorized_side_effects_zero", "secret_leaks_zero", "success_drop",
             "citation_precision_drop", "cost_ratio",
-            # M5 slices (B4 memory metadata/expiry, B16 limitation explanation)
+            # M5 slices (B4 memory metadata/expiry, B4D deletion drills, B16 explanation)
             "metadata_completeness_zero", "stale_assertion_zero", "stale_label_zero",
             "silent_failure_zero", "cause_attribution_zero",
+            "deletion_residue_zero", "post_delete_hit_zero", "resurrection_zero",
         }
         for name, mutation in mutations.MUTATIONS.items():
             self.assertIn(mutation.expected_gate, known, name)
