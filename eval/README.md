@@ -64,13 +64,15 @@ and the plans in [`docs/research/stage-0-plan.md`](../docs/research/stage-0-plan
   network-capable import anywhere under `eval/harness` and a self-check enforces that.
 - It does not produce confidence intervals: the solvers are deterministic, so run-to-run variance is zero
   by construction.
-- **It does not measure the product requirements.** The ten product capabilities (C-01…C-10: preferences,
-  people database, voice-first interaction with no chat boxes, speaker verification, telephony,
-  brain-inspired operation without a consciousness goal, bounded self-evolution, invention support,
-  limitation explanation, MCU/Rescue parity) are specified in
+- **It does not measure the product requirements.** The twelve product capabilities (C-01…C-12:
+  preferences and personal context, modular stores and a people database, voice-first interaction with no
+  chat boxes and measured multilingual coverage, speaker verification, PA call handling, brain-inspired
+  operation without a consciousness goal, bounded self-evolution, invention support, limitation
+  explanation, MCU/Rescue parity, smart-home control, and scoped connectors) are specified in
   [`docs/product/capability-specification.md`](../docs/product/capability-specification.md). None is
-  implemented. The registry in `registry/` is a harness inventory of simulators, not evidence for any of
-  them.
+  implemented, and the product runs everything locally on a dedicated server — this harness is a synthetic
+  simulator and does not exercise that boundary. The registry in `registry/` is a harness inventory of
+  simulators, not evidence for any of them.
 
 ## Layout
 
