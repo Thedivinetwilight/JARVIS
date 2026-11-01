@@ -157,11 +157,12 @@ model allowed an attempt to stop inside a record — and its own baselines,
   network-capable import anywhere under `eval/harness` and a self-check enforces that.
 - It does not produce confidence intervals: the solvers are deterministic, so run-to-run variance is zero
   by construction.
-- **It does not measure the product requirements.** The twelve product capabilities (C-01…C-12:
+- **It does not measure the product requirements.** The fourteen product capabilities (C-01…C-14:
   preferences and personal context, modular stores and a people database, voice-first interaction with no
   chat boxes and measured multilingual coverage, speaker verification, PA call handling, brain-inspired
   operation without a consciousness goal, bounded self-evolution, invention support, limitation
-  explanation, MCU/Rescue parity, smart-home control, and scoped connectors) are specified in
+  explanation, MCU/Rescue parity, smart-home control, scoped connectors, a home holographic interface that
+  is specified and not built, and device surfaces with stated platform limits) are specified in
   [`docs/product/capability-specification.md`](../docs/product/capability-specification.md). None is
   implemented, and the product runs everything locally on a dedicated server — this harness is a synthetic
   simulator and does not exercise that boundary. The registry in `registry/` is a harness inventory of

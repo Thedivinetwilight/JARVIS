@@ -1,7 +1,7 @@
 # J.A.R.V.I.S. M5 Coverage Matrix — Working Draft
 
 - **Status:** draft; M5 is not complete and G-O1 remains blocked.
-- **Basis:** product capability specification v1.1.0 and roadmap v1.1.0 on `arena/bbffddd4-jarvis` at HEAD `986488f`.
+- **Basis:** product capability specification v1.2.0, roadmap v1.2.0 and `device-support-matrix.md` v1.0.0 on `arena/bbffddd4-jarvis` (documentation state of 2026-11-01).
 - **Purpose:** make explicit what can be evaluated with the repository's current synthetic harness, what new evaluation work is needed, and what requires the owner's actual server, language, account, or device inventory.
 - **M5 artefacts:** [`family-crosswalk.md`](family-crosswalk.md) resolves the B4–B7 naming conflict; [`family-backlog.md`](family-backlog.md) is the per-family implementation plan; [`ac-coverage.json`](ac-coverage.json) is the criterion-by-criterion mapping (summarised in §8).
 - **Boundary:** this document maps planned product requirements to measurement. It does not claim any product capability has been implemented or validated.
@@ -22,6 +22,8 @@
 | C-10 | Practical MCU J.A.R.V.I.S. equivalents and Rescue support | B17 | No canon-parity matrix or product features | Mapping set; B17 editorial/audit suite needed |
 | C-11 | Smart-home control and monitoring | B18, B7 | No device integrations or device-state measurements | Mapping set; B18/B7 needed; device/protocol inventory Q24 and account scopes Q21 block coverage claims |
 | C-12 | Scoped connectors and audit | B20, B7 | Synthetic in-memory tools model policy, idempotency, and faults; they are not account/device connectors | Mapping set; B20/B7 and connector inventory Q21 needed |
+| C-13 | Home holographic interface (voice-first spatial display) | B21, B7, G-CLAIM | None. No renderer, no fixture, no hardware, no display technology chosen | Mapping set; B21 needed; the surface is a specification and is **not** evidence that a holographic display is feasible |
+| C-14 | Device surfaces and platform limits | B22, B7 | None. No client, no paired device, no platform role granted | Mapping set; B22 needed; device inventory Q21, EDITH requirements Q25 and telephony rules Q17/Q22 outstanding |
 
 **Interpretation:** every capability has a planned validation family, but that is a plan rather than working coverage. Existing synthetic harness results are not evidence that J.A.R.V.I.S. can perform these tasks. At this draft, no product capability is marked implemented or validated.
 
@@ -36,7 +38,7 @@ Family names below follow the v1.1.0 product spec where assigned. New family sui
 | B6 | Voice interaction and latency | speech-to-text and end-of-speech-to-first-audio timing; task success; clarification; barge-in; zero conversational text-entry controls | language matrix and approved server baseline |
 | B7 | Adversarial permissions and disclosure | prompt injection, identity uncertainty, secret/contact disclosure, scope escalation, physical action authorization, and audit completeness | permission tiers and data classes |
 | B11 | Speaker verification | false-accept and false-reject together; second-factor/refusal fallback; voiceprint deletion; prove zero audio/embedding egress | local audio pipeline and microphone/device profile |
-| B12 | Call PA | allowlist, disclosure/consent, configured mode, scope-limited commitments, escalation, transcript/summary/action log, local-only summaries | jurisdiction, call modes, telephony route and consent policy |
+| B12 | Call PA | allowlist, disclosure/consent, configured mode, scope-limited commitments, escalation, transcript/summary/action log, local-only summaries, and refusal of channels the platform does not provide | jurisdiction, call modes, telephony route and consent policy |
 | B13 | Preference use | held-out preference application; explicit override precedence; source/confidence traceability; deletion propagation | owner-approved preference schema |
 | B14 | Self-evolution | candidate evaluation, held-out promotion threshold, family regression checks, immutable evaluator/policy, approval record, rollback and residue checks | versioned candidate format and independent evaluator boundary |
 | B15 | Invention support | distinct approaches/trade-offs, blind usability ratings, sourced prior-art claims, calibrated budgets, no personal data in external queries | bounded external retrieval policy |
@@ -45,6 +47,8 @@ Family names below follow the v1.1.0 product spec where assigned. New family sui
 | B18 | Smart home | declared device coverage, local-vs-vendor-cloud route, state freshness, scoped actions, confirmation tiers and unauthorized-action tests | device/protocol inventory and local hub decision |
 | B19 | Multilingual quality | per-language WER, entity accuracy, turn success, latency and supported/beta/unsupported tier | owner language priority list and consistent native-language evaluation |
 | B20 | Connectors | per-connector scope manifests, least privilege, revocation, residual token/cache checks, audit reconciliation | account/device inventory and granted scopes |
+| B21 | Home holographic interface | surface inventory, voice-only completion with the display off, private-content gating, honest degradation on a renderer stub | surface inventory and the owner's rooms (Q26); no optics |
+| B22 | Device surfaces and platform limits | device matrix audit, per-device scope and revocation, scripted platform mechanisms, claim and absence checks | device inventory (Q21) and EDITH requirements (Q25); no real hardware |
 
 ## 3. Local processing boundary for evaluation
 
@@ -59,9 +63,11 @@ The spec records the owner's local-only decision. The test plan should treat all
 
 Every other inference and personal-data path is local. G-LOCAL must be evaluated against actual network egress from the eventual serving system; a document-level declaration is not a passing audit.
 
+**Surfaces are clients, not processing locations.** The PC, tablet, phone, headset and glasses rows of the [device matrix](device-support-matrix.md) send audio and requests and render results; none of them is a place where inference or personal data is processed. A vendor runtime that does process anything on a device has to be added to the external-path table above or the target is ruled out.
+
 ## 4. Language matrix template
 
-The owner has not yet named target languages or their priority. Do not label any language “fluent” or “supported” until it has a measured row. Populate this table only after Q19 and Q20 are answered and the same task set and scoring rules are applied per language.
+The owner has not yet named target languages or their priority. **PR-1** in the [specification](capability-specification.md#5-open-items-blocking-review) proposes fifteen languages as a starting point and claims nothing: it is not a matrix, not an order and not a support statement. Do not label any language “fluent” or “supported” until it has a measured row. Populate this table only after Q19 and Q20 are answered and the same task set and scoring rules are applied per language.
 
 | Language | Priority | ASR WER | Entity accuracy | Voice task success | p50 / p95 response start | Tier | Evidence/run |
 |---|---:|---:|---:|---:|---:|---|---|
@@ -71,7 +77,7 @@ The owner has not yet named target languages or their priority. Do not label any
 
 ## 5. Server and inventory templates
 
-No hardware, budget, accounts, devices, or actual protocol inventory was supplied in the v1.1.0 source. Therefore these are deliberately blank and M5 remains open.
+No hardware, budget, accounts, devices, or actual protocol inventory was supplied in the 1.2.0 source. **PR-2** proposes capacity tiers (16–32 cores; 128 GB memory lower, 256 GB preferred; one GPU with 32 GB lower, 96 GB preferred; separate fast storage; wired networking; UPS; encrypted local backups with a tested restore) and selects no product. The tiers are not a baseline: the rows below stay blank until the owner approves a machine (Q20).
 
 ### Dedicated-server baseline (Q20)
 
@@ -84,6 +90,13 @@ No hardware, budget, accounts, devices, or actual protocol inventory was supplie
 | Voice latency | Per-language ASR, model, TTS, end-of-speech-to-first-audio p50/p95 | Not measured |
 | Throughput | Concurrent sessions, queue delay, sustained load and recovery | Not measured |
 | Egress | Enumerated destinations and payload classes under representative workloads | Not measured |
+
+### Device and surface inventory (Q21, Q25)
+
+| Target | Client built? | Platform role/entitlement | Granted? | Modes verified | Unverified items | Owner decision |
+|---|---|---|---|---|---|---|
+| PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses | no (0 of 6) | see [device matrix](device-support-matrix.md) | none granted | none | every row | Q21 open |
+| EDITH Glass | no | none established | none | none | everything | Q25 open |
 
 ### Connector inventory (Q21)
 
@@ -103,17 +116,19 @@ These are blockers when the product roadmap says they are blockers; they are not
 
 | Item | Needed for | Current state |
 |---|---|---|
-| Q13 — first-year task-family priorities | Workload weighting and representative scenarios | Open |
-| Q14 — definition of “better” | Primary success utility and trade-off weighting | Open |
+| Q13 — first-year task-family priorities | Workload weighting and representative scenarios | Open — scope confirmed (everyday assistance, O-8); no ranking given |
+| Q14 — definition of “better” | Primary success utility and trade-off weighting | Open — direction recorded (more everyday tasks done correctly, fewer corrections); weighting open |
 | Q15 — whether interaction data may become fixtures and under what rules | Any user-derived evaluation data | Open |
 | Q17 — telephony jurisdictions, disclosure and recording consent | C-05/M10 | Open; telephony stays blocked |
 | Q18 — allowable people-database fields | C-02/M7 | Open |
-| Q19 — target languages, priority and operational fluency bar | C-03/B19/M6 | Open |
-| Q20 — approved server hardware, budget, power/noise limits | Local voice baseline and model capacity | Open |
+| Q19 — target languages, priority and operational fluency bar | C-03/B19/M6 | Open — PR-1 proposes fifteen languages; no language is claimed to work |
+| Q20 — approved server hardware, budget, power/noise limits | Local voice baseline and model capacity | Open — PR-2 proposes capacity tiers only; G-O1 blocked |
 | Q21 — accounts/devices and connector scopes | C-12/M8 | Open |
 | Q22 — default call modes and escalation triggers | C-05/M10 | Open |
 | Q23 — P-1 proposed financial/medical/legal blanket call refusal | C-05 | Awaiting owner decision; not an established requirement |
 | Q24 — smart-home devices/protocols and local hub acceptability | C-11/M9 | Open |
+| Q25 — EDITH Glass requirements (separate future project) | C-14/M16 | Open; nothing assumed |
+| Q26 — rooms and optical constraints for the home surface | C-13/M16 | Open; nothing assumed |
 | A7 — confirmation of breadth priority | M5 scope | Open |
 | A8 — confirmation that gated updates taking days/weeks are tolerable | M11 | Open |
 | A9 — formal confirmation of approval workflow/owner for major updates | M15 | Open |
@@ -121,28 +136,30 @@ These are blockers when the product roadmap says they are blockers; they are not
 
 ## 7. M5 completion checklist
 
-- [x] Map all 12 capability IDs to at least one planned evaluation family.
+- [x] Map all 14 capability IDs to at least one planned evaluation family.
 - [x] Separate current synthetic harness mechanisms from product-level evidence.
 - [x] Record the local-only processing rule and declared external service classes.
-- [x] Define the minimum planned evaluation scope for B4–B7 and B11–B20.
+- [x] Define the minimum planned evaluation scope for B4–B7 and B11–B22.
 - [x] Freeze the canonical B4–B7 family naming/crosswalk — published as [`family-crosswalk.md`](family-crosswalk.md); review requested, no historical record edited.
 - [x] Map every acceptance criterion to a task type, named audit or human review — [`ac-coverage.json`](ac-coverage.json) and §8.
-- [x] Write the per-family implementation backlog for B4–B7 and B11–B20 — [`family-backlog.md`](family-backlog.md), generated from `family-backlog.json`.
+- [x] Write the per-family implementation backlog for B4–B7 and B11–B22 — [`family-backlog.md`](family-backlog.md), generated from `family-backlog.json`.
+- [x] Record the device matrix and the platform limits for every declared target — [`device-support-matrix.md`](device-support-matrix.md). **0 of 7 targets verified; no client exists.**
+- [x] Specify the home holographic interface as text — C-13 with five criteria, a kill criterion and no display technology chosen. Specified is not feasible and not implemented.
 - [x] Build the first family task sets and gates from the backlog — B4 (metadata/expiry, then deletion with backup/restore, then a synthetic write-ahead-log durability store) and B16 (limitation explanation) slices built and gated on synthetic fixtures; see §9. No family is marked `implemented`.
-- [ ] Build the remaining planned families: B5, B6, B7, B11–B15, B17–B20.
+- [ ] Build the remaining planned families: B5, B6, B7, B11–B15, B17–B22.
 - [ ] Owner supplies first-year priority and success objective (Q13/Q14/A7).
 - [ ] Owner decides whether interaction data may be used (Q15).
 - [ ] Owner supplies target language matrix (Q19).
-- [ ] Owner supplies dedicated-server constraints and measured hardware baseline (Q20).
-- [ ] Owner supplies account/connector and smart-home inventories (Q21/Q24).
+- [ ] Owner supplies dedicated-server constraints and measured hardware baseline (Q20) — and decides whether the PR-2 tiers are close enough to plan against.
+- [ ] Owner supplies account/connector, device and smart-home inventories (Q21/Q24) and, if it is pursued at all, the EDITH Glass requirements (Q25).
 - [ ] Telephony scope and call modes decided before any call integration (Q17/Q22); P-1 remains optional pending Q23.
 - [ ] Pre-register tasksets, thresholds and mutation tests for each planned family.
 - [ ] Re-derive workload envelopes using the approved server and measured per-language results.
 - [ ] Review coverage report; only then reconsider G-O1.
 
-## 8. Criterion-level coverage (C-01…C-12 × acceptance criteria)
+## 8. Criterion-level coverage (C-01…C-14 × acceptance criteria)
 
-All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts: `slice_built` 5, `planned_suite` 27, `named_audit` 9, `human_review` 3, `blocked_owner_input` 6. 47 of 50 have an objective protocol (an implemented slice, a behavioural suite or a named audit); 3 rely on human judgement and therefore have no automatable measurable test — C-08-AC1, C-09-AC2, C-10-AC3. 6 cannot produce a valid result until owner input arrives (Q17, Q19, Q20, Q24) or owner-held retrospective records exist (C-08-AC3); G-O1 stays blocked regardless. Five criteria now have a built slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3), which means part of their metric runs in the harness — not that the capability is validated. No criterion is marked validated, and no status here is evidence of capability.
+All 61 acceptance criteria in spec v1.2.0 are mapped exactly once. Status counts: `slice_built` 5, `planned_suite` 35, `named_audit` 10, `human_review` 3, `blocked_owner_input` 8. 58 of 61 have an objective protocol (an implemented slice, a behavioural suite or a named audit); 3 rely on human judgement and therefore have no automatable measurable test — C-08-AC1, C-09-AC2, C-10-AC3. 8 cannot produce a valid result until owner input arrives (Q17, Q19, Q20, Q21, Q24) or owner-held retrospective records exist (C-08-AC3); G-O1 stays blocked regardless. Five criteria now have a built slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3), which means part of their metric runs in the harness — not that the capability is validated. No criterion is marked validated, and no status here is evidence of capability.
 
 | Status | Meaning |
 |---|---|
@@ -183,6 +200,7 @@ All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts
 | C-05-AC4 | B12 | family | planned_suite | — |
 | C-05-AC5 | B12 | family | planned_suite | — |
 | C-05-AC6 | G-LOCAL | audit | named_audit | — |
+| C-05-AC7 | B12 | family | planned_suite | — |
 | **C-06 — Brain-inspired cognitive mechanisms** | | | | |
 | C-06-AC1 | B17 | audit | named_audit | — |
 | C-06-AC2 | B14 | family | planned_suite | — |
@@ -218,6 +236,18 @@ All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts
 | C-12-AC3 | B20 | family | planned_suite | — |
 | C-12-AC4 | B20 | family | planned_suite | — |
 | C-12-AC5 | B7 | family | planned_suite | — |
+| **C-13 — Home holographic interface (voice-first spatial display)** | | | | |
+| C-13-AC1 | B21 | family | planned_suite | — |
+| C-13-AC2 | B21 | family | planned_suite | — |
+| C-13-AC3 | B21 | family | planned_suite | — |
+| C-13-AC4 | B21 | family | blocked_owner_input | Q20 |
+| C-13-AC5 | G-CLAIM | audit | named_audit | — |
+| **C-14 — Device surfaces and platform limits** | | | | |
+| C-14-AC1 | B22 | family | blocked_owner_input | Q21 |
+| C-14-AC2 | B22 | family | planned_suite | — |
+| C-14-AC3 | B22 | family | planned_suite | — |
+| C-14-AC4 | B22 | family | planned_suite | — |
+| C-14-AC5 | B22 | family | planned_suite | — |
 
 `kind` is `family` for a behavioural suite and `audit` for an inventory, editorial, egress or path review. `existing_fragment` marks the three criteria where a committed synthetic mechanism is already a partial fragment (C-06-AC2, C-07-AC3, C-09-AC3) — a fragment, not product evidence.
 
@@ -228,10 +258,10 @@ All 50 acceptance criteria in spec v1.1.0 are mapped exactly once. Status counts
   none of them covers a real system.
 - Five criteria ride on B7 (adversarial), and four of those are zero-tolerance: injection, approval bypass, disclosure and scope escalation.
   B7, B12, B14 and B17 each carry five criteria, so they are the highest-leverage families still to build.
-- Six criteria are blocked on owner input, and three on human judgement; these are the honest gaps, not scheduling choices.
-- Eight capabilities (C-01, C-02, C-04, C-06, C-07, C-09, C-10, C-12) have no criterion blocked by owner input, so their suites can be built and pre-registered now.
+- Eight criteria are blocked on owner input, and three on human judgement; these are the honest gaps, not scheduling choices.
+- Eight capabilities (C-01, C-02, C-04, C-06, C-07, C-09, C-10, C-12) have no criterion blocked by owner input, so their suites can be built and pre-registered now. C-13 and C-14 each carry exactly one blocked criterion (C-13-AC4 on the server, C-14-AC1 on the real device inventory).
 
-**Current conclusion:** the coverage mapping is complete at criterion level and the B4–B7 naming conflict is resolved by crosswalk. M5 is still not complete: twelve of the fourteen families have no task set, and the owner inputs above are outstanding. G-O1 remains blocked; no model recommendation is justified by this document.
+**Current conclusion:** the coverage mapping is complete at criterion level and the B4–B7 naming conflict is resolved by crosswalk. M5 is still not complete: fourteen of the sixteen families have no task set, and the owner inputs above are outstanding. The interface capabilities (C-13, C-14) are the least evidenced in the set: they have no fixture at all, and C-13 is a specification of something nobody has shown can be built. G-O1 remains blocked; no model recommendation is justified by this document.
 
 ## 9. Implemented evaluator slices (B4, B4D, B4W, B16)
 
@@ -256,6 +286,6 @@ Four small suites exist as code, in two families. They are evaluator work, not p
 
 **Sample counts for the durability slice, stated plainly.** 10 synthetic scenarios, 38 declared operations, 76 declared log frames (40 planted before the run), 6 crash scenarios and 7 simulated crashes over all six stages, 603 bytes truncated by the crash points, 7 declared recovery scenarios, one duplicate-retry operation and one fixture where the damage precedes the run's own writes. These are deterministic executions on a fixed schedule, not independent samples: each crash lands at one fixed byte, every scenario runs once, no confidence interval may be computed from these counts, and seven simulated process deaths are not a distribution over storage engines. What they do establish is that each named durability failure is detectable and that the crash points, the repair and the refusals are executed and reported rather than asserted.
 
-**What a passing slice does not show.** That J.A.R.V.I.S. has memory, has a limitation-explanation capability, deletes anything for a real person, restores any real backup, or would behave well on real records or real failures. The solver is a deterministic hand-written program, the fixtures are invented, the thresholds are applied to 11- and 12-task suites (so a published >=95% bound is only satisfiable at 12/12), and no model, server, personal record, backup or network call is involved. The deletion slice restores scripted backups from an invented store: for nine scenarios the evaluator chooses where the interruption happens, four of them between records and five inside a record write, but the stop is a clean abort between two copy writes in a simulator, so no write is torn at byte level, nothing is fsynced and there is no journal, WAL or power-failure path; and while three damaged-backup classes are exercised against a sha256 digest, bit rot, truncated media, wrong-key decryption, silently partial backups and any real checksum or key-management path are untested. There is no retention policy, no off-site replication, no legal hold and no restore ordering across days, so compliance with any real deletion obligation is untested. G-O1 stays blocked and Q13–Q24 stay open.
+**What a passing slice does not show.** That J.A.R.V.I.S. has memory, has a limitation-explanation capability, deletes anything for a real person, restores any real backup, or would behave well on real records or real failures. The solver is a deterministic hand-written program, the fixtures are invented, the thresholds are applied to 11- and 12-task suites (so a published >=95% bound is only satisfiable at 12/12), and no model, server, personal record, backup or network call is involved. The deletion slice restores scripted backups from an invented store: for nine scenarios the evaluator chooses where the interruption happens, four of them between records and five inside a record write, but the stop is a clean abort between two copy writes in a simulator, so no write is torn at byte level, nothing is fsynced and there is no journal, WAL or power-failure path; and while three damaged-backup classes are exercised against a sha256 digest, bit rot, truncated media, wrong-key decryption, silently partial backups and any real checksum or key-management path are untested. There is no retention policy, no off-site replication, no legal hold and no restore ordering across days, so compliance with any real deletion obligation is untested. G-O1 stays blocked and Q13–Q26 stay open.
 
 **Provenance.** Pre-registration, task counts, scoring rules, thresholds, sample counts and mutation→gate mapping are stored inside each `eval/tasks/*/tasks.json`; the fixture loader refuses a slice that omits them or whose gold labels contradict its own scenario. Evidence: [`../results/m5-slices-report.json`](../../eval/results/m5-slices-report.json) and the `*-B4-*.jsonl` / `*-B16-*.jsonl` ledgers for the first two slices; [`../results/m5-b4d-deletion-report.json`](../../eval/results/m5-b4d-deletion-report.json) and the `*-B4D-*.jsonl` ledgers for the deletion slice — the earlier [`../results/m5-b4d-deletion-report.json`](../../eval/results/m5-b4d-deletion-report.json) for deletion drills only, [`../results/m5-b4d-restore-report.json`](../../eval/results/m5-b4d-restore-report.json) for the extended suite with backup/restore, and [`../results/m5-b4d-retry-report.json`](../../eval/results/m5-b4d-retry-report.json) plus [`../results/x10-report-m5-b4d-retry.json`](../../eval/results/x10-report-m5-b4d-retry.json) for the interrupted-restore and retry extension, and [`../results/m5-b4d-faults-report.json`](../../eval/results/m5-b4d-faults-report.json) plus [`../results/x10-report-m5-b4d-faults.json`](../../eval/results/x10-report-m5-b4d-faults.json) for the evaluator-chosen interruptions and damaged backups, and [`../results/m5-b4d-midwrite-report.json`](../../eval/results/m5-b4d-midwrite-report.json) plus [`../results/x10-report-m5-b4d-midwrite.json`](../../eval/results/x10-report-m5-b4d-midwrite.json) for the record-write state model and the interruptions inside a write, and [`../results/m5-b4w-durability-report.json`](../../eval/results/m5-b4w-durability-report.json) plus [`../results/x10-report-m5-b4w-durability.json`](../../eval/results/x10-report-m5-b4w-durability.json) for the durability slice with the `*-B4W-*.jsonl` ledgers. Baselines: `eval/baselines/baseline-m5-slices.json`, `eval/baselines/baseline-m5-b4d-deletion.json` (8-task slice, kept as historical evidence), `eval/baselines/baseline-m5-b4d-restore.json`, `eval/baselines/baseline-m5-b4d-retry.json`, `eval/baselines/baseline-m5-b4d-faults.json`, `eval/baselines/baseline-m5-b4d-midwrite.json` and `eval/baselines/baseline-m5-b4w-durability.json` (each kept against the task-set version it measured).

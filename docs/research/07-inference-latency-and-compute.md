@@ -213,6 +213,39 @@ entirely on utilisation; §10 gives the arithmetic.
 Sources: vendor review/aggregator tables `[U]` (two independent write-ups agree on memory/bandwidth;
 re-verify against NVIDIA datasheets before purchase).
 
+### 9.1 Addendum: current single-GPU memory classes (2026-11-01)
+
+The table above covers only large-HBM classes. The product side asked a narrower question on 2026-11-01
+— *what is a single accelerator with roughly 32 GB or roughly 96 GB of memory, and what does the vendor
+publish for it* — because the proposed server target (PR-2 in
+[`docs/product/capability-specification.md`](../product/capability-specification.md#5-open-items-blocking-review))
+is expressed as memory tiers, not products. Nothing here selects, recommends or prices a card, and
+G-O1 remains blocked: a memory class is a capacity envelope, not an adoption decision.
+
+| Memory class | Published specification (primary source, checked) | What it implies for planning |
+|---|---|---|
+| ~32 GB, GDDR7 ECC, professional workstation | 32 GB GDDR7 with ECC; 200 W maximum power; dual-slot, 4.4" × 10.5" ([vendor comparison page](https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/), page dated 2026-09-15) | a 27B-parameter model at 4-bit (~14 GiB) fits with room for KV cache; a 117B-class model (~61 GiB) does not; 200 W keeps the card inside an ordinary desk-side chassis |
+| ~96 GB, GDDR7 ECC, workstation | 96 GB GDDR7 with ECC; 512-bit; 1,792 GB/s; PCIe 5.0 x16; 24,064 cores; 4,000 AI TOPS; 126 TFLOPS FP32; 600 W total board power ([vendor datasheet PDF](https://www.nvidia.com/content/dam/en-zz/Solutions/data-center/rtx-pro-6000-blackwell-workstation-edition/workstation-blackwell-rtx-pro-6000-workstation-edition-nvidia-us-3519208-web.pdf)) | fits a 117B-class 4-bit model (~61 GiB) with headroom for long-context KV, at roughly half the bandwidth of an 80 GB HBM3 part |
+| ~96 GB, GDDR7, server variant | 96 GB GDDR7; up to 1,597 GB/s; 600 W; 120 TFLOPS FP32 ([vendor press specification PDF](https://lenovopress.lenovo.com/lp2263.pdf), dated 2026-07-28) | same capacity, lower published bandwidth, passively cooled — a rack decision rather than a desk one |
+| Platform envelope | up to 2 × 56 cores per processor, 32 registered-ECC DDR5 slots, 8 TB maximum memory ([vendor specification sheet PDF](https://www.delltechnologies.com/asset/it-it/solutions/oem-solutions/technical-support/dell-oem-poweredge-r760-spec-sheet.pdf)) | 16–32 cores and 128–256 GB sit comfortably *below* the platform maximum; they are sizing choices, not limits |
+
+**What this addendum establishes.** The proposed 32 GB lower tier and 96 GB preferred tier correspond to
+parts that exist and publish those memory capacities: a 32 GB ECC workstation card at 200 W, and a 96 GB
+card at 1,792 GB/s (workstation variant) or up to 1,597 GB/s (server variant). Both fit an ordinary
+two-socket server envelope. Bandwidth is the number that matters for decode latency, and the 96 GB class
+publishes roughly half the bandwidth of an 80 GB HBM3 part, which is the reason a bigger-memory card is not
+automatically a faster one.
+
+**What it does not establish.** That any particular model fits, runs, or meets the provisional voice
+latency in C-03-AC2 on any of these parts; that the price, power, noise or availability is acceptable
+(Q20); or that a 32 GB card is enough for the multilingual matrix. Vendor throughput figures are not
+workload measurements, and no benchmark score here is a prediction.
+
+**Status of the evidence.** Memory capacity, bus width and published bandwidth: `[E]` (vendor primary
+documents, dated above). Any claim that a given model will run at a given speed on these parts: `[U]`
+until measured on the approved server — which is exactly what M5 and G-O1 require before adoption.
+
+
 **Rules of thumb:**
 
 - **Inference memory ≈ weights + KV + activations.** For a 4-bit 117B model: ~61 GiB weights ⇒ 80 GB

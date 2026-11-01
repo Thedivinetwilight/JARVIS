@@ -1,13 +1,13 @@
 {
-  "coverage_version": "1.3.0",
+  "coverage_version": "1.4.0",
   "published": "2026-11-01",
   "basis": {
-    "spec": "1.1.0",
-    "roadmap": "1.1.0",
+    "spec": "1.2.0",
+    "roadmap": "1.2.0",
     "backlog": "family-backlog.json",
     "crosswalk": "family-crosswalk.md"
   },
-  "status_statement": "Mapping of the 50 product acceptance criteria in spec 1.1.0 to planned evaluation suites and named audits. Nothing here is evidence of product capability and no criterion is marked validated. Five criteria have a built evaluator slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3); the C-02-AC3 slice now also restores a pre-deletion backup, and all built slices remain small, synthetic and deterministic.",
+  "status_statement": "Mapping of the 61 product acceptance criteria in spec 1.2.0 to planned evaluation suites and named audits. Nothing here is evidence of product capability and no criterion is marked validated. Five criteria have a built evaluator slice (C-02-AC1, C-02-AC2, C-02-AC3, C-09-AC1, C-09-AC3); the C-02-AC3 slice also restores a pre-deletion backup, and all built slices remain small, synthetic and deterministic. The two capabilities added in 1.2.0 (C-13, C-14) have no fixture and no slice.",
   "status_vocabulary": {
     "planned_suite": "an evaluation family or task type is named; no task set exists yet",
     "named_audit": "measurement is an audit, inventory review or egress probe rather than a task outcome",
@@ -72,7 +72,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "B4 write-metadata tasks. M5 slice built; see docs/product/coverage-matrix.md §9.",
+      "note": "B4 write-metadata tasks. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
       "slice": {
         "suite": "eval/tasks/b4",
         "tasks": 12,
@@ -92,7 +92,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Clock fixture required. M5 slice built; see docs/product/coverage-matrix.md §9.",
+      "note": "Clock fixture required. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
       "slice": {
         "suite": "eval/tasks/b4",
         "tasks": 12,
@@ -574,7 +574,7 @@
       "status": "slice_built",
       "existing_fragment": false,
       "blocked_by": [],
-      "note": "Nine-class gold labels. M5 slice built; see docs/product/coverage-matrix.md §9.",
+      "note": "Nine-class gold labels. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
       "slice": {
         "suite": "eval/tasks/b16",
         "tasks": 12,
@@ -608,7 +608,7 @@
       "status": "slice_built",
       "existing_fragment": true,
       "blocked_by": [],
-      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early. M5 slice built; see docs/product/coverage-matrix.md §9.",
+      "note": "B3/B8 already emit failure text and the runner records status, so the silent-failure check can be added early. M5 slice built; see docs/product/coverage-matrix.md \u00a79.",
       "slice": {
         "suite": "eval/tasks/b16",
         "tasks": 12,
@@ -799,19 +799,177 @@
       "existing_fragment": false,
       "blocked_by": [],
       "note": "Broad-access requests are adversarial."
+    },
+    {
+      "ac": "C-05-AC7",
+      "capability": "C-05",
+      "capability_name": "Personal-assistant call handling (attend, handle, escalate, summarise)",
+      "suite": "B12",
+      "suite_kind": "family",
+      "task_types": [
+        "unsupported-channel request"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Refusal behaviour per platform mechanism; the suite can run against a scripted call simulator without a carrier network."
+    },
+    {
+      "ac": "C-13-AC1",
+      "capability": "C-13",
+      "capability_name": "Home holographic interface (voice-first spatial display)",
+      "suite": "B21",
+      "suite_kind": "family",
+      "task_types": [
+        "surface inventory audit"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Audit of a surface inventory; no display needed to run it."
+    },
+    {
+      "ac": "C-13-AC2",
+      "capability": "C-13",
+      "capability_name": "Home holographic interface (voice-first spatial display)",
+      "suite": "B21",
+      "suite_kind": "family",
+      "task_types": [
+        "voice-only completion with the display off"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Runs with the renderer stub switched off."
+    },
+    {
+      "ac": "C-13-AC3",
+      "capability": "C-13",
+      "capability_name": "Home holographic interface (voice-first spatial display)",
+      "suite": "B21",
+      "suite_kind": "family",
+      "task_types": [
+        "presence and private-content gating"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Simulated occupants only; no cameras."
+    },
+    {
+      "ac": "C-13-AC4",
+      "capability": "C-13",
+      "capability_name": "Home holographic interface (voice-first spatial display)",
+      "suite": "B21",
+      "suite_kind": "family",
+      "task_types": [
+        "display degradation and honesty"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q20"
+      ],
+      "note": "The honesty half runs on a stub; the latency half needs the approved server (Q20) and real speech models (G-O1)."
+    },
+    {
+      "ac": "C-13-AC5",
+      "capability": "C-13",
+      "capability_name": "Home holographic interface (voice-first spatial display)",
+      "suite": "G-CLAIM",
+      "suite_kind": "audit",
+      "task_types": [
+        "claims audit"
+      ],
+      "status": "named_audit",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Auditable today: every statement about the surface must carry its status."
+    },
+    {
+      "ac": "C-14-AC1",
+      "capability": "C-14",
+      "capability_name": "Device surfaces and platform limits",
+      "suite": "B22",
+      "suite_kind": "family",
+      "task_types": [
+        "device matrix audit"
+      ],
+      "status": "blocked_owner_input",
+      "existing_fragment": false,
+      "blocked_by": [
+        "Q21"
+      ],
+      "note": "The class matrix exists; measuring coverage of the owner's real devices needs the inventory (Q21)."
+    },
+    {
+      "ac": "C-14-AC2",
+      "capability": "C-14",
+      "capability_name": "Device surfaces and platform limits",
+      "suite": "B22",
+      "suite_kind": "family",
+      "task_types": [
+        "per-device scoping and revocation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Scope manifests and revocation drills run against a synthetic device roster."
+    },
+    {
+      "ac": "C-14-AC3",
+      "capability": "C-14",
+      "capability_name": "Device surfaces and platform limits",
+      "suite": "B22",
+      "suite_kind": "family",
+      "task_types": [
+        "claims and degradation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Claim sampling is mechanical; no platform access required."
+    },
+    {
+      "ac": "C-14-AC4",
+      "capability": "C-14",
+      "capability_name": "Device surfaces and platform limits",
+      "suite": "B22",
+      "suite_kind": "family",
+      "task_types": [
+        "platform-mechanism simulation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Scripted call simulator only; it cannot prove behaviour on a real device."
+    },
+    {
+      "ac": "C-14-AC5",
+      "capability": "C-14",
+      "capability_name": "Device surfaces and platform limits",
+      "suite": "B22",
+      "suite_kind": "family",
+      "task_types": [
+        "claims and degradation"
+      ],
+      "status": "planned_suite",
+      "existing_fragment": false,
+      "blocked_by": [],
+      "note": "Device-absence harness removes devices mid-run."
     }
   ],
   "summary": {
-    "criteria_total": 50,
-    "capabilities_total": 12,
+    "criteria_total": 61,
+    "capabilities_total": 14,
     "by_status": {
-      "planned_suite": 27,
-      "named_audit": 9,
+      "planned_suite": 35,
+      "named_audit": 10,
       "human_review": 3,
-      "blocked_owner_input": 6,
+      "blocked_owner_input": 8,
       "slice_built": 5
     },
-    "with_objective_protocol": 47,
+    "with_objective_protocol": 58,
     "human_review_only": [
       "C-08-AC1",
       "C-09-AC2",
@@ -821,6 +979,7 @@
       "Q17",
       "Q19",
       "Q20",
+      "Q21",
       "Q24",
       "completed-project-records"
     ],
@@ -872,7 +1031,7 @@
         "blocked": []
       },
       "C-05": {
-        "criteria": 6,
+        "criteria": 7,
         "suites": [
           "B12",
           "G-LOCAL"
@@ -953,6 +1112,27 @@
         ],
         "human_review": [],
         "blocked": []
+      },
+      "C-13": {
+        "criteria": 5,
+        "suites": [
+          "B21",
+          "G-CLAIM"
+        ],
+        "human_review": [],
+        "blocked": [
+          "C-13-AC4"
+        ]
+      },
+      "C-14": {
+        "criteria": 5,
+        "suites": [
+          "B22"
+        ],
+        "human_review": [],
+        "blocked": [
+          "C-14-AC1"
+        ]
       }
     },
     "capabilities_without_blocked_criteria": [
@@ -983,7 +1163,7 @@
     "Q18": "permitted people-database fields",
     "Q19": "target language list",
     "Q20": "dedicated-server constraints and measured hardware baseline",
-    "Q21": "account and connector inventory",
+    "Q21": "account and connector inventory (device roster for C-14 coverage)",
     "Q22": "call modes and permissions",
     "Q23": "P-1 blanket financial/medical/legal refusal",
     "Q24": "smart-home inventory",
@@ -991,6 +1171,8 @@
     "A8": "approval workflow owner",
     "A9": "confirmation of approval workflow for major updates",
     "G-O1": "model adoption gate; blocked",
-    "completed-project-records": "retrospective project outcomes that only the owner holds; no such record exists in the repository"
+    "completed-project-records": "retrospective project outcomes that only the owner holds; no such record exists in the repository",
+    "Q25": "EDITH Glass requirements; future project, nothing defined",
+    "Q26": "rooms and optical constraints for the home surface"
   }
 }

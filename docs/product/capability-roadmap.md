@@ -1,14 +1,15 @@
-# J.A.R.V.I.S. — Capability Roadmap (v1.1.0)
+# J.A.R.V.I.S. — Capability Roadmap (v1.2.0)
 
 - **Status:** published for review (planning document; **nothing on this roadmap is implemented**)
-- **Published:** 2026-11-01 · **Version:** 1.1.0 (supersedes 1.0.0; see §8)
-- **Specification:** [capability specification v1.1.0](capability-specification.md) · **Index:** [`capabilities.json`](capabilities.json)
+- **Published:** 2026-11-01 · **Version:** 1.2.0 (supersedes 1.1.0; see §8)
+- **Specification:** [capability specification v1.2.0](capability-specification.md) · **Index:** [`capabilities.json`](capabilities.json)
+- **Companion:** [device support matrix v1.0.0](device-support-matrix.md) — every declared device target, its limits and what is unverified
 - **Research basis:** [revised roadmap, Phase 15 §2](../research/15-revised-roadmap-supersession-and-next-step.md#2-revised-roadmap)
 - **Completed milestones:** M1–M4 (Stage 0 and Stage 1, with recorded evidence under `eval/`)
 
 ## 1. What this roadmap does
 
-It sequences the twelve product capabilities from the
+It sequences the fourteen product capabilities from the
 [specification](capability-specification.md#1-requirement-summary) into milestones, each with dependencies,
 exit criteria and the evaluation family that validates it — and it states the conditions under which a
 **model may be chosen at all**.
@@ -25,8 +26,15 @@ The owner's decisions of 2026-11-01 changed the shape of the plan in four ways:
 3. **The call capability changed character.** It is no longer "place and receive calls with refusals"; it is
    the owner's **PA**: attend, handle, escalate, summarise — locally. The blanket refusal of financial,
    medical and legal topics is now **proposed policy P-1**, awaiting the owner (Q23).
-4. **Mapping before models still holds, and now has more to map.** Twelve capabilities, a language matrix, a
+4. **Mapping before models still holds, and now has more to map.** Fourteen capabilities, a language matrix, a
    device and account inventory, and a measured server baseline all belong to M5 before G-O1 may open.
+
+The owner's clarification of the same day added a fifth change, recorded as O-8…O-12: **everyday assistance**
+is the scope (with no priority ranking invented), the surfaces are **voice-first with no chat boxes**, the
+primary spatial display is a **home holographic interface** (C-13) that is specified and not built, and the
+declared **device targets** (C-14) are PC, tablet, iPhone, Android phone, VR and Ray-Ban glasses, with EDITH
+Glass kept as a separate future project and AETHERION out of scope. Those two capabilities get milestone
+**M16**; neither moves model selection, which stays behind G-O1.
 
 ## 2. Milestones
 
@@ -38,7 +46,7 @@ Status vocabulary: `complete` (evidence recorded) · `planned` (not started) · 
 | **M2** | Frozen baseline | — | M1 | B1, B2, B3 | complete — [`stage-0-m2`](../research/stage-0-m2-frozen-baseline.md) |
 | **M3** | Planted regression (X-10) | — | M2 | B1, B2, B3 | complete — [`stage-0-m3`](../research/stage-0-m3-planted-regression.md) |
 | **M4** | Breadth families, registry, solver ladder | C-06, C-07 (partly) | M3 | B8, B9, B10 | complete — [`stage-1-m4`](../research/stage-1-m4-breadth-and-ladder.md) |
-| **M5** | **Capability coverage and workload mapping** (updated for O-1…O-7) | all twelve | M4 | all existing + family plan for B4–B7, B11–B20 | planned — **unblocks G-O1** |
+| **M5** | **Capability coverage and workload mapping** (updated for O-1…O-12) | all fourteen | M4 | all existing + family plan for B4–B7, B11–B22 | planned — **unblocks G-O1** |
 | **M6** | Voice-first surface, speaker verification, multilingual coverage | C-03, C-04 | M5 | B6, B11, B19, B7 | planned |
 | **M7** | Personal context and modular knowledge stores | C-01, C-02 | M5 | B4, B13, B7 | planned |
 | **M8** | Connectors with scoped permissions and audit | C-12 | M7 | B20, B7 | planned |
@@ -49,12 +57,13 @@ Status vocabulary: `complete` (evidence recorded) · `planned` (not started) · 
 | **M13** | Invention support | C-08 | M7, M12 | B15, B8 | planned |
 | **M14** | Canon parity and claims audit | C-10, C-06 | M9, M10, M11, M13 | B17 | planned |
 | **M15** | Model adoption (O1) | all | M5 + **G-O1** | all | **blocked** |
+| **M16** | Interface surfaces: home holographic interface, device matrix, platform limits | C-13, C-14 | M5, M6 | B21, B22 | planned |
 
 ### Exit criteria
 
 | ID | Exit criteria (all measurable) | Kill / stop criterion |
 |---|---|---|
-| **M5** | 12/12 capabilities mapped to ≥1 family with pre-registered thresholds; **local processing boundary drawn** (every function classified local or external, external list justified); **language coverage matrix** with target languages, measurement protocol and support tiers; **connector and device inventories** with scopes and protocols; **server baseline measured** (hardware, per-language voice latency, throughput); Phase 1 envelopes re-derived for voice, telephony, smart home and invention; Q13–Q24 answered or recorded as blocking; coverage report published | If fewer than 9 of 12 capabilities can be measured by any feasible family, stop and re-scope the capability set rather than build a suite that cannot see it |
+| **M5** | 14/14 capabilities mapped to ≥1 family with pre-registered thresholds; **local processing boundary drawn** (every function classified local or external, external list justified); **language coverage matrix** with target languages, measurement protocol and support tiers; **connector and device inventories** with scopes and protocols; **server baseline measured** (hardware, per-language voice latency, throughput); Phase 1 envelopes re-derived for voice, telephony, smart home and invention; Q13–Q26 answered or recorded as blocking; coverage report published | If fewer than 11 of 14 capabilities can be measured by any feasible family, stop and re-scope the capability set rather than build a suite that cannot see it |
 | **M6** | G-UX passes (0 chat-input controls); latency measured **on the dedicated server and per language**, with the provisional thresholds revisited; ≥95% of 200 utterances handled; false-accept ≤1% **and** false-reject ≤5% reported together; uncertain-identity fallback 40/40; every language in the matrix carries a measured result and a tier, with unsupported languages declared | If local models cannot meet conversational latency on the approved server for the primary languages, report that honestly and re-scope before claiming fluency |
 | **M7** | 100% of writes metadata-complete; ≥95% stale facts excluded or labelled; 3 deletion drills with 0 resurrections; 0 unauthorized disclosures in 40 scenarios; all stores verified server-local and encrypted at rest | If deletion cannot be verified across derived stores, the people database is not built |
 | **M8** | Every connector has a scope manifest and no wildcard scopes; 0 out-of-scope actions over 200 attempts; revocation drills pass with no residual tokens; audit reconciliation 100%; no blanket credentials exist anywhere | If any connector needs a blanket credential to work, that connector is rejected — not the rule |
@@ -65,6 +74,7 @@ Status vocabulary: `complete` (evidence recorded) · `planned` (not started) · 
 | **M13** | ≥80% of ideas rated usable by blind raters; 100% of prior-art claims sourced; 0 novelty claims; ≥90% budget-range calibration; 0 personal data in external queries | If prior-art sourcing cannot be made verifiable, invention support is limited to non-prior-art work |
 | **M14** | ≥14 parity rows complete; 0 canon conflations; 0 unlabelled cognitive/sentience claims; owner sign-off | If the canon mapping cannot be kept unambiguous, publish the matrix as a glossary and drop the parity claim |
 | **M15** | G-O1 passed; a server-local model runs end-to-end behind the unchanged harness; one-command rollback verified; no family regression; egress audit shows no cloud AI in the serving path | Any family regression blocks adoption, regardless of aggregate gain |
+| **M16** | the surface inventory and the device matrix exist and are reviewed by the owner; a display-technology survey is complete enough to price the option with **no purchase made**; G-UX passes on every surface; telephony claims audited against the platform limits with 0 overclaims (G-CLAIM); Q25 and Q26 answered or explicitly deferred; B21 and B22 pre-registered in M5 terms | If no display technology can be shown to work at a usable brightness and volume without a headset, the holographic surface is dropped to voice plus ordinary screens and the decision is recorded — it is **not** quietly redefined as a monitor |
 
 ## 3. Capability-to-validation map
 
@@ -82,6 +92,8 @@ Status vocabulary: `complete` (evidence recorded) · `planned` (not started) · 
 | C-10 canon parity / Rescue | none | B17 | M14 |
 | C-11 smart home | none | B18, B7 | M9 |
 | C-12 connectors, scoped access | none (the tool simulator is not a connector) | B20, B7 | M8 |
+| C-13 home holographic interface | none — no renderer, no fixture; the surface is text | B21, B7, G-CLAIM audit | M16 |
+| C-14 device surfaces and platform limits | none — no client, no paired device | B22, B7 | M16 |
 
 **No row in this table is a product result.** Every "today" entry is a synthetic fixture that exercises a
 mechanism; none measures whether J.A.R.V.I.S. can do the thing the owner asked for.
@@ -90,13 +102,13 @@ mechanism; none measures whether J.A.R.V.I.S. can do the thing the owner asked f
 
 | Gate | Requires | Blocks | Status |
 |---|---|---|---|
-| **G-W** | Workload mapping: the twelve capabilities mapped onto the Phase 1 task families and reference scenarios, updated for voice, multilingual, telephony, smart home and invention | M15 | open |
+| **G-W** | Workload mapping: the fourteen capabilities mapped onto the Phase 1 task families and reference scenarios, updated for voice, multilingual, telephony, smart home, invention, interface surfaces and device platforms | M15 | open |
 | **G-C** | Evaluation coverage mapping: every capability has ≥1 family with pre-registered thresholds, the local boundary and the language matrix included | M15 | open |
 | **G-O1** | **Model selection:** updated M5 complete and reviewed; G-W and G-C passed; local processing boundary documented and accepted; server baseline and per-language latency measured; owner approval (A9) | M15, any model-dependent Stage 5 work | **blocked** |
-| **G-UX** | UI-surface audit finds 0 conversational text-input controls | every release | open |
+| **G-UX** | UI-surface audit finds 0 conversational text-input controls on any surface, including the home holographic interface and every device surface | every release | open |
 | **G-LOCAL** | Network egress audit shows 0 personal data, 0 audio, 0 call summaries and 0 inference requests to any cloud AI; external calls limited to the declared list (telephony, public retrieval, device vendor clouds, updates) | every release | open |
 | **G-SCOPE** | Every connector has a scope manifest; 0 wildcard scopes; revocation drills pass; audit reconciliation complete | every release | open |
-| **G-CLAIM** | Editorial audit finds 0 unlabelled cognitive, sentience or "implemented" claims | every documentation release | open |
+| **G-CLAIM** | Editorial audit finds 0 unlabelled cognitive, sentience, device-support or "implemented" claims — including 0 claims that the holographic interface works and 0 claims that cellular call audio is reachable | every documentation release | open |
 
 **Why G-O1 is still blocked.** The owner's decisions removed one unknown (Q16: local-only) and added
 several: a language matrix, a device and account inventory, a measured server baseline, and a call design
@@ -111,11 +123,15 @@ hardware appears in this roadmap.
   [Phase 15 §2](../research/15-revised-roadmap-supersession-and-next-step.md#2-revised-roadmap). M5 remains
   a gate between Stage 1 and Stage 2; M6–M10 attach to Stage 2/3 interfaces and integrations; M11 maps to
   Stage 4; M15 is Stage 5 with G-O1 in front of it.
-- **It does not claim any capability.** All twelve are `specified`; four are additionally labelled
-  `harness-only`, meaning a synthetic fixture touches a fragment.
+- **It does not claim any capability.** All fourteen are `specified`; four are additionally labelled
+  `harness-only`, meaning a synthetic fixture touches a fragment. The two interface capabilities added in
+  1.2.0 have no fixture at all.
 - **It does not adopt the synthetic registry as product features.** `eval/registry/capabilities.json` is a
-  test-harness inventory of simulators; product capabilities are C-01…C-12.
-- **It does not put a chat box on any later milestone.** G-UX applies to every release.
+  test-harness inventory of simulators; product capabilities are C-01…C-14.
+- **It does not put a chat box on any later milestone.** G-UX applies to every release, on the holographic
+  surface and on every device (O-9).
+- **It does not schedule hardware it has not surveyed.** M16 buys nothing; the holographic surface may be
+  found infeasible, and the kill criterion says so out loud.
 - **It does not leave a cloud option open.** G-LOCAL applies to every release and to the serving path of
   any adopted model.
 
@@ -131,6 +147,9 @@ hardware appears in this roadmap.
 | Smart-home inventory and local hub | Q24 | M9 |
 | Telephony jurisdiction and consent | Q17 | M10 |
 | People-database fields | Q18 | M7 |
+| **EDITH Glass** requirements (separate future project) | Q25 | M16 |
+| Rooms and optical constraints for the home surface | Q26 | M16 |
+| Device and account inventory (coverage of real devices) | Q21 | M8, M16 |
 
 ## 7. Explicitly out of scope, permanently or until the owner says otherwise
 
@@ -146,6 +165,11 @@ hardware appears in this roadmap.
 8. Real user data in fixtures, real accounts, or credentials — until Q15 is answered and a de-identification
    process exists.
 9. Model selection before G-O1.
+10. Presenting the home holographic interface as built, demonstrated or imminent, or selecting a display
+    technology or supplier before the M16 survey (C-13, G-CLAIM).
+11. Treating PR-1 (language list) or PR-2 (server capacity tiers) as decided: both are proposals pending
+    Q19 and Q20 (R-12).
+12. Promising ordinary iPhone cellular-call audio, at any milestone (R-11, C-14).
 
 ## 8. Review requests and change log
 
@@ -155,13 +179,18 @@ hardware appears in this roadmap.
    and smart home (M9).
 2. Confirm the local processing boundary and that the external-service list in
    [specification §0.2](capability-specification.md#02-deployment-and-processing-boundary-normative) is complete.
-3. Decide Q23 (policy P-1) and provide Q17–Q24 for M5.
+3. Decide Q23 (policy P-1) and provide Q17–Q26 for M5.
 4. Confirm M6 and M7 may run in parallel, and that M9 and M10 both wait for M8 (connectors).
 5. Nominate a milestone owner for M5 — without one, G-O1 cannot be reviewed and M15 cannot start.
+6. Review M16's scope: a display-technology survey with no purchase, the device matrix, and the platform
+   limits — and confirm the kill criterion for the holographic surface.
+7. Treat PR-1 and PR-2 as proposals: the language list and order are Q19, the server capacity and budget
+   are Q20.
 
 **Change log.**
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0.0 | 2026-11-01 | First published capability roadmap: M5–M13, five gates including G-O1 blocking model selection. |
+| 1.2.0 | 2026-11-01 | Owner clarification recorded as O-8…O-12 and given a milestone: **M16** (interface surfaces) with capabilities **C-13** (home holographic interface, specified only — no display technology, no optics, no prototype, no purchase) and **C-14** (device surfaces and platform limits: PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses; EDITH Glass a separate future project; AETHERION out of scope). Families **B21** and **B22** added; G-UX and G-CLAIM extended to every surface and to device/telephony claims; R-11 (no surface outruns its platform) and R-12 (proposals are not requirements) added; M16 carries an explicit kill criterion instead of an implied promise; Q25 and Q26 added; PR-1 (languages) and PR-2 (server tiers) recorded as proposals. M15 stays blocked by G-O1. |
 | 1.1.0 | 2026-11-01 | Re-derived from owner decisions O-1…O-7: dedicated server and local-only processing stated as fixed rather than open; smart home (C-11) and scoped connectors (C-12) added, with M8 (connectors) and M9 (smart home); calls re-cast as PA handling (M10) with local summaries and escalation, policy P-1 marked as a proposal; multilingual coverage and server-measured latency added to M6; gates G-LOCAL and G-SCOPE added; milestones renumbered M5–M15 with M15 still blocked by G-O1. |

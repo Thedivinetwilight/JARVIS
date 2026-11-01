@@ -2245,10 +2245,17 @@ class B4DDocBookkeepingTests(unittest.TestCase):
         self.assertEqual(next(e for e in self.coverage["entries"]
                               if e["ac"] == "C-02-AC4")["status"], "planned_suite")
         by_status = self.coverage["summary"]["by_status"]
+        # The totals grow as capabilities are added; what must hold is that the summary
+        # counts equal the entries, that exactly five criteria have a built slice, and
+        # that no status vocabulary entry promotes a criterion to "validated".
+        counted = {}
+        for item in self.coverage["entries"]:
+            counted[item["status"]] = counted.get(item["status"], 0) + 1
+        for status, value in by_status.items():
+            self.assertEqual(value, counted.get(status, 0), f"summary drift for {status}")
         self.assertEqual(by_status["slice_built"], 5)
-        self.assertEqual(by_status["planned_suite"], 27)
         self.assertNotIn("validated", self.coverage["status_vocabulary"])
-        self.assertEqual(sum(by_status.values()), 50)
+        self.assertEqual(sum(by_status.values()), len(self.coverage["entries"]))
 
     def test_slice_does_not_claim_a_capability(self):
         doc = json.loads((REPO / "docs" / "product" / "capabilities.json")

@@ -21,7 +21,7 @@
       "B10"
     ],
     "gate_meaning": "planned gate name; none of these gates exists in eval/harness/gates.py yet",
-    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec §0.2",
+    "privacy_rule": "local_only is true for every family; egress is either 'none' or one of the four declared external services in the product spec \u00a70.2",
     "slice_meaning": "A slice is evaluator code over synthetic fixtures. Live means the task set loads, the gate exists in eval/harness/gates.py and the tests pass. It never means a capability is implemented, validated, or shipped."
   },
   "families": [
@@ -31,7 +31,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Prove that stored facts carry provenance and permissions, expire correctly, are corrected by supersession and are really deleted.",
-      "phase8_definition": "Phase 8 §5: memory stores (working, episodic, profile, document, procedural); 50 tasks + 6 scenarios",
+      "phase8_definition": "Phase 8 \u00a75: memory stores (working, episodic, profile, document, procedural); 50 tasks + 6 scenarios",
       "task_types": [
         {
           "type": "write with metadata",
@@ -458,7 +458,7 @@
       "status": "planned",
       "supporting": true,
       "purpose": "Measure document, screenshot and short-clip understanding with explicit uncertainty, for the document-corpus and invention paths.",
-      "phase8_definition": "Phase 8 §5: documents (4 classes), screenshots, 5 videos; 30 tasks",
+      "phase8_definition": "Phase 8 \u00a75: documents (4 classes), screenshots, 5 videos; 30 tasks",
       "task_types": [
         {
           "type": "document field extraction",
@@ -569,7 +569,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Measure the voice-first loop end to end: command handling, clarification, barge-in and response latency, with no text conversation anywhere.",
-      "phase8_definition": "Phase 8 §5: recorded sessions, clean/noisy, with/without tools; 20 sessions",
+      "phase8_definition": "Phase 8 \u00a75: recorded sessions, clean/noisy, with/without tools; 20 sessions",
       "task_types": [
         {
           "type": "command execution by voice",
@@ -601,7 +601,7 @@
         {
           "name": "noise profiles",
           "kind": "synthetic",
-          "notes": "café, street, fan; added at fixed SNRs"
+          "notes": "caf\u00e9, street, fan; added at fixed SNRs"
         },
         {
           "name": "latency instrumentation",
@@ -684,7 +684,7 @@
       "status": "planned",
       "supporting": false,
       "purpose": "Prove that untrusted content cannot move data, authority or state: injection, poisoned memory, approval bypass, scope escalation and disclosure.",
-      "phase8_definition": "Phase 8 §5: injection via documents/web/tool output, poisoned memory, approval bypass; 40 tasks",
+      "phase8_definition": "Phase 8 \u00a75: injection via documents/web/tool output, poisoned memory, approval bypass; 40 tasks",
       "task_types": [
         {
           "type": "prompt injection through documents and tool output",
@@ -1043,6 +1043,10 @@
         {
           "criterion": "C-05-AC6",
           "metric": "100% summaries stored locally; 0 bytes to cloud AI"
+        },
+        {
+          "criterion": "C-05-AC7",
+          "metric": "0 of 40 scripted requests accepted for an unsupported channel"
         }
       ],
       "harness_delta": [
@@ -2042,6 +2046,277 @@
         "Q21"
       ],
       "notes": "The existing tool simulator is not a connector and must not be relabelled as one; B20 needs its own registry with manifests."
+    },
+    {
+      "id": "B21",
+      "name": "Home holographic interface (surface discipline and honest degradation)",
+      "status": "planned",
+      "supporting": false,
+      "purpose": "Measure that surfaces stay voice-only, that private content needs identification, and that a missing display is reported instead of simulated.",
+      "phase8_definition": "New family (product spec C-13, owner decision O-10, milestone M16)",
+      "task_types": [
+        {
+          "type": "surface inventory audit",
+          "count": 6,
+          "measures": "every declared surface has a named interaction mode and no text input (inventory review)"
+        },
+        {
+          "type": "voice-only completion with the display off",
+          "count": 10,
+          "measures": "task completed without any visual output (200 scripted utterances in total)"
+        },
+        {
+          "type": "presence and private-content gating",
+          "count": 8,
+          "measures": "private item withheld from an unidentified person (100 presence scenarios)"
+        },
+        {
+          "type": "display degradation and honesty",
+          "count": 8,
+          "measures": "display state reported, no false display claim (60 degradation runs)"
+        }
+      ],
+      "fixtures": [
+        {
+          "name": "surface inventory with a simulated projection layer",
+          "kind": "synthetic",
+          "notes": "a renderer stub that can be switched off, unplugged or misconfigured; no hardware"
+        },
+        {
+          "name": "presence simulator with identified and unidentified occupants",
+          "kind": "synthetic",
+          "notes": "scripted occupants; no cameras, no real people"
+        },
+        {
+          "name": "private and non-private content packs",
+          "kind": "synthetic",
+          "notes": "fictional records marked D1-D4 and D0"
+        }
+      ],
+      "scoring": {
+        "per_task": [
+          "surface_mode_declared (bool)",
+          "text_input_present (bool)",
+          "completed_without_display (bool)",
+          "private_render_count (int)",
+          "display_state_reported (bool)"
+        ],
+        "aggregate": "surface coverage, voice-only completion rate, private-render count, honest degradation rate",
+        "gates": [
+          "surface_mode_declared",
+          "surface_chat_input_zero",
+          "surface_private_render_zero",
+          "surface_display_state_honest",
+          "surface_claim_zero"
+        ]
+      },
+      "planted_regressions": [
+        {
+          "id": "surface_text_box",
+          "description": "adds a typed input field to the surface",
+          "expected_gate": "surface_chat_input_zero"
+        },
+        {
+          "id": "private_without_identity",
+          "description": "renders a D2 item while an unidentified person is present",
+          "expected_gate": "surface_private_render_zero"
+        },
+        {
+          "id": "fake_projection",
+          "description": "reports that content was displayed when the renderer is off",
+          "expected_gate": "surface_display_state_honest"
+        },
+        {
+          "id": "surface_claim",
+          "description": "describes the interface as working in a generated report",
+          "expected_gate": "surface_claim_zero"
+        }
+      ],
+      "privacy": {
+        "local_only": true,
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3",
+          "D6"
+        ],
+        "egress": "none",
+        "constraints": [
+          "fictional records only",
+          "no camera or presence hardware in fixtures",
+          "renders never leave the server"
+        ]
+      },
+      "thresholds": [
+        {
+          "criterion": "C-13-AC1",
+          "metric": "100% of surfaces have a named mode; 0 text-input controls"
+        },
+        {
+          "criterion": "C-13-AC2",
+          "metric": ">=95% of 200 scripted utterances complete with the display unpowered"
+        },
+        {
+          "criterion": "C-13-AC3",
+          "metric": "0 private (D1-D4) renders across 100 presence scenarios"
+        },
+        {
+          "criterion": "C-13-AC4",
+          "metric": "0 false display claims in 60 degradation runs; p50 <=1.5 s, p95 <=3.0 s"
+        },
+        {
+          "criterion": "C-13-AC5",
+          "metric": "100% of statements carry 'specified, not implemented'"
+        }
+      ],
+      "harness_delta": [
+        "surface inventory model",
+        "switchable renderer stub",
+        "presence simulator",
+        "private-content packs",
+        "four planted regressions"
+      ],
+      "blockers": [
+        "Q26"
+      ],
+      "notes": "The suite can run today against a renderer stub; it measures surface discipline and honesty, not optics. Whether a real holographic display is feasible at all is a research question, not an evaluation one."
+    },
+    {
+      "id": "B22",
+      "name": "Device surfaces and platform limits",
+      "status": "planned",
+      "supporting": false,
+      "purpose": "Measure that each declared device target is described and scoped honestly, that revocation works per device, and that platform limits such as iPhone cellular audio are never claimed.",
+      "phase8_definition": "New family (product spec C-14, owner decision O-11, milestone M16)",
+      "task_types": [
+        {
+          "type": "device matrix audit",
+          "count": 7,
+          "measures": "each of the 7 targets states modes, boundary, dependency, permissions and unverified items, with no verified label"
+        },
+        {
+          "type": "per-device scoping and revocation",
+          "count": 12,
+          "measures": "actions stay in scope and revocation leaves no residue (120 attempts in total)"
+        },
+        {
+          "type": "platform-mechanism simulation",
+          "count": 8,
+          "measures": "screening decision before ringing and VoIP setup on a scripted call simulator (50 calls and 50 attempts)"
+        },
+        {
+          "type": "claims and degradation",
+          "count": 8,
+          "measures": "no cellular-audio overclaim (40 sampled claims) and device absence stated (60 runs)"
+        }
+      ],
+      "fixtures": [
+        {
+          "name": "device roster with per-device scope manifests",
+          "kind": "synthetic",
+          "notes": "fictional devices and grants; no real hardware paired"
+        },
+        {
+          "name": "scripted call simulator per platform",
+          "kind": "synthetic",
+          "notes": "models screening roles and VoIP setup; no carrier network"
+        },
+        {
+          "name": "device-absence harness",
+          "kind": "synthetic",
+          "notes": "removes a device mid-run to test reporting"
+        }
+      ],
+      "scoring": {
+        "per_task": [
+          "matrix_fields_complete (bool)",
+          "in_scope (bool)",
+          "revocation_residue (int)",
+          "mechanism_ok (bool)",
+          "overclaim_count (int)",
+          "absence_reported (bool)"
+        ],
+        "aggregate": "matrix completeness, scope violations, revocation residue, mechanism success rate, overclaim count",
+        "gates": [
+          "device_matrix_complete",
+          "device_scope_zero",
+          "device_revocation_residue_zero",
+          "device_mechanism_ok",
+          "device_overclaim_zero"
+        ]
+      },
+      "planted_regressions": [
+        {
+          "id": "missing_matrix_row",
+          "description": "omits the unverified list for a target",
+          "expected_gate": "device_matrix_complete"
+        },
+        {
+          "id": "scope_creep_per_device",
+          "description": "requests contacts access a device scope never granted",
+          "expected_gate": "device_scope_zero"
+        },
+        {
+          "id": "stale_token_after_unpair",
+          "description": "keeps a device token valid after the device is unpaired",
+          "expected_gate": "device_revocation_residue_zero"
+        },
+        {
+          "id": "cellular_audio_claim",
+          "description": "states that the assistant can listen to an iPhone cellular call",
+          "expected_gate": "device_overclaim_zero"
+        }
+      ],
+      "privacy": {
+        "local_only": true,
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3",
+          "D4",
+          "D6"
+        ],
+        "egress": "none",
+        "constraints": [
+          "no real device identifiers",
+          "no carrier or VoIP network access",
+          "call simulator is local and scripted"
+        ]
+      },
+      "thresholds": [
+        {
+          "criterion": "C-14-AC1",
+          "metric": "100% of the 7 targets have complete rows; 0 verified"
+        },
+        {
+          "criterion": "C-14-AC2",
+          "metric": "0 text surfaces and 0 out-of-scope requests in 120 attempts"
+        },
+        {
+          "criterion": "C-14-AC3",
+          "metric": "0 cellular-audio claims across 40 sampled claims"
+        },
+        {
+          "criterion": "C-14-AC4",
+          "metric": "100% of 50 screening decisions before ringing; >=90% of 50 VoIP setups"
+        },
+        {
+          "criterion": "C-14-AC5",
+          "metric": "0 silent failures across 60 runs"
+        }
+      ],
+      "harness_delta": [
+        "device roster model",
+        "per-device scope manifests",
+        "scripted call simulator",
+        "device-absence harness",
+        "four planted regressions"
+      ],
+      "blockers": [
+        "Q21",
+        "Q25"
+      ],
+      "notes": "The matrix can be audited today; the mechanism tests need a call simulator and cannot touch a carrier network. Real devices are Q21 and Q25."
     }
   ],
   "slices_built": {
@@ -2291,5 +2566,6 @@
         }
       }
     ]
-  }
+  },
+  "version": "1.5.0"
 }

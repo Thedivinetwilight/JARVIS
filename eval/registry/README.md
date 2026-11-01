@@ -1,7 +1,7 @@
 # `eval/registry/` — capability registry (evaluator-owned)
 
 > **This is a test-harness inventory, not product features.** No entry here is implemented in a product:
-> each one is an in-memory simulator the evaluator can call. The product requirements are C-01…C-12 in the
+> each one is an in-memory simulator the evaluator can call. The product requirements are C-01…C-14 in the
 > [capability specification](../../docs/product/capability-specification.md); a registry entry means "the
 > harness can simulate this capability for a fixture", and nothing more. See
 > [`docs/product/README.md`](../../docs/product/README.md) for the boundary between product, research and

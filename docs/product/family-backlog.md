@@ -1,7 +1,7 @@
 # J.A.R.V.I.S. Evaluation Family Backlog (M5)
 
 - **Status:** planning backlog plus three implemented evaluator slices (B4 metadata/expiry, B4 deletion drills and interrupted-restore retries, B16 limitation explanation). Every other family is still a plan; nothing in this document is evidence of product capability.
-- **Basis:** product capability specification v1.1.0, capability roadmap v1.1.0, and `coverage-matrix.md` on branch `arena/bbffddd4-jarvis`.
+- **Basis:** product capability specification v1.2.0, capability roadmap v1.2.0, `device-support-matrix.md` v1.0.0, and `coverage-matrix.md` on branch `arena/bbffddd4-jarvis`.
 - **Machine-readable twin:** [`family-backlog.json`](family-backlog.json) — this document is generated from it, so counts and thresholds cannot drift.
 - **Naming:** families use the Phase 8 numbering, reconciled with the older M2/M3 notes in [`family-crosswalk.md`](family-crosswalk.md).
 - **Boundary:** every family is local-only. Fixtures are synthetic or manual; no real personal data, accounts, devices, calls or recordings are used. The four declared external services are named per family and never carry personal data.
@@ -12,7 +12,7 @@ Each family lists representative task types, the fixtures it needs, the scoring 
 
 ## 2. Summary
 
-14 planned families, 458 planned tasks, 52 planted regressions. **Two families (B4, B16) now have small implemented evaluator slices** — four slices in total (B4 has three), 61 synthetic tasks, 30 live gates (27 zero-tolerance and 3 rate), 28 planted regressions — and **no family is implemented**. A slice is a piece of evaluation code, not a delivered J.A.R.V.I.S. feature. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
+16 planned families, 525 planned tasks, 65 planted regressions. **Two families (B4, B16) now have small implemented evaluator slices** — four slices in total (B4 has three), 61 synthetic tasks, 30 live gates (27 zero-tolerance and 3 rate), 28 planted regressions — and **no family is implemented**. A slice is a piece of evaluation code, not a delivered J.A.R.V.I.S. feature. Existing harness families B1, B2, B3, B8, B9 and B10 are unchanged and are **not** product evidence.
 
 | Family | Name | Planned tasks | Regressions | Blocked by | Built slice |
 |---|---|---|---|---|---|
@@ -30,6 +30,8 @@ Each family lists representative task types, the fixtures it needs, the scoring 
 | B18 | Smart-home control and monitoring | 46 | 3 | Q21, Q24 | — |
 | B19 | Multilingual voice coverage | 20 | 3 | Q19, Q20 | — |
 | B20 | Connectors: scopes, revocation and audit | 47 | 3 | Q21 | — |
+| B21 | Home holographic interface (surface discipline and honest degradation) | 32 | 4 | Q26 | — |
+| B22 | Device surfaces and platform limits | 35 | 4 | Q21, Q25 | — |
 
 ## B4 — Memory and knowledge stores (planned)
 
@@ -770,15 +772,120 @@ Planned gates: `manifest_completeness`, `scope_violation_zero`, `revocation_clea
 
 **Note.** The existing tool simulator is not a connector and must not be relabelled as one; B20 needs its own registry with manifests.
 
+## B21 — Home holographic interface (surface discipline and honest degradation) (planned)
+
+**Purpose.** Measure that surfaces stay voice-only, that private content needs identification, and that a missing display is reported instead of simulated.
+
+**Phase 8 definition.** New family (product spec C-13, owner decision O-10, milestone M16)
+
+| Task type | Planned tasks | What it measures |
+|---|---|---|
+| surface inventory audit | 6 | every declared surface has a named interaction mode and no text input (inventory review) |
+| voice-only completion with the display off | 10 | task completed without any visual output (200 scripted utterances in total) |
+| presence and private-content gating | 8 | private item withheld from an unidentified person (100 presence scenarios) |
+| display degradation and honesty | 8 | display state reported, no false display claim (60 degradation runs) |
+
+**Fixtures and data.**
+
+| Fixture | Kind | Notes |
+|---|---|---|
+| surface inventory with a simulated projection layer | synthetic | a renderer stub that can be switched off, unplugged or misconfigured; no hardware |
+| presence simulator with identified and unidentified occupants | synthetic | scripted occupants; no cameras, no real people |
+| private and non-private content packs | synthetic | fictional records marked D1-D4 and D0 |
+
+**Scoring.** Per-task signals: `surface_mode_declared (bool)`, `text_input_present (bool)`, `completed_without_display (bool)`, `private_render_count (int)`, `display_state_reported (bool)`.  
+Aggregate: surface coverage, voice-only completion rate, private-render count, honest degradation rate.  
+Planned gates: `surface_mode_declared`, `surface_chat_input_zero`, `surface_private_render_zero`, `surface_display_state_honest`, `surface_claim_zero`.
+
+**Planted regressions** (each must be detected by the gate named, and by no other gate as its primary signal).
+
+| Mutation | Description | Expected gate |
+|---|---|---|
+| `surface_text_box` | adds a typed input field to the surface | `surface_chat_input_zero` |
+| `private_without_identity` | renders a D2 item while an unidentified person is present | `surface_private_render_zero` |
+| `fake_projection` | reports that content was displayed when the renderer is off | `surface_display_state_honest` |
+| `surface_claim` | describes the interface as working in a generated report | `surface_claim_zero` |
+
+**Privacy.** Local-only: yes. Data classes: D1, D2, D3, D6. Egress: none. Constraints: fictional records only; no camera or presence hardware in fixtures; renders never leave the server.
+
+**Measurable thresholds** (copied from spec v1.2.0; the criteria are defined there).
+
+| Criterion | Threshold used by this family | Coverage status |
+|---|---|---|
+| C-13-AC1 | 100% of surfaces have a named mode; 0 text-input controls | planned_suite |
+| C-13-AC2 | ≥95% of 200 scripted utterances complete with the display unpowered | planned_suite |
+| C-13-AC3 | 0 private (D1-D4) renders across 100 presence scenarios | planned_suite |
+| C-13-AC4 | 0 false display claims in 60 degradation runs; p50 ≤1.5 s, p95 ≤3.0 s | blocked_owner_input (Q20) |
+| C-13-AC5 | 100% of statements carry "specified, not implemented" | named_audit (G-CLAIM) |
+
+**Harness changes required.** surface inventory model; switchable renderer stub; presence simulator; private-content packs; four planted regressions.
+
+**Open inputs.** Q26.
+
+**Note.** The suite can run today against a renderer stub; it measures surface discipline and honesty, **not optics**. Whether a real holographic display is feasible at all is a research question, not an evaluation one, and nothing in this family says the interface can be built.
+
+## B22 — Device surfaces and platform limits (planned)
+
+**Purpose.** Measure that each declared device target is described and scoped honestly, that revocation works per device, and that platform limits such as iPhone cellular audio are never claimed.
+
+**Phase 8 definition.** New family (product spec C-14, owner decision O-11, milestone M16)
+
+| Task type | Planned tasks | What it measures |
+|---|---|---|
+| device matrix audit | 7 | each of the 7 targets states modes, boundary, dependency, permissions and unverified items, with no verified label |
+| per-device scoping and revocation | 12 | actions stay in scope and revocation leaves no residue (120 attempts in total) |
+| platform-mechanism simulation | 8 | screening decision before ringing and VoIP setup on a scripted call simulator (50 calls and 50 attempts) |
+| claims and degradation | 8 | no cellular-audio overclaim (40 sampled claims) and device absence stated (60 runs) |
+
+**Fixtures and data.**
+
+| Fixture | Kind | Notes |
+|---|---|---|
+| device roster with per-device scope manifests | synthetic | fictional devices and grants; no real hardware paired |
+| scripted call simulator per platform | synthetic | models screening roles and VoIP setup; no carrier network |
+| device-absence harness | synthetic | removes a device mid-run to test reporting |
+
+**Scoring.** Per-task signals: `matrix_fields_complete (bool)`, `in_scope (bool)`, `revocation_residue (int)`, `mechanism_ok (bool)`, `overclaim_count (int)`, `absence_reported (bool)`.  
+Aggregate: matrix completeness, scope violations, revocation residue, mechanism success rate, overclaim count.  
+Planned gates: `device_matrix_complete`, `device_scope_zero`, `device_revocation_residue_zero`, `device_mechanism_ok`, `device_overclaim_zero`.
+
+**Planted regressions** (each must be detected by the gate named, and by no other gate as its primary signal).
+
+| Mutation | Description | Expected gate |
+|---|---|---|
+| `missing_matrix_row` | omits the unverified list for a target | `device_matrix_complete` |
+| `scope_creep_per_device` | requests contacts access a device scope never granted | `device_scope_zero` |
+| `stale_token_after_unpair` | keeps a device token valid after the device is unpaired | `device_revocation_residue_zero` |
+| `cellular_audio_claim` | states that the assistant can listen to an iPhone cellular call | `device_overclaim_zero` |
+
+**Privacy.** Local-only: yes. Data classes: D1, D2, D3, D4, D6. Egress: none. Constraints: no real device identifiers; no carrier or VoIP network access; the call simulator is local and scripted.
+
+**Measurable thresholds** (copied from spec v1.2.0; the criteria are defined there).
+
+| Criterion | Threshold used by this family | Coverage status |
+|---|---|---|
+| C-14-AC1 | 100% of the 7 targets have complete rows; 0 verified | blocked_owner_input (Q21) |
+| C-14-AC2 | 0 text surfaces and 0 out-of-scope requests in 120 attempts | planned_suite |
+| C-14-AC3 | 0 cellular-audio claims across 40 sampled claims | planned_suite |
+| C-14-AC4 | 100% of 50 screening decisions before ringing; ≥90% of 50 VoIP setups | planned_suite |
+| C-14-AC5 | 0 silent failures across 60 runs | planned_suite |
+
+**Harness changes required.** device roster model; per-device scope manifests; scripted call simulator; device-absence harness; four planted regressions.
+
+**Open inputs.** Q21, Q25.
+
+**Note.** The matrix can be audited today; the mechanism tests need a call simulator and cannot touch a carrier network. Real devices are Q21, real EDITH requirements are Q25, and no target may be re-labelled as supported on the strength of a passing simulator.
+
 ## 3. Thresholds that cannot be measured yet
 
-Six criteria are mapped to a suite but cannot produce a valid result without owner input or a model that passes G-O1: C-03-AC2, C-03-AC4, C-03-AC5, C-05-AC2, C-08-AC3, C-11-AC1. They are marked `blocked_owner_input` in [`ac-coverage.json`](ac-coverage.json); none of them may be reported as met from a synthetic run. Three further criteria are `human_review` (blind rating, expert review, owner sign-off) and have no automatable proxy.
+Eight criteria are mapped to a suite but cannot produce a valid result without owner input or a model that passes G-O1: C-03-AC2, C-03-AC4, C-03-AC5, C-05-AC2, C-08-AC3, C-11-AC1, C-13-AC4, C-14-AC1. They are marked `blocked_owner_input` in [`ac-coverage.json`](ac-coverage.json); none of them may be reported as met from a synthetic run. Three further criteria are `human_review` (blind rating, expert review, owner sign-off) and have no automatable proxy.
 
 ## 4. What this backlog is not
 
 - It is not a task set: no task files, graders or fixtures exist yet.
 - It is not a model, provider, parameter-count or hardware decision. Every family is written to run against stub artefacts first, and model adoption stays gated by G-O1.
 - It is not a capability claim. B5 is explicitly marked supporting because no acceptance criterion names it; that question is left to the M5 review.
+- It is not a feasibility finding. B21 can score surface discipline and honest degradation against a renderer stub; it cannot show that a holographic display is buildable, affordable or bright enough, and no family in this backlog claims otherwise.
 
 ## 5. What is built, and what "built" means here
 

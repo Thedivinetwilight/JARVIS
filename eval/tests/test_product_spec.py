@@ -1,9 +1,15 @@
-"""Consistency checks for the product capability specification (v1.1.0).
+"""Consistency checks for the product capability specification (v1.2.0).
 
 These test the *documents*, not the product: the product does not exist yet. What they
 protect is that the normative requirements, the machine-readable index and the roadmap
 cannot drift apart, that the owner's decisions stay recorded as decisions, that the local
 processing boundary is never reopened, and that no capability can be labelled implemented.
+
+Since 1.2.0 they also protect the interface scope: the home holographic interface stays
+specified-only (no display technology, no verified device, no claim of working), the device
+matrix covers every declared target and marks none of them verified, platform limits are
+stated rather than papered over, and the two proposals (languages, server tiers) stay marked
+as proposals with no language claimed and no purchase named.
 """
 import json
 import re
@@ -18,6 +24,7 @@ SPEC_MD = PRODUCT / "capability-specification.md"
 ROADMAP_MD = PRODUCT / "capability-roadmap.md"
 README_MD = PRODUCT / "README.md"
 INDEX = PRODUCT / "capabilities.json"
+MATRIX_MD_FILE = PRODUCT / "device-support-matrix.md"
 
 ALLOWED_STATUSES = {"specified", "specified · harness-only", "blocked"}
 REQUIRED_CAP_FIELDS = ("id", "title", "requirement", "status", "depends_on",
@@ -46,14 +53,14 @@ class ProductSpecStructureTests(unittest.TestCase):
         self.caps = self.spec["capabilities"]
 
     def test_spec_version_and_status_statement(self):
-        self.assertEqual(self.spec["spec_version"], "1.1.0")
+        self.assertEqual(self.spec["spec_version"], "1.2.0")
         statement = self.spec["status_statement"].lower()
         self.assertIn("implemented", statement)
         self.assertIn("harness inventory", statement)
 
-    def test_twelve_capabilities_with_stable_ids(self):
+    def test_fourteen_capabilities_with_stable_ids(self):
         ids = [cap["id"] for cap in self.caps]
-        self.assertEqual(ids, [f"C-{n:02d}" for n in range(1, 13)])
+        self.assertEqual(ids, [f"C-{n:02d}" for n in range(1, 15)])
         self.assertEqual(len(set(ids)), len(ids))
 
     def test_every_capability_is_complete(self):
@@ -125,7 +132,7 @@ class OwnerDecisionTests(unittest.TestCase):
 
     def test_all_owner_decisions_are_recorded(self):
         ids = [decision["id"] for decision in self.spec["owner_decisions"]]
-        self.assertEqual(ids, [f"O-{n}" for n in range(1, 8)])
+        self.assertEqual(ids, [f"O-{n}" for n in range(1, 13)])
         for decision in self.spec["owner_decisions"]:
             self.assertTrue(decision["decision"].strip())
             self.assertTrue(decision["affects"])
@@ -274,7 +281,7 @@ class RoadmapAndGateTests(unittest.TestCase):
     def test_planned_milestones_have_exit_criteria_and_dependencies(self):
         ids = {m["id"] for m in self.spec["milestones"]}
         planned = [m for m in self.spec["milestones"] if m["status"] != "complete"]
-        self.assertEqual([m["id"] for m in planned], [f"M{n}" for n in range(5, 16)])
+        self.assertEqual([m["id"] for m in planned], [f"M{n}" for n in range(5, 17)])
         for milestone in planned:
             with self.subTest(milestone=milestone["id"]):
                 self.assertTrue(milestone["exit_criteria"])
@@ -333,7 +340,7 @@ class MarkdownAgreementTests(unittest.TestCase):
             cells = [cell.strip() for cell in line.strip("|").split("|")]
             if len(cells) >= 3 and re.fullmatch(r"C-\d{2}", cells[0]):
                 rows[cells[0]] = cells[2]
-        self.assertEqual(len(rows), 12, f"summary table rows: {sorted(rows)}")
+        self.assertEqual(len(rows), 14, f"summary table rows: {sorted(rows)}")
         for cap in self.spec["capabilities"]:
             with self.subTest(capability=cap["id"]):
                 self.assertEqual(rows[cap["id"]], cap["status"],
@@ -360,7 +367,7 @@ class MarkdownAgreementTests(unittest.TestCase):
 
     def test_open_items_have_status_and_are_recorded(self):
         items = {item["id"]: item for item in self.spec["open_items"]}
-        for question in ("Q13", "Q16", "Q17", "Q19", "Q21", "Q22", "Q23", "Q24"):
+        for question in ("Q13", "Q16", "Q17", "Q19", "Q21", "Q22", "Q23", "Q24", "Q25", "Q26"):
             self.assertIn(question, items)
             self.assertIn(question, self.spec_text)
         for item in self.spec["open_items"]:
@@ -368,6 +375,175 @@ class MarkdownAgreementTests(unittest.TestCase):
                 self.assertIn(item["status"], {"open", "answered", "blocked"})
                 self.assertIsInstance(item["blocks"], list)
         self.assertEqual(items["Q23"]["status"], "open")
+
+
+class InterfaceScopeTests(unittest.TestCase):
+    """The interface scope must be specified honestly and never demonstrated."""
+
+    def setUp(self):
+        self.spec = _index()
+        self.caps = _capabilities(self.spec)
+        self.matrix = self.spec["device_matrix"]
+        self.spec_text = SPEC_MD.read_text(encoding="utf-8")
+        self.matrix_text = MATRIX_MD_FILE.read_text(encoding="utf-8")
+
+    def test_holographic_interface_is_specified_and_not_built(self):
+        cap = self.caps["C-13"]
+        self.assertEqual(cap["status"], "specified")
+        requirement = cap["requirement"].lower()
+        self.assertIn("no display technology", requirement)
+        self.assertIn("specified only", requirement)
+        self.assertIn("nothing has been bought", requirement)
+        self.assertEqual(cap["validated_by"]["milestones"], ["M16"])
+        for criterion in cap["acceptance_criteria"]:
+            self.assertEqual(criterion["result"], "not measured")
+        lowered = self.matrix_text.lower()
+        self.assertIn("nothing here is implemented", lowered)
+        self.assertIn("no display technology", lowered)
+
+    def test_holographic_interface_is_separate_from_vr_and_both_glasses(self):
+        requirement = self.caps["C-13"]["requirement"].lower()
+        self.assertIn("vr", requirement)
+        self.assertIn("glasses", requirement)
+        distinct = " ".join(self.matrix["distinctness"]).lower()
+        self.assertIn("not vr", distinct)
+        for needle in ("ray-ban", "edith glass", "aetherion"):
+            self.assertIn(needle, distinct)
+        self.assertNotIn("holographic", " ".join(self.matrix["owner_confirmed_targets"]).lower())
+
+    def test_device_matrix_covers_every_declared_target(self):
+        expected = ["pc", "tablet", "iphone", "android-phone", "vr", "rayban-glasses",
+                    "edith-glass"]
+        devices = self.matrix["devices"]
+        self.assertEqual([device["id"] for device in devices], expected)
+        for device in devices:
+            with self.subTest(device=device["id"]):
+                self.assertTrue(device["interaction_modes"])
+                self.assertTrue(device["integration_boundary"].strip())
+                self.assertTrue(device["platform_dependency"].strip())
+                self.assertTrue(device["permissions"])
+                self.assertTrue(device["unverified"])
+                status = device["status"].lower()
+                self.assertNotIn("verified", status)
+                self.assertNotIn("supported", status)
+        self.assertIn("0 of 7", self.matrix["status"])
+
+    def test_edith_glass_is_a_separate_future_project(self):
+        edith = next(d for d in self.matrix["devices"] if d["id"] == "edith-glass")
+        self.assertIn("separate future project", edith["status"])
+        self.assertEqual(self.matrix["separate_future_project"], ["edith-glass"])
+        self.assertIn("rayban-glasses", self.matrix["owner_confirmed_targets"])
+        self.assertNotIn("edith-glass", self.matrix["owner_confirmed_targets"])
+        self.assertTrue(any("aetherion" in item.lower() for item in self.matrix["out_of_scope"]))
+
+    def test_device_matrix_markdown_agrees_with_the_index(self):
+        lowered = self.matrix_text.lower()
+        for device in self.matrix["devices"]:
+            with self.subTest(device=device["id"]):
+                needle = device["name"].split(" (")[0].lower()
+                self.assertIn(needle, lowered)
+        self.assertIn("never", lowered)  # the naming rule for retail glasses
+        self.assertIn("cellular", lowered)
+
+    def test_telephony_platform_limits_are_normative(self):
+        cap = self.caps["C-05"]
+        platforms = {limit["platform"]: limit for limit in cap["platform_limits"]}
+        iphone = platforms["iPhone"]
+        forbidden = iphone["what_is_forbidden"].lower()
+        self.assertIn("cellular", forbidden)
+        self.assertIn("no access", forbidden)
+        self.assertIn("android", " ".join(platforms).lower())
+        self.assertIn("voip", cap["telephony_rule"].lower())
+        criteria = {c["id"] for c in cap["acceptance_criteria"]}
+        self.assertIn("C-05-AC7", criteria)
+        self.assertIn("cellular", self.spec_text.lower())
+
+    def test_device_access_stays_scoped_and_revocable(self):
+        cap = self.caps["C-14"]
+        permissions = cap["data_and_permissions"]["permissions"]
+        self.assertTrue(set(permissions) <= set(self.spec["permission_verbs"]))
+        self.assertIn("revocation", json.dumps(cap["data_and_permissions"]).lower())
+        for device in self.matrix["devices"]:
+            for grant in device["permissions"]:
+                self.assertNotIn("all my things", grant.lower())
+                self.assertNotIn("blanket", grant.lower())
+                self.assertNotIn("any device", grant.lower())
+
+    def test_interface_milestone_is_planned_and_gated(self):
+        milestone = next(m for m in self.spec["milestones"] if m["id"] == "M16")
+        self.assertEqual(milestone["status"], "planned")
+        self.assertIn("M5", milestone["depends_on"])
+        self.assertTrue(milestone["exit_criteria"])
+        self.assertTrue(milestone.get("kill_criteria"))
+        self.assertIn("M16", self.spec_text)
+        gates = {gate["id"]: gate for gate in self.spec["gates"]}
+        self.assertIn("holographic", " ".join(gates["G-UX"]["requires"]).lower())
+        self.assertIn("cellular", " ".join(gates["G-CLAIM"]["requires"]).lower())
+
+
+class ProposalTests(unittest.TestCase):
+    """PR-1 and PR-2 are proposals. They may not read as decisions, support or purchases."""
+
+    def setUp(self):
+        self.spec = _index()
+        self.proposals = {p["id"]: p for p in self.spec["proposals"]}
+        self.spec_text = SPEC_MD.read_text(encoding="utf-8")
+        self.readme_text = README_MD.read_text(encoding="utf-8")
+
+    def test_proposals_are_labelled_and_not_requirements(self):
+        self.assertEqual(sorted(self.proposals), ["PR-1", "PR-2"])
+        for proposal in self.proposals.values():
+            with self.subTest(proposal=proposal["id"]):
+                self.assertIn("proposal", proposal["status"].lower())
+                self.assertFalse(proposal["is_a_requirement"])
+                self.assertTrue(proposal["what_it_does_not_claim"])
+                self.assertIn(proposal["id"], self.spec_text)
+                self.assertIn(proposal["id"], self.readme_text)
+
+    def test_language_proposal_claims_no_fluency(self):
+        languages = self.proposals["PR-1"]["languages"]
+        self.assertEqual(len(languages), 15)
+        self.assertEqual({language["status"] for language in languages}, {"not measured"})
+        claims = " ".join(self.proposals["PR-1"]["what_it_does_not_claim"]).lower()
+        self.assertIn("no language is claimed", claims)
+        self.assertIn("q19", self.proposals["PR-1"]["status"].lower())
+
+    def test_language_open_question_stays_open(self):
+        items = {item["id"]: item for item in self.spec["open_items"]}
+        self.assertEqual(items["Q19"]["status"], "open")
+        self.assertIn("proposal", items["Q19"]["proposal"].lower())
+        self.assertIn("owner_direction", items["Q19"])
+
+    def test_server_proposal_selects_nothing_and_keeps_go1_blocked(self):
+        proposal = self.proposals["PR-2"]
+        self.assertIn("q20", proposal["status"].lower())
+        self.assertEqual(set(proposal["tiers"]), {"lower", "preferred"})
+        lower = proposal["tiers"]["lower"]
+        preferred = proposal["tiers"]["preferred"]
+        self.assertIn("32", lower["gpu_memory_gb"])
+        self.assertIn("96", preferred["gpu_memory_gb"])
+        self.assertIn("128", lower["system_memory_gb"])
+        self.assertIn("256", preferred["system_memory_gb"])
+        self.assertTrue(proposal["sources"])
+        claims = " ".join(proposal["what_it_does_not_claim"]).lower()
+        self.assertIn("no budget", claims)
+        self.assertIn("g-o1", claims)
+        gates = {gate["id"]: gate for gate in self.spec["gates"]}
+        self.assertEqual(gates["G-O1"]["status"], "blocked")
+        items = {item["id"]: item for item in self.spec["open_items"]}
+        self.assertEqual(items["Q20"]["status"], "open")
+
+    def test_scope_decisions_are_recorded_without_ranking_tasks(self):
+        decisions = {decision["id"]: decision for decision in self.spec["owner_decisions"]}
+        for decision in ("O-8", "O-9", "O-10", "O-11", "O-12"):
+            self.assertIn(decision, decisions)
+            self.assertIn(decision, self.spec_text)
+        self.assertIn("no priority ranking", decisions["O-8"]["decision"].lower())
+        self.assertIn("edith", decisions["O-11"]["decision"].lower())
+        self.assertIn("aetherion", decisions["O-12"]["decision"].lower())
+        items = {item["id"]: item for item in self.spec["open_items"]}
+        for question in ("Q25", "Q26"):
+            self.assertEqual(items[question]["status"], "open")
 
 
 class HarnessBoundaryTests(unittest.TestCase):

@@ -5,7 +5,9 @@ built, and what would count as having done it. It is deliberately separate from 
 what is true and what is feasible) and from `eval/` (which asks whether the evaluator is trustworthy).
 
 > **Nothing here is implemented.** There is no application, no user interface, no model and no user data in
-> this repository. Every capability below is `specified`, not delivered. The synthetic evaluator registry in
+> this repository. Every capability below is `specified`, not delivered. The home holographic interface is a
+> paragraph of specification — no display technology has been chosen — and no client application exists for
+> any device target. The synthetic evaluator registry in
 > `eval/registry/` is a **test-harness inventory** of simulators and is not evidence that any product
 > capability exists — see [`eval/registry/README.md`](../../eval/registry/README.md).
 
@@ -13,17 +15,18 @@ what is true and what is feasible) and from `eval/` (which asks whether the eval
 
 | Document | What it is | Version |
 |---|---|---|
-| [Capability specification](capability-specification.md) | Normative requirements: 12 capabilities (C-01…C-12) with dependencies, measurable acceptance criteria, data and permission needs, and the future evaluation family and milestone that validate each; deployment and processing boundary; owner decisions O-1…O-7 | 1.1.0 |
-| [Capability roadmap](capability-roadmap.md) | Milestones M5–M15, exit and kill criteria, seven gates — including G-O1, which blocks model selection, and G-LOCAL, which forbids personal data reaching cloud AI | 1.1.0 |
-| [`capabilities.json`](capabilities.json) | Machine-readable index of the same 12 capabilities, 15 milestones, 7 gates and 16 open items (one now resolved); checked by `eval/tests/test_product_spec.py` | 1.1.0 |
-| [M5 coverage matrix](coverage-matrix.md) | Working draft mapping all 12 capabilities to current evidence, planned evaluation families, local data boundary, outstanding owner inputs, and criterion-level coverage (§8) | Draft |
+| [Capability specification](capability-specification.md) | Normative requirements: 14 capabilities (C-01…C-14) with dependencies, measurable acceptance criteria, data and permission needs, and the future evaluation family and milestone that validate each; deployment and processing boundary; normative telephony platform limits; owner decisions O-1…O-12; proposals PR-1/PR-2 marked as proposals | 1.2.0 |
+| [Capability roadmap](capability-roadmap.md) | Milestones M5–M16, exit and kill criteria, seven gates — including G-O1, which blocks model selection, and G-LOCAL, which forbids personal data reaching cloud AI | 1.2.0 |
+| [Device support matrix](device-support-matrix.md) | Every declared device target (PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses) plus EDITH Glass as a separate future project: interaction modes, integration boundary, platform dependency and permissions, and what is unverified; telephony limits per channel; scoped-access rules; AETHERION recorded as out of scope. **0 of 7 targets verified** | 1.0.0 |
+| [`capabilities.json`](capabilities.json) | Machine-readable index of the same 14 capabilities, 16 milestones, 7 gates, 18 open items (one now resolved) and the device matrix; checked by `eval/tests/test_product_spec.py` | 1.2.0 |
+| [M5 coverage matrix](coverage-matrix.md) | Working draft mapping all 14 capabilities to current evidence, planned evaluation families, local data boundary, outstanding owner inputs, and criterion-level coverage (§8) | Draft |
 | [B4–B7 crosswalk](family-crosswalk.md) | Supersession register resolving the Phase 8 vs Stage-0 family numbering conflict; Phase 8 numbering retained, M2/M3 labels superseded by name only | 1.0.0 |
-| [Evaluation family backlog](family-backlog.md) | Per-family implementation plan for B4–B7 and B11–B20: task types, synthetic fixtures, scoring, planted regressions, privacy constraints, spec thresholds, harness changes — generated from [`family-backlog.json`](family-backlog.json). Two families (B4, B16) now have small **implemented evaluator slices** (B4 has three); no family is implemented | 1.1.0 |
-| [`ac-coverage.json`](ac-coverage.json) | All 50 acceptance criteria mapped exactly once to a planned suite, named audit, human review or owner-input block; no criterion is validated | 1.0.0 |
+| [Evaluation family backlog](family-backlog.md) | Per-family implementation plan for B4–B7 and B11–B22: task types, synthetic fixtures, scoring, planted regressions, privacy constraints, spec thresholds, harness changes — generated from [`family-backlog.json`](family-backlog.json). Two families (B4, B16) now have small **implemented evaluator slices** (B4 has three); no family is implemented | 1.2.0 |
+| [`ac-coverage.json`](ac-coverage.json) | All 61 acceptance criteria mapped exactly once to a planned suite, named audit, human review or owner-input block; no criterion is validated | 1.4.0 |
 
 ## M5 artefacts
 
-The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are mostly planning documents: B4 and B16 now have small evaluator slices (`eval/tasks/b4`, `eval/tasks/b4d` — deletion drills with backup/restore, including interrupted restores and retries — `eval/tasks/b4w`, a synthetic write-ahead-log durability store crashed at evaluator-chosen byte offsets, and `eval/tasks/b16`) with live gates and planted regressions, the other twelve families have no task set, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
+The three M5 artefacts above move the coverage mapping from "which family covers which capability" to "what each family would have to build and measure". They are mostly planning documents: B4 and B16 now have small evaluator slices (`eval/tasks/b4`, `eval/tasks/b4d` — deletion drills with backup/restore, including interrupted restores and retries — `eval/tasks/b4w`, a synthetic write-ahead-log durability store crashed at evaluator-chosen byte offsets, and `eval/tasks/b16`) with live gates and planted regressions, the other fourteen families have no task set, no family is marked `implemented`, and the backlog deliberately avoids naming a model, provider, parameter count or hardware. See the [crosswalk](family-crosswalk.md) for the naming resolution and [`ac-coverage.json`](ac-coverage.json) for the criterion-level gaps.
 
 ## The requirement set at a glance
 
@@ -41,6 +44,8 @@ The three M5 artefacts above move the coverage mapping from "which family covers
 | C-10 | Practical MCU J.A.R.V.I.S. equivalents plus comics-AI Rescue support, with the MCU AI kept distinct from human Edwin Jarvis | M14 | B17 |
 | C-11 | **Smart-home control and monitoring**, subject to each integration's permissions, local path where available | M9 | B18, B7 |
 | C-12 | **Connectors** for the owner's accounts and devices: scoped, revocable, auditable — **no blanket credentials** | M8 | B20, B7 |
+| C-13 | **Home holographic interface**: a voice-first room-scale display, specified and **not built** — no display technology, optics, prototype or purchase; no chat box on it | M16 | B21, B7 |
+| C-14 | **Device surfaces and platform limits**: PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses; EDITH Glass separate and undefined; platform limits stated, never promised | M16 | B22, B7 |
 
 ## Owner decisions this set is built on (2026-11-01)
 
@@ -58,6 +63,14 @@ Recorded as **O-1…O-7** in the [specification §0.1](capability-specification.
 6. **O-6** Speed target is the **fastest practical** natural conversation; latency thresholds stay
    provisional until measured on the server and per language.
 7. **O-7** **No blanket credentials** and no inferred unlimited authority (C-12, G-SCOPE).
+8. **O-8** **Everyday assistance** across the owner's life is the scope; no priority ranking between task
+   classes was given, and none is invented.
+9. **O-9** **Voice-first, no chat boxes, on every surface** — including the holographic surface and every
+   device.
+10. **O-10** The primary spatial display is a **home holographic interface**, specified and not built.
+11. **O-11** Declared targets: PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses. **EDITH Glass** is a
+    separate future project with undefined requirements, and retail glasses are never called EDITH.
+12. **O-12** **AETHERION** is a separate, postponed hardware research effort and is out of scope here.
 
 ## How this set was produced
 
@@ -65,11 +78,35 @@ The requirements were supplied directly by the project owner on 2026-11-01, in t
 were **not** derived from web research. They are recorded without softening: "absolutely no chat boxes",
 "brain-inspired AI without consciousness as a goal", "no promising novelty or patentability" are normative
 constraints, not aspirations. Where a requirement needs data the project does not have (jurisdiction rules,
-server budget, device inventory, language priorities), it is listed as an open question (Q13–Q24) rather
+server budget, device inventory, language priorities), it is listed as an open question (Q13–Q26) rather
 than assumed.
 
 One earlier draft went further than the owner did: it required a blanket refusal of financial, medical and
 legal call actions. That is now **proposed policy P-1**, awaiting the owner (Q23) — not a requirement.
+
+Two further items are **proposals, not decisions**, and say so in the text and in the index:
+
+- **PR-1 — language matrix.** Fifteen languages (English, Spanish, Mandarin, Hindi, Arabic, French,
+  Portuguese, Bengali, Russian, Japanese, German, Urdu, Indonesian, Turkish, Swahili) offered as a starting
+  point for **Q19**. No language is claimed to work, no order is proposed, and the fluency bar is still the
+  owner's to set.
+- **PR-2 — server capacity tiers.** 16–32 cores; 128 GB memory lower and 256 GB preferred; one GPU with at
+  least 32 GB of memory lower and 96 GB preferred; separate fast storage; wired networking; a UPS; encrypted
+  local backups with a tested restore. It names **no vendor, model or purchase**, and **Q20 and G-O1 stay
+  open/blocked**. Primary sources are linked in the specification and in the research addendum.
+
+## What this plan now promises, and what it refuses to promise
+
+| It promises | It refuses |
+|---|---|
+| A written, measurable requirement for a **home holographic interface**, with five acceptance criteria, a kill criterion and no hardware selected | That the interface exists, works, is demonstrated, or that a display technology has been chosen — it refuses even to imply a date |
+| A **device matrix** that states, for each target, its modes, boundary, dependencies and what is unverified | That any target is supported or verified; there is no client for any of them |
+| That surfaces are **separate**: the home surface is not VR, and Ray-Ban glasses are not EDITH Glass | Any claim that retail glasses are EDITH, or that EDITH requirements are known |
+| **Everyday assistance** as the workload scope (O-8) | A priority ranking of task classes, or a claim that any has been delivered |
+| A **language proposal** and a **server proposal**, both sourced and both labelled as proposals | Fluency in any of the fifteen languages, an approved budget, a chosen vendor or a purchase |
+| **Platform-honest telephony:** Android screening and dialer roles, iPhone VoIP, an owner-controlled line | Ordinary iPhone cellular-call audio, at any milestone, ever |
+| **Scoped, revocable, auditable** access per device (O-7, R-10) | Blanket access, "all my things", or authority inferred from a broad grant |
+| Honest degradation: a missing display or device is reported, not simulated (C-13-AC4, C-14-AC5) | Silent success, or a fabricated projection |
 
 ## Relationship to the research and the evaluator
 
@@ -111,9 +148,11 @@ python3 -m unittest eval.tests.test_product_spec -v   # 35 spec/index consistenc
 python3 -m unittest discover -s eval/tests -t .       # full suite, including Stage 0/1 tests
 ```
 
-The spec test enforces: twelve capabilities with unique ids; every capability has a requirement, ≥2
+The spec test enforces: fourteen capabilities with unique ids; every capability has a requirement, ≥2
 acceptance criteria with a metric and measurement, dependencies, data classes, permission verbs, a
 processing location and a planned milestone; every referenced family is either built (`B1`, `B2`, `B3`,
 `B8`, `B9`, `B10`) or declared planned; no capability status is `implemented`; the local-processing boundary
 exists and forbids cloud AI; G-O1 is blocked and blocks M15; the call policy is marked as a proposal; the
-Markdown summary table and the JSON agree; and no model, vendor or accelerator is named.
+the Markdown summary table and the JSON agree; the device matrix covers all seven targets and marks none
+verified; the holographic interface is separate from VR and both glasses targets; proposals stay marked as
+proposals with no language claimed and G-O1 still blocked; and no model, vendor or accelerator is named.

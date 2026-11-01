@@ -124,7 +124,7 @@ measure is in
 plus [M4 §4](stage-1-m4-breadth-and-ladder.md).
 
 **Immediate next action (M5 — capability coverage and workload mapping):** the product requirements are now
-specified in [`docs/product/`](../product/README.md) as twelve capabilities (C-01…C-12); the evaluator covers six
+specified in [`docs/product/`](../product/README.md) as fourteen capabilities (C-01…C-14); the evaluator covers six
 synthetic families and cannot see voice, speaker identity, telephony, the people database, invention
 support, self-evolution beyond B9/B10, or canon parity. Before any model is measured or chosen, each
 capability must be mapped to an evaluation family with pre-registered thresholds, every planned family must
@@ -142,22 +142,33 @@ The **product** view is published separately in [`docs/product/`](../product/REA
 different question from the research documents (what must be built and how it will be judged, not what is
 true or feasible):
 
-- [Capability specification v1.1.0](../product/capability-specification.md) — twelve normative requirements
-  **C-01…C-12**: preferences and personal context; a people database and modular stores with source,
+- [Capability specification v1.2.0](../product/capability-specification.md) — fourteen normative requirements
+  **C-01…C-14**: preferences and personal context; a people database and modular stores with source,
   freshness, sensitivity, permissions and review/correction/deletion; **voice-first operation with no chat
   boxes**, multilingual with honest per-language tiers; speech recognition and authorized-speaker
   verification with a safe fallback; **PA call handling** (attend, handle, escalate, summarise locally);
   brain-inspired operation **without consciousness as a goal**; bounded self-evolution; invention support
   without novelty or patentability promises; explanation of what is limiting the system and practical ways
   forward; practical MCU J.A.R.V.I.S. equivalents plus comics-AI Rescue support, with the MCU AI kept
-  distinct from the human Edwin Jarvis of mainline comics; **smart-home control and monitoring**; and
-  **scoped connectors** with no blanket credentials. Every capability lists dependencies, provisional
+  distinct from the human Edwin Jarvis of mainline comics; **smart-home control and monitoring**;
+  **scoped connectors** with no blanket credentials; a **home holographic interface** that is specified and
+  not built, with no display technology chosen; and **device surfaces and platform limits** covering PC,
+  tablet, iPhone, Android phone, VR and Ray-Ban glasses, with EDITH Glass kept as a separate future project
+  and AETHERION out of scope. Every capability lists dependencies, provisional
   acceptance criteria, data and permission needs, and the future evaluation family and milestone that will
-  validate it. The owner's decisions **O-1…O-7** (dedicated server; local-only inference, memory, voice
-  processing and call summaries; smart home; multilingual; PA calls; speed target; scoped access) are
-  recorded in §0.1, and §0.2 draws the local processing boundary with the unavoidable external services
-  listed separately (telephone network, public retrieval, device vendor clouds, updates).
-- [Capability roadmap v1.1.0](../product/capability-roadmap.md) — milestones **M5–M15** (M1–M4 complete),
+  validate it. The owner's decisions **O-1…O-12** (dedicated server; local-only inference, memory, voice
+  processing and call summaries; smart home; multilingual; PA calls; speed target; scoped access;
+  everyday assistance as the scope; voice-first on every surface; a home holographic interface as the
+  primary spatial display; the declared device targets with EDITH Glass separate; AETHERION out of scope)
+  are recorded in §0.1, and §0.2 draws the local processing boundary with the unavoidable external
+  services listed separately (telephone network, public retrieval, device vendor clouds, updates).
+  Two items are **proposals, not requirements**: PR-1 (a proposed fifteen-language list) and PR-2
+  (proposed server capacity tiers). Nothing in them names a product, and no language is claimed to work.
+- [Device support matrix v1.0.0](../product/device-support-matrix.md) — every declared device target with its
+  interaction modes, integration boundary, platform dependencies, permissions and unverified items; the
+  telephony limits per channel (Android screening and dialer roles, iPhone VoIP only, no cellular-call
+  audio); and the scoped-access rules. **0 of 7 targets verified; no client exists.**
+- [Capability roadmap v1.2.0](../product/capability-roadmap.md) — milestones **M5–M16** (M1–M4 complete),
   exit and kill criteria, and seven gates. Gate **G-O1 blocks model selection** until the updated workload
   and coverage mapping (M5) is reviewed; **G-LOCAL** forbids personal data, audio or call summaries reaching
   cloud AI; **G-SCOPE** forbids blanket credentials; **G-UX** forbids conversational text interfaces in

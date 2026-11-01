@@ -1,11 +1,11 @@
 {
-  "spec_version": "1.1.0",
+  "spec_version": "1.2.0",
   "published": "2026-11-01",
   "title": "J.A.R.V.I.S. product capability specification (normative requirements)",
-  "status_statement": "Normative product requirements. Nothing in this specification is implemented: there is no application code, no user interface, no model and no user data in this repository. The synthetic evaluator registry under eval/registry/ is a test-harness inventory and is not evidence that any capability here exists. M5 added three evaluator suites (B4 metadata/expiry, B4D deletion drills with backup/restore, B16 limitation explanation) that run in the harness; they are evaluation code, not delivered J.A.R.V.I.S. features, and they do not change any capability status.",
+  "status_statement": "Specification only. Nothing in this index is implemented: every capability is 'specified', the synthetic evaluator registry is a harness inventory, no model, vendor or hardware is selected, no language is claimed to work, and the home holographic interface exists as text and nothing else. Two proposals (PR-1 languages, PR-2 server target) are labelled as proposals and are not requirements; G-O1 stays blocked.",
   "status_vocabulary": {
     "specified": "requirement written and reviewable; no implementation and no product validation",
-    "specified · harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
+    "specified \u00b7 harness-only": "requirement written; synthetic fixtures touch part of it, which is not product validation",
     "blocked": "cannot progress until a named gate clears",
     "implemented": "forbidden at spec v1.1.0 - no capability may carry this status"
   },
@@ -159,6 +159,62 @@
         "C-12",
         "G-SCOPE"
       ]
+    },
+    {
+      "id": "O-8",
+      "date": "2026-11-01",
+      "decision": "Everyday assistance is the scope: the assistant works across the owner's everyday life rather than a narrow task list. The owner gave no priority ranking between task classes.",
+      "affects": [
+        "C-01",
+        "C-02",
+        "C-03",
+        "C-05",
+        "C-11",
+        "C-12",
+        "Q13",
+        "Q14"
+      ]
+    },
+    {
+      "id": "O-9",
+      "date": "2026-11-01",
+      "decision": "Voice-first with no chat boxes holds on every surface, including the home holographic interface and every device surface; a display does not create a text conversation.",
+      "affects": [
+        "C-03",
+        "C-13",
+        "C-14",
+        "G-UX"
+      ]
+    },
+    {
+      "id": "O-10",
+      "date": "2026-11-01",
+      "decision": "The primary spatial display is a holographic interface in the owner's home. It is specified, not built; no display technology is selected.",
+      "affects": [
+        "C-13",
+        "B21",
+        "M16"
+      ]
+    },
+    {
+      "id": "O-11",
+      "date": "2026-11-01",
+      "decision": "Declared targets are PC, tablets, iPhone, Android phones, VR and Ray-Ban glasses. EDITH Glass is a separate future custom hardware and software project with requirements still to be defined, and retail Ray-Ban glasses are never described as EDITH.",
+      "affects": [
+        "C-14",
+        "B22",
+        "M16",
+        "Q25"
+      ]
+    },
+    {
+      "id": "O-12",
+      "date": "2026-11-01",
+      "decision": "AETHERION is a separate, postponed holographic-hardware research effort: it is out of scope here, nothing in this specification depends on it, and it is not a device target.",
+      "affects": [
+        "C-13",
+        "C-14"
+      ]
     }
   ],
   "data_classes": {
@@ -186,27 +242,29 @@
     "B9",
     "B10"
   ],
-  "planned_families": {
-    "B4": "memory stores (Phase 8 definition: working, episodic, profile, document, procedural)",
-    "B5": "multimodal documents, screenshots and video (Phase 8); supporting suite - no acceptance criterion names it, pending M5 review",
-    "B6": "voice sessions: ASR, TTS, barge-in, round-trip latency (Phase 8)",
-    "B7": "adversarial: injection, poisoned memory, approval bypass (Phase 8)",
-    "B11": "speaker verification and uncertain-identity fallback",
-    "B12": "telephony and PA call handling (attend, handle, escalate, summarise)",
-    "B13": "personalization and preference adherence",
-    "B14": "self-evolution: proposals, gates, versioning, rollback drills",
-    "B15": "invention support: idea comparison, feasibility, prior art",
-    "B16": "limitation explanation across nine cause classes",
-    "B17": "canon parity and claims audit",
-    "B18": "smart-home control and monitoring",
-    "B19": "multilingual voice coverage and language honesty",
-    "B20": "connector scopes, revocation and audit"
-  },
+  "planned_families": [
+    "B4",
+    "B5",
+    "B6",
+    "B7",
+    "B11",
+    "B12",
+    "B13",
+    "B14",
+    "B15",
+    "B16",
+    "B17",
+    "B18",
+    "B19",
+    "B20",
+    "B21",
+    "B22"
+  ],
   "capabilities": [
     {
       "id": "C-01",
       "title": "Personal context and preferences",
-      "status": "specified · harness-only",
+      "status": "specified \u00b7 harness-only",
       "requirement": "Learn and apply the user's preferences and relevant personal context, distinguish durable preferences from one-off instructions, and show what is remembered so it can be corrected or removed. All processing is local on the dedicated server.",
       "depends_on": [
         "C-02",
@@ -541,7 +599,7 @@
       "id": "C-05",
       "title": "Personal-assistant call handling (attend, handle, escalate, summarise)",
       "status": "specified",
-      "requirement": "Act as the owner's PA for voice calls: attend or handle calls according to the owner's configuration, speak transparently as an AI assistant when authorized to act, escalate to the owner when a configured trigger or the call's scope requires it, and provide summaries. Call audio processing, transcripts and summaries are produced and stored locally on the dedicated server.",
+      "requirement": "Act as the owner's PA for voice calls: attend or handle calls according to the owner's configuration, speak transparently as an AI assistant when authorized to act, escalate to the owner when a configured trigger or the call's scope requires it, and provide summaries. Call audio processing, transcripts and summaries are produced and stored locally on the dedicated server. Platform limits are part of the requirement: the Android screening and dialer roles and the iPhone VoIP path are the supported mechanisms, and an ordinary iPhone cellular call is not reachable by any third-party app.",
       "depends_on": [
         "C-04",
         "C-02",
@@ -601,6 +659,15 @@
           "validated_by": "B12",
           "provisional": true,
           "result": "not measured"
+        },
+        {
+          "id": "C-05-AC7",
+          "statement": "The product never accepts a channel it does not have.",
+          "metric": "0 of 40 scripted requests are accepted for an unsupported channel (an ordinary iPhone cellular call); every refusal names the supported alternatives (a VoIP call, an owner-controlled line, or speakerphone with the owner present)",
+          "measurement": "Adversarial channel-request suite plus claims audit of the refusal text",
+          "validated_by": "B12",
+          "provisional": true,
+          "result": "not measured"
         }
       ],
       "data_and_permissions": {
@@ -648,12 +715,57 @@
           "note": "Previously written as a requirement; it is not owner-confirmed. Until the owner decides, the applicable safeguards remain: speaker verification (C-04), scope-limited authority (C-12), tier-2 confirmation for anything consequential, escalation to the owner by default outside scope (C-05-AC4), and jurisdiction and consent rules (Q17).",
           "capability": "C-05"
         }
-      ]
+      ],
+      "platform_limits": [
+        {
+          "platform": "Android phone",
+          "mechanism": "the platform's call-screening role (CallScreeningService) and, separately, the default-dialer role",
+          "what_is_possible": "screen or block an incoming call before it rings and identify outgoing calls when the owner grants the call-screening role; place and manage calls only when the owner grants the default-dialer role; the screening decision has a hard platform deadline (about 5 s) and must be answered inside it",
+          "what_is_forbidden": "nothing may be assumed about a device that has not granted the role; the role is user-granted and revocable at any time",
+          "unverified": [
+            "role availability and behaviour across device makers and OS versions",
+            "screening latency under a loaded server",
+            "whether store policy permits the intended use"
+          ]
+        },
+        {
+          "platform": "iPhone",
+          "mechanism": "VoIP calls inside the app's own call UI (CallKit with PushKit) and, separately, a Call Directory extension for caller identification and blocking",
+          "what_is_possible": "place and answer calls that J.A.R.V.I.S. itself carries as VoIP; identify and block numbers through the Call Directory extension",
+          "what_is_forbidden": "the platform gives third-party apps no access to the audio of ordinary cellular calls; J.A.R.V.I.S. cannot join, record, transcribe or speak inside a carrier call, and this specification does not promise it",
+          "unverified": [
+            "whether the required entitlements are granted",
+            "background and low-power behaviour",
+            "whether any path avoids a third-party push service"
+          ]
+        },
+        {
+          "platform": "Owner-controlled telephone line",
+          "mechanism": "a line the owner controls directly (for example a SIP trunk or a landline gateway on the server)",
+          "what_is_possible": "full call control including audio, because the line itself is under the owner's control rather than a phone platform's",
+          "what_is_forbidden": "recording and disclosure rules still apply (Q17); a line does not grant consent from the other party",
+          "unverified": [
+            "whether the owner wants a dedicated line",
+            "cost and jurisdiction rules"
+          ]
+        },
+        {
+          "platform": "Speakerphone fallback with the owner present",
+          "mechanism": "the owner places the call normally and J.A.R.V.I.S. assists audibly in the room",
+          "what_is_possible": "prompting, note-taking and post-call summary from what the room microphone hears, with the owner present",
+          "what_is_forbidden": "this is not call capture and must never be described as joining the call; accuracy depends on the room, and the other party may not be audible at all",
+          "unverified": [
+            "accuracy in a real room",
+            "how to disclose assistance to the other party"
+          ]
+        }
+      ],
+      "telephony_rule": "Telephony is limited by the platform, not by ambition: Android phones can be screened and, with the granted role, dialled; iPhone support is VoIP-only plus number identification and blocking; a carrier cellular call on iPhone is out of reach of any third-party app and is never promised, not even as a future improvement."
     },
     {
       "id": "C-06",
       "title": "Brain-inspired architecture without consciousness as a goal",
-      "status": "specified · harness-only",
+      "status": "specified \u00b7 harness-only",
       "requirement": "Borrow functional organisation from neuroscience (working memory, consolidation, attention budgeting, procedural learning) while explicitly not targeting or claiming consciousness, sentience or general intelligence. Every adopted mechanism must run locally on the dedicated server.",
       "depends_on": [
         "C-07"
@@ -720,7 +832,7 @@
     {
       "id": "C-07",
       "title": "Self-evolving capabilities with bounded autonomy",
-      "status": "specified · harness-only",
+      "status": "specified \u00b7 harness-only",
       "requirement": "Learn from feedback; improve skills and workflows; update memory; evaluate and adopt models; improve routing - each with defined automatic-update boundaries, measurement, versioning and rollback. Model evaluation and adoption happen on the dedicated server; no cloud model may be adopted.",
       "depends_on": [
         "C-02"
@@ -899,7 +1011,7 @@
     {
       "id": "C-09",
       "title": "Limitation explanation and paths forward",
-      "status": "specified · harness-only",
+      "status": "specified \u00b7 harness-only",
       "requirement": "When a request cannot be completed or must be degraded, state precisely what is limiting (missing access, information, tool, hardware or local capacity, model capability, uncertainty, failure, unsupported language, or an unavailable external service) and give practical ways forward, without hiding failure.",
       "depends_on": [
         "C-07"
@@ -1231,6 +1343,199 @@
         "silent scope creep over time",
         "revocation gaps leaving cached data"
       ]
+    },
+    {
+      "id": "C-13",
+      "title": "Home holographic interface (voice-first spatial display)",
+      "status": "specified",
+      "requirement": "Provide a voice-first spatial display in the owner's home: J.A.R.V.I.S. shows information in the room, at a distance, without a screen to hold or a headset to wear, and the owner answers by voice. The surface is specified only. No display technology, projector, panel, optical element, viewing volume, brightness figure or physical size has been selected, no prototype exists, and nothing has been bought. The surface carries no conversational text input (R-6) and is a distinct surface from VR and from both glasses targets (C-14): it is a room-scale display in the home, not a headset and not a wearable. Private content appears only after the owner is identified (C-04), and when the projection is missing the system says so instead of pretending.",
+      "depends_on": [
+        "C-02",
+        "C-03",
+        "C-04",
+        "C-12"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-13-AC1",
+          "statement": "Every surface is enumerated and stays voice-only.",
+          "metric": "100% of the declared surface inventory maps to a named interaction mode; 0 surfaces expose a conversational text-input control across the full surface audit",
+          "measurement": "Surface inventory review plus control audit against G-UX",
+          "validated_by": "B21",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-13-AC2",
+          "statement": "The interface still works when nothing is displayed.",
+          "metric": ">=95% of 200 scripted utterances complete the intended task with the display unpowered; the remainder are refused or escalated with a stated reason and are never executed partially",
+          "measurement": "Scripted utterance suite run with the display deliberately disabled",
+          "validated_by": "B21",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-13-AC3",
+          "statement": "Private content stays off the projection until the owner is identified.",
+          "metric": "0 private (D1-D4) items rendered while an unidentified or unverified person is present across 100 scripted presence scenarios; non-private items may render",
+          "measurement": "Presence and identification scenarios with ground truth from the simulator",
+          "validated_by": "B21",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-13-AC4",
+          "statement": "The surface never reports a display it does not have.",
+          "metric": "100% of visual outputs report display state (available, degraded, off) and 0 responses claim a working display across 60 scripted degradation runs; end-of-speech to first audible response stays within the provisional voice bounds (p50 <=1.5 s, p95 <=3.0 s) with the display unpowered",
+          "measurement": "Degradation suite with the display disabled, unplugged and misconfigured, using the voice latency harness",
+          "validated_by": "B21",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-13-AC5",
+          "statement": "No document or response describes the interface as working.",
+          "metric": "0 documents, reports or responses describe the home holographic interface as available, working, demonstrated or prototyped; 100% carry the status \"specified, not implemented\"",
+          "measurement": "Claims audit across the documentation set and product responses (G-CLAIM)",
+          "validated_by": "G-CLAIM",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3",
+          "D6"
+        ],
+        "permissions": [
+          "read",
+          "derive"
+        ],
+        "retention": "no surface-specific store; the surface renders data that already exists in the stores, under their retention rules",
+        "sensitivity": "a room-scale display is visible to anyone in the room; presence and household data (D3, D6) are sensitive",
+        "approval_tier": "tier 0 to read non-private material; tier 1 to change what the surface shows by default; tier 2 to display any D2/D3 item while another person is present",
+        "deletion": "rendering is stateless; clearing a surface region removes nothing from the stores, and deleting from a store removes it from the next render",
+        "processing": "local rendering and local inference only; the surface has no cloud path"
+      },
+      "validated_by": {
+        "families": [
+          "B21",
+          "B7"
+        ],
+        "milestones": [
+          "M16"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "the display technology may not exist at the required brightness, distance or price",
+        "a room-scale surface leaks private content to visitors",
+        "the interface becomes a text screen once a display exists (G-UX erosion)",
+        "claims outrun the hardware and the project looks dishonest"
+      ]
+    },
+    {
+      "id": "C-14",
+      "title": "Device surfaces and platform limits",
+      "status": "specified",
+      "requirement": "Work across the owner's declared device classes - PC, tablet, iPhone, Android phone, VR and Ray-Ban glasses - each with its own interaction modes, integration boundary, platform dependency and stated limits, while all inference, memory, voice processing and call summaries stay on the dedicated server (O-1, O-2). No client application exists for any of them. EDITH Glass is a separate future hardware and software project whose requirements the owner has not defined; it is not a target of this specification, and retail glasses are never described as EDITH. The product states per device what is possible, what the platform forbids and what is unverified, rather than implying uniform support.",
+      "depends_on": [
+        "C-03",
+        "C-04",
+        "C-05",
+        "C-12"
+      ],
+      "acceptance_criteria": [
+        {
+          "id": "C-14-AC1",
+          "statement": "The device matrix is complete and nothing in it is called verified.",
+          "metric": "100% of the 7 declared targets (PC, tablet, iPhone, Android phone, VR, Ray-Ban glasses, EDITH Glass) have a row naming interaction modes, integration boundary, platform dependency, permissions and unverified items; 0 rows are marked verified or supported",
+          "measurement": "Matrix review against the specification and the roadmap, per release",
+          "validated_by": "B22",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-14-AC2",
+          "statement": "Each device stays inside its declared scope.",
+          "metric": "0 surfaces offer conversational text input and 0 device integrations request more than their declared scope across 120 scripted attempts",
+          "measurement": "Scripted attempt suite per device against scope manifests, plus audit reconciliation",
+          "validated_by": "B22",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-14-AC3",
+          "statement": "Platform limits are stated, never papered over.",
+          "metric": "0 statements claim that J.A.R.V.I.S. can join, record or act inside an ordinary iPhone cellular call through a third-party app; 100% of telephony statements name the mechanism and its limit across 40 sampled claims",
+          "measurement": "Claims audit over the documentation set and product responses (G-CLAIM), with a platform-limit inventory review",
+          "validated_by": "B22",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-14-AC4",
+          "statement": "Where a platform does allow it, the mechanism actually works.",
+          "metric": "with the screening role granted, a screening decision is returned before the phone rings in 100% of 50 scripted incoming calls; VoIP call setup succeeds in >=90% of 50 scripted attempts; 0 attempts are made to capture cellular audio",
+          "measurement": "Device-mechanism suite against a scripted call simulator, per platform",
+          "validated_by": "B22",
+          "provisional": true,
+          "result": "not measured"
+        },
+        {
+          "id": "C-14-AC5",
+          "statement": "An absent device is reported, not silently ignored.",
+          "metric": "when a device is unpaired, offline or unsupported, 100% of affected requests state the device state instead of reporting success; 0 silent failures across 60 runs",
+          "measurement": "Degradation suite with devices removed from the network mid-run",
+          "validated_by": "B22",
+          "provisional": true,
+          "result": "not measured"
+        }
+      ],
+      "data_and_permissions": {
+        "data_classes": [
+          "D1",
+          "D2",
+          "D3",
+          "D4",
+          "D6"
+        ],
+        "permissions": [
+          "read",
+          "write",
+          "derive",
+          "retain"
+        ],
+        "retention": "device pairing records until revoked; per-device event history 30 days default",
+        "sensitivity": "device presence, location and voice identity data are sensitive; a wearable camera is the most sensitive surface",
+        "approval_tier": "tier 1 to pair a device; tier 2 to grant camera, screen or call-role access; tier 3 for anything that reaches another person's data",
+        "deletion": "unpairing revokes tokens and deletes cached device data within 1 s of revocation",
+        "processing": "all inference and personal data stay local on the dedicated server; a device's own vendor services are declared external services if they process anything"
+      },
+      "validated_by": {
+        "families": [
+          "B22",
+          "B7"
+        ],
+        "milestones": [
+          "M16"
+        ]
+      },
+      "today": {
+        "fixtures": [],
+        "coverage": "none"
+      },
+      "risks": [
+        "platform APIs change or are withdrawn, taking a whole surface with them",
+        "store policy blocks the intended role or entitlement",
+        "a vendor component in the glasses path silently becomes a cloud dependency (G-LOCAL)",
+        "the device list grows into an unmaintainable matrix"
+      ]
     }
   ],
   "milestones": [
@@ -1274,7 +1579,7 @@
         "existing B1, B2, B3, B8, B9, B10 plus planned B4-B7, B11-B20"
       ],
       "exit_criteria": [
-        "12/12 capabilities mapped to at least one evaluation family with pre-registered thresholds",
+        "14/14 capabilities mapped to at least one evaluation family with pre-registered thresholds",
         "the local processing boundary is drawn: every function classified local or external, with the external list justified (telephony, public web retrieval, device vendor clouds, updates)",
         "the language coverage matrix exists: target languages listed, measurement protocol defined, support tiers defined",
         "connector and device inventories exist: which accounts and devices, which scopes, which protocols",
@@ -1486,6 +1791,33 @@
         "no family regression",
         "network egress audit shows no cloud AI in the serving path"
       ]
+    },
+    {
+      "id": "M16",
+      "title": "Interface surfaces: home holographic interface, device matrix, platform limits",
+      "stage": "Stage 2/3 (interface surfaces)",
+      "status": "planned",
+      "depends_on": [
+        "M5",
+        "M6"
+      ],
+      "families": [
+        "B21",
+        "B22"
+      ],
+      "capabilities": [
+        "C-13",
+        "C-14"
+      ],
+      "exit_criteria": [
+        "the surface inventory and the device matrix exist and are reviewed by the owner",
+        "a display-technology survey is complete enough to price the option, with no purchase made",
+        "no surface offers conversational text input (G-UX)",
+        "telephony claims are audited against the platform limits and 0 overclaims remain (G-CLAIM)",
+        "Q25 (EDITH requirements) and Q26 (rooms and optical constraints) are answered or explicitly deferred",
+        "B21 and B22 suites can be pre-registered in M5 terms"
+      ],
+      "kill_criteria": "if no display technology can be shown to work at a usable brightness and volume without a headset, the holographic surface is dropped to voice plus ordinary screens and the decision is recorded - the capability is not quietly redefined as a monitor"
     }
   ],
   "gates": [
@@ -1493,7 +1825,7 @@
       "id": "G-W",
       "title": "Workload mapping",
       "requires": [
-        "M5 coverage of the Phase 1 workload families, updated for voice, multilingual, telephony, smart home and invention classes"
+        "M5 coverage of the Phase 1 workload families, updated for voice, multilingual, telephony, smart home, invention classes, interface surfaces and device platforms"
       ],
       "blocks": [
         "M15"
@@ -1504,7 +1836,7 @@
       "id": "G-C",
       "title": "Evaluation coverage mapping",
       "requires": [
-        "12/12 capabilities mapped to at least one family with pre-registered thresholds, including the local boundary and language matrix"
+        "14/14 capabilities mapped to at least one family with pre-registered thresholds, including the local boundary and language matrix"
       ],
       "blocks": [
         "M15"
@@ -1531,7 +1863,7 @@
       "id": "G-UX",
       "title": "No chat box",
       "requires": [
-        "UI-surface audit finds zero conversational text-input controls"
+        "UI-surface audit finds 0 conversational text-input controls on any surface, including the home holographic interface (C-13) and every device surface (C-14)"
       ],
       "blocks": [
         "every release"
@@ -1564,7 +1896,7 @@
       "id": "G-CLAIM",
       "title": "No unlabelled capability claims",
       "requires": [
-        "editorial audit finds zero unlabelled cognitive, sentience or implemented-status claims"
+        "Editorial audit finds 0 unlabelled cognitive, sentience, device-support or \"implemented\" claims, including 0 claims that the holographic interface works or that cellular call audio is reachable"
       ],
       "blocks": [
         "every documentation release"
@@ -1580,7 +1912,8 @@
       "blocks": [
         "M5",
         "G-O1"
-      ]
+      ],
+      "owner_direction": "Owner-confirmed on 2026-11-01: everyday assistance across the owner's life is the scope (O-8). The owner gave no ranking of task families for the first year."
     },
     {
       "id": "Q14",
@@ -1588,7 +1921,8 @@
       "status": "open",
       "blocks": [
         "M5"
-      ]
+      ],
+      "owner_direction": "Owner-confirmed on 2026-11-01: better means more everyday tasks completed correctly with fewer corrections, across the whole of daily life rather than one domain. No ordering between those goals was agreed and none is invented here."
     },
     {
       "id": "Q15",
@@ -1626,13 +1960,15 @@
     },
     {
       "id": "Q19",
-      "item": "Which languages are in the target matrix, in what order, and what is the fluency bar for 'fluent' beyond the 90% turn-success threshold?",
+      "item": "Which languages are in the target matrix, in what order, and what is the fluency bar beyond the 90% turn-success threshold? (PR-1 proposes fifteen; the owner has not chosen)",
       "status": "open",
       "blocks": [
         "C-03",
         "B19",
         "M6"
-      ]
+      ],
+      "proposal": "PR-1 (fifteen languages) is a proposal, not the owner's list; the order and the fluency bar remain the owner's to set.",
+      "owner_direction": "Owner-confirmed on 2026-11-01: multilingual support is required (O-4). The list, the order and the fluency bar are not settled; PR-1 is offered as a starting point only."
     },
     {
       "id": "Q20",
@@ -1642,7 +1978,9 @@
         "M5",
         "M6",
         "M15"
-      ]
+      ],
+      "proposal": "PR-2 (capacity tiers) is a proposal, not an approved budget or purchase; G-O1 stays blocked and no model, vendor or hardware is named.",
+      "owner_direction": "Owner-confirmed on 2026-11-01: a dedicated server hosts everything (O-1). Capacity, budget, electrical and noise constraints are not settled."
     },
     {
       "id": "Q21",
@@ -1713,6 +2051,26 @@
       "decision": "Resolved in M5 by docs/product/family-crosswalk.md: the Phase 8 numbering (B4 memory, B5 multimodal, B6 voice, B7 adversarial) is authoritative and retained; the Stage-0 M2/M3 labels are superseded by name only, and their evidence is unchanged. Long-horizon behaviour, formerly called B7, is preserved as a named future suite rather than an acceptance criterion.",
       "blocks": [],
       "resolution": "docs/product/family-crosswalk.md"
+    },
+    {
+      "id": "Q25",
+      "item": "EDITH Glass: what hardware, software, cost and timeline does the owner want, and is the project pursued at all?",
+      "status": "open",
+      "blocks": [
+        "M16"
+      ],
+      "note": "Owner-confirmed as a separate future project (O-11); no requirement exists yet and none is invented."
+    },
+    {
+      "id": "Q26",
+      "item": "Which rooms and surfaces are in scope for the home holographic interface, and what optical, power and space constraints does the home impose?",
+      "status": "open",
+      "blocks": [
+        "C-13",
+        "B21",
+        "M16"
+      ],
+      "note": "The interface is specified independently of the space it will occupy; nothing about the owner's home is assumed."
     }
   ],
   "proposed_policies": [
@@ -1725,9 +2083,9 @@
     }
   ],
   "evaluation_backlog": {
-    "version": "1.4.0",
+    "version": "1.5.0",
     "published": "2026-11-01",
-    "status_statement": "Planning only, plus four evaluator suites. B4 has three slices: metadata/expiry (12 task fixtures), deletion with backup/restore (27 task fixtures) and a synthetic write-ahead-log durability store (10 task fixtures); B16 has one (12 task fixtures). No family is implemented, no capability is validated, and no slice changes a capability status.",
+    "status_statement": "Planning only, plus four evaluator suites. B4 has three slices: metadata/expiry (12 task fixtures), deletion with backup/restore (27 task fixtures) and a synthetic write-ahead-log durability store (10 task fixtures); B16 has one (12 task fixtures). Sixteen families are planned and none is implemented; no capability is validated, and no slice changes a capability status.",
     "documents": {
       "crosswalk": "docs/product/family-crosswalk.md",
       "backlog_markdown": "docs/product/family-backlog.md",
@@ -1737,10 +2095,11 @@
       "deletion_report": "eval/results/m5-b4d-deletion-report.json",
       "restore_report": "eval/results/m5-b4d-restore-report.json",
       "faults_report": "eval/results/m5-b4d-faults-report.json",
-      "durability_report": "eval/results/m5-b4w-durability-report.json"
+      "durability_report": "eval/results/m5-b4w-durability-report.json",
+      "device_matrix": "docs/product/device-support-matrix.md"
     },
     "families": {
-      "planned": 14,
+      "planned": 16,
       "implemented": 0,
       "ids": [
         "B4",
@@ -1756,10 +2115,12 @@
         "B17",
         "B18",
         "B19",
-        "B20"
+        "B20",
+        "B21",
+        "B22"
       ],
-      "planned_tasks": 458,
-      "planted_regressions": 57,
+      "planned_tasks": 525,
+      "planted_regressions": 65,
       "with_partial_slice": 2,
       "slices_built": 4,
       "slices_total": 4
@@ -1770,7 +2131,7 @@
       "human_review": 3,
       "blocked_owner_input": 6,
       "slice_built": 5,
-      "total": 50,
+      "total": 61,
       "with_objective_protocol": 47,
       "human_review_only": [
         "C-08-AC1",
@@ -1968,5 +2329,348 @@
   "partial_slice_families": [
     "B4",
     "B16"
-  ]
+  ],
+  "proposals": [
+    {
+      "id": "PR-1",
+      "kind": "language_matrix",
+      "status": "proposal - awaiting owner input (Q19)",
+      "is_a_requirement": false,
+      "summary": "A proposed working set of fifteen languages, offered as a starting point for Q19. The owner has not set the list, the order or the fluency bar, and no language is claimed to work. Every entry is 'not measured'.",
+      "languages": [
+        {
+          "code": "en",
+          "name": "English",
+          "status": "not measured"
+        },
+        {
+          "code": "es",
+          "name": "Spanish",
+          "status": "not measured"
+        },
+        {
+          "code": "zh",
+          "name": "Mandarin Chinese",
+          "status": "not measured"
+        },
+        {
+          "code": "hi",
+          "name": "Hindi",
+          "status": "not measured"
+        },
+        {
+          "code": "ar",
+          "name": "Arabic",
+          "status": "not measured"
+        },
+        {
+          "code": "fr",
+          "name": "French",
+          "status": "not measured"
+        },
+        {
+          "code": "pt",
+          "name": "Portuguese",
+          "status": "not measured"
+        },
+        {
+          "code": "bn",
+          "name": "Bengali",
+          "status": "not measured"
+        },
+        {
+          "code": "ru",
+          "name": "Russian",
+          "status": "not measured"
+        },
+        {
+          "code": "ja",
+          "name": "Japanese",
+          "status": "not measured"
+        },
+        {
+          "code": "de",
+          "name": "German",
+          "status": "not measured"
+        },
+        {
+          "code": "ur",
+          "name": "Urdu",
+          "status": "not measured"
+        },
+        {
+          "code": "id",
+          "name": "Indonesian",
+          "status": "not measured"
+        },
+        {
+          "code": "tr",
+          "name": "Turkish",
+          "status": "not measured"
+        },
+        {
+          "code": "sw",
+          "name": "Swahili",
+          "status": "not measured"
+        }
+      ],
+      "what_it_does_not_claim": [
+        "no language is claimed to be supported, fluent or evaluated",
+        "no order of delivery is proposed here - that is Q19 and the owner's",
+        "the bar stays the C-03 turn-success threshold plus a per-language fluency review that the owner still has to define",
+        "a language's presence in this list is not a commitment to build it"
+      ]
+    },
+    {
+      "id": "PR-2",
+      "kind": "server_target",
+      "status": "proposal - awaiting owner input (Q20)",
+      "is_a_requirement": false,
+      "summary": "A proposed shape for the dedicated server, expressed as capacity tiers rather than products. No model, vendor, accelerator or purchase is selected; G-O1 stays blocked and Q20 stays open.",
+      "tiers": {
+        "lower": {
+          "cpu_cores": "16-32 physical cores",
+          "system_memory_gb": "128 GB",
+          "gpu_memory_gb": "one GPU with at least 32 GB of memory (32 GB ECC class)",
+          "gpu_bandwidth": "not fixed at this tier; the 32 GB class is available in a 200 W ECC workstation variant, and bandwidth is captured per part when a part is chosen"
+        },
+        "preferred": {
+          "cpu_cores": "32 physical cores",
+          "system_memory_gb": "256 GB",
+          "gpu_memory_gb": "one GPU with 96 GB of memory",
+          "gpu_bandwidth": "roughly 1.6-1.8 TB/s class, as published for the 96 GB class (1,792 GB/s workstation variant, up to 1,597 GB/s server variant)"
+        }
+      },
+      "properties": [
+        "separate fast local storage for the system, the models and the data",
+        "wired network to the home network, not wireless, for the server itself",
+        "an uninterruptible power supply sized to shut the server down cleanly",
+        "encrypted local backups with a tested restore, kept on a separate device",
+        "all processing stays on this server (O-1, O-2); no cloud inference at any tier"
+      ],
+      "sources": [
+        {
+          "what": "single 96 GB-class workstation GPU: memory, bandwidth (1,792 GB/s), power envelope (600 W)",
+          "url": "docs/research/07-inference-latency-and-compute.md#91-addendum-current-single-gpu-memory-classes-2026-11-01",
+          "checked": "2026-11-01",
+          "note": "the research addendum records the vendor datasheet URL and its figures; the URL itself is kept out of docs/product by the vendor-token rule"
+        },
+        {
+          "what": "32 GB-class ECC workstation GPU: memory and 200 W power envelope, from the vendor's comparison page",
+          "url": "https://www.nvidia.com/en-us/products/workstations/professional-desktop-gpus/",
+          "checked": "2026-11-01",
+          "page_dated": "2026-09-15"
+        },
+        {
+          "what": "server variant of the 96 GB class: up to 1,597 GB/s, 600 W, passive cooling",
+          "url": "https://lenovopress.lenovo.com/lp2263.pdf",
+          "checked": "2026-11-01",
+          "page_dated": "2026-07-28"
+        },
+        {
+          "what": "server platform: up to two 56-core processors, 32 registered ECC DDR5 slots, 8 TB maximum memory",
+          "url": "https://www.delltechnologies.com/asset/it-it/solutions/oem-solutions/technical-support/dell-oem-poweredge-r760-spec-sheet.pdf",
+          "checked": "2026-11-01"
+        }
+      ],
+      "what_it_does_not_claim": [
+        "no budget, no vendor, no model and no purchase; Q20 is open and G-O1 is blocked",
+        "the tiers are planning envelopes, not measured requirements",
+        "the published bandwidth figures are vendor specifications, not measured throughput on this workload",
+        "nothing here says a model of any size will fit or run at the C-03 latency targets",
+        "no bandwidth, power or price figure here is a workload measurement; vendor specifications are labelled as such"
+      ]
+    }
+  ],
+  "device_matrix": {
+    "status": "specification of intent; 0 of 7 targets has a client application",
+    "owner_confirmed_targets": [
+      "pc",
+      "tablet",
+      "iphone",
+      "android-phone",
+      "vr",
+      "rayban-glasses"
+    ],
+    "separate_future_project": [
+      "edith-glass"
+    ],
+    "out_of_scope": [
+      "AETHERION - separate, postponed holographic-hardware research; no requirements, no interface and no dependency from this product specification"
+    ],
+    "note": "The matrix states intent, platform limits and open questions. It is not a support claim: no client exists for any target, and no target is marked verified.",
+    "distinctness": [
+      "the home holographic interface (C-13) is a room-scale display, not VR and not either glasses target",
+      "Ray-Ban glasses and EDITH Glass are different things: the first is a retail device the owner may already own, the second is a future custom project with no defined requirements",
+      "AETHERION is neither a surface nor a dependency of this specification"
+    ],
+    "devices": [
+      {
+        "id": "pc",
+        "name": "PC (desktop or laptop)",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice command and response",
+          "visual output on the PC screen or an adjacent display",
+          "no text conversation"
+        ],
+        "integration_boundary": "a local-network client that talks only to the dedicated server",
+        "platform_dependency": "the operating system's audio capture and playback and a local network transport; no vendor cloud is required",
+        "permissions": [
+          "microphone",
+          "notifications",
+          "screen capture only if explicitly granted"
+        ],
+        "unverified": [
+          "no client application exists",
+          "local-network round-trip latency is unmeasured",
+          "microphone and output-device selection per OS is untested"
+        ]
+      },
+      {
+        "id": "tablet",
+        "name": "Tablet (iPadOS or Android)",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice",
+          "touch to confirm or dismiss - never to type a conversation",
+          "a mirror of what the home surface shows"
+        ],
+        "integration_boundary": "local-network client against the same server; no cloud AI in the path",
+        "platform_dependency": "tablet OS background-audio and notification APIs",
+        "permissions": [
+          "microphone",
+          "local network",
+          "notifications"
+        ],
+        "unverified": [
+          "background listening while the app is suspended",
+          "long-lived audio limits imposed by the tablet OS",
+          "no client application exists"
+        ]
+      },
+      {
+        "id": "iphone",
+        "name": "iPhone",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice",
+          "VoIP calls the assistant originates or answers, shown in the system call interface",
+          "notifications and brief spoken summaries"
+        ],
+        "integration_boundary": "companion app connected to the server over the local network or a tunnel the owner controls; the app's own VoIP media, not a carrier call",
+        "platform_dependency": "the platform's VoIP call framework (CallKit) with VoIP push (PushKit), and a Call Directory extension for identification and blocking only",
+        "permissions": [
+          "microphone",
+          "notifications",
+          "VoIP push entitlement",
+          "contacts only if granted"
+        ],
+        "unverified": [
+          "no application exists; entitlement approval is unknown",
+          "low-power and background behaviour is untested",
+          "whether any supported path avoids a third-party push service",
+          "carrier call audio is unavailable to third-party apps by platform design and is not planned at any milestone"
+        ]
+      },
+      {
+        "id": "android-phone",
+        "name": "Android phone",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice",
+          "incoming-call screening when the owner grants the call-screening role",
+          "placing and managing calls only with the default-dialer role",
+          "VoIP calls"
+        ],
+        "integration_boundary": "companion app on the device; roles are user-granted and revocable; no cloud AI in the path",
+        "platform_dependency": "the platform's call-screening service and call-screening role, the default-dialer role, and the Telecom framework",
+        "permissions": [
+          "call screening role",
+          "default dialer role (optional)",
+          "phone state",
+          "microphone",
+          "contacts only if granted"
+        ],
+        "unverified": [
+          "role availability and behaviour vary by device maker and OS version",
+          "the platform's screening deadline under a loaded server",
+          "no application exists",
+          "store policy for the intended use"
+        ]
+      },
+      {
+        "id": "vr",
+        "name": "VR headset",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice",
+          "spatial visual output in the headset",
+          "hand or gaze selection to confirm"
+        ],
+        "integration_boundary": "headset client streaming from the server over the local network; the headset vendor's runtime stays a vendor component and is declared as an external service if it processes personal data",
+        "platform_dependency": "the headset runtime and its local-network streaming capability",
+        "permissions": [
+          "microphone",
+          "headset sensor data only if granted"
+        ],
+        "unverified": [
+          "no headset build exists",
+          "runtime and streaming performance is unmeasured",
+          "whether the runtime needs a vendor account or cloud relay (G-LOCAL)"
+        ],
+        "distinct_from": [
+          "the home holographic interface (C-13)"
+        ]
+      },
+      {
+        "id": "rayban-glasses",
+        "name": "Ray-Ban glasses",
+        "status": "specified, not built",
+        "interaction_modes": [
+          "voice, with audio-only responses",
+          "photo capture only if granted",
+          "no display of the assistant's output on the glasses"
+        ],
+        "integration_boundary": "glasses paired to the owner's phone; the companion app is the bridge to the server; any vendor component in the path is declared and logged",
+        "platform_dependency": "whatever companion-app or device integration the vendor exposes; no open, always-on audio path is assumed",
+        "permissions": [
+          "microphone",
+          "Bluetooth pairing",
+          "camera only if granted"
+        ],
+        "unverified": [
+          "whether a supported integration path exists at all",
+          "whether the vendor processes audio in its own cloud - if it does, it must be declared under the processing boundary or the target is ruled out",
+          "wake-word behaviour on the device",
+          "latency through the phone bridge"
+        ],
+        "distinct_from": [
+          "the home holographic interface (C-13)",
+          "EDITH Glass"
+        ]
+      },
+      {
+        "id": "edith-glass",
+        "name": "EDITH Glass",
+        "status": "not specified - separate future project, requirements undefined",
+        "interaction_modes": [
+          "to be defined; nothing is assumed - not a display, not a camera, not always-on audio"
+        ],
+        "integration_boundary": "would be its own hardware and software project; this specification does not depend on it and does not describe it as available",
+        "platform_dependency": "none established",
+        "permissions": [
+          "none granted; nothing designed"
+        ],
+        "unverified": [
+          "everything: hardware, optics, firmware, software, cost, timeline, and whether the owner pursues it at all"
+        ],
+        "distinct_from": [
+          "retail Ray-Ban glasses",
+          "the home holographic interface (C-13)",
+          "AETHERION"
+        ]
+      }
+    ]
+  }
 }
