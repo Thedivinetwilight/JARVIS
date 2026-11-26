@@ -37,6 +37,10 @@ from typing import Any, Iterator
 
 from . import affect
 from .charter import system_prompt
+from .logging import get_logger, info, warning
+from .reminders import parse_due
+
+_log = get_logger("jarvis.kernel")
 from .contracts import (ActionOutcome, ActionRequest, Appraisal, Intent, Interpretation, MemoryHit, MemoryQuery,
                         Observation, OperationStatus, Origin, Sensitivity, StageRecord, StageStatus, to_dict)
 from .events import FORGOTTEN_TEXT
@@ -355,6 +359,31 @@ class CognitiveKernel:
                      result.cycle_id))
         except Exception:  # noqa: BLE001 - the cycle row is diagnostic; never crash the response on it
             pass
+        self._log_cycle(result, trace, outcomes, provider_info)
+
+    def _log_cycle(self, result: CycleResult, trace: "_Trace", outcomes: list[ActionOutcome],
+                   provider_info: dict[str, Any] | None) -> None:
+        """Structured, content-free trace: identifiers, statuses and durations only."""
+        try:
+            total = round(sum(r.duration_ms for r in trace.records), 1)
+            fields = {"cycle_id": result.cycle_id, "session_id": result.session_id,
+                      "intent": result.intent, "status": result.status,
+                      "duration_ms": total, "provider": (provider_info or {}).get("name"),
+                      "reason": (result.error or {}).get("type")}
+            if result.status == "completed":
+                info(_log, "cycle completed", **fields)
+            else:
+                warning(_log, "cycle failed", **fields)
+            for outcome in outcomes:
+                fields = {"cycle_id": result.cycle_id, "capability": outcome.capability,
+                          "status": outcome.status.value, "error_type": outcome.error_type,
+                          "operation_id": outcome.operation_id}
+                if outcome.status == OperationStatus.SUCCEEDED and outcome.verified is not False:
+                    info(_log, "capability executed", **fields)
+                else:
+                    warning(_log, "capability not executed", **fields)
+        except Exception:  # noqa: BLE001 - logging must never break a cycle
+            pass
 
     # ================================================================ helpers: appraisal
     def _recent_failures(self, session_id: str) -> int:
@@ -501,6 +530,18 @@ class CognitiveKernel:
         elif intent == Intent.GOAL_CREATE:
             plan.steps.append(PlanStep("goal.create", {"title": s["title"], "steps": s.get("steps", []), "project": ""},
                                        purpose="create user-authorised goal"))
+        elif intent == Intent.REMIND:
+            when = (s.get("when") or "").strip()
+            due = parse_due(when, self.store.now()) if when else None
+            if due is None:
+                plan.clarification = (
+                    f"When should I remind you to {s['title']}? Give me a time such as "
+                    "\"in 20 minutes\", \"tomorrow at 9am\" or \"friday at 18:00\".")
+            else:
+                plan.steps.append(PlanStep(
+                    "reminder.create",
+                    {"title": s["title"], "due_at": to_iso(due), "notes": "", "delivery_client_id": ""},
+                    purpose=f"remind the owner to {s['title']}"))
         elif intent == Intent.TASK_ADD:
             goal_id = s.get("goal") or (workspace["focus"]["goal"]["id"] if workspace["focus"] else 0)
             plan.steps.append(PlanStep("task.add", {"title": s["title"], "goal_id": int(goal_id)}, purpose="add task"))
@@ -946,6 +987,9 @@ class CognitiveKernel:
             steps = "; ".join(f"#{t['id']} {t['title']}" for t in progress["tasks"])
             return (f"Goal #{r['id']} created: \"{r['title']}\"." + (f" Steps: {steps}." if steps else
                     " Add steps with \"add task … to goal " + str(r["id"]) + "\".") + verified)
+        if cap == "reminder.create":
+            return (f"Reminder set: \"{r['title']}\" for {r['due_at']}"
+                    f" (id {r['id']}){verified}.")
         if cap == "task.add":
             where = f" to goal #{r['goal_id']}" if r.get("goal_id") else ""
             return f"Added task #{r['id']} \"{r['title']}\"{where}{verified}."

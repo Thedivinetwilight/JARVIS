@@ -14,16 +14,24 @@ from typing import Any
 
 from . import __version__
 from .api import read_api_token
+from .audio_sessions import AudioSessionService
+from .auth import AuthService, load_or_create_server_secret
 from .charter import CHARTER_VERSION, system_prompt
 from .config import Settings
 from .db import Store
+from .egress import GUARD
 from .kernel import CognitiveKernel
+from .logging import configure_logging, get_logger, info as _log_info, warning as _log_warning
+from .plans import PlanExecutor, PlanStore
 from .provider import ModelProvider, build_provider
 from .redact import register_secret
+from .reminders import ReminderService
 from .security import Policy
 from .selfmodel import capability_report
 from .tools import ToolRegistry
 from .util import PRIVATE_DIR_MODE, Clock, to_iso
+
+_log = get_logger("jarvis.core")
 
 # Kept for v0.2 compatibility; the kernel builds its system prompt from the charter.
 SYSTEM_PROMPT = system_prompt("Sivaram")
@@ -35,6 +43,7 @@ class Jarvis:
     def __init__(self, settings: Settings | None = None, *, provider: ModelProvider | None = _UNSET,
                  clock: Clock | None = None, use_fts5: bool | None = None):
         self.settings = settings or Settings.load()
+        configure_logging(self.settings.log_level)
         self.settings.home.mkdir(mode=PRIVATE_DIR_MODE, parents=True, exist_ok=True)   # 0700 when created here
         register_secret(self.settings.gemini_api_key)
         register_secret(self.settings.openai_api_key)
@@ -46,13 +55,24 @@ class Jarvis:
                                                          charter_version=CHARTER_VERSION)
         self.runtime_id = self.store.state.register_runtime(version=__version__,
                                                             schema_version=self.store.schema_version, pid=os.getpid())
-        self.tools = ToolRegistry(self.store, self.settings.workspace, self.policy, runtime_id=self.runtime_id)
+        self.reminders = ReminderService(self.store)
+        self.tools = ToolRegistry(self.store, self.settings.workspace, self.policy,
+                                  runtime_id=self.runtime_id, reminders=self.reminders)
         self.provider = build_provider(self.settings) if provider is _UNSET else provider
+        # Consolidated subsystems (bbff branch): scoped auth, reminders, audio, plans
+        _server_secret = load_or_create_server_secret(self.settings.home)
+        register_secret(_server_secret)
+        self.auth = AuthService(self.store, _server_secret)
+        self.audio = AudioSessionService(self.store)
+        self.plans = PlanStore(self.store)
+        self.plan_executor = PlanExecutor(self.plans, self.tools)
         self.recovery = self._recover()
         self.kernel = CognitiveKernel(store=self.store, registry=self.tools, policy=self.policy,
                                       provider=self.provider, settings=self.settings, runtime_id=self.runtime_id,
                                       identity=self.identity)
         self._closed = False
+        _log_info(_log, "JARVIS started", runtime_id=self.runtime_id, version=__version__,
+                  schema_version=self.store.schema_version)
 
     # ------------------------------------------------------------------ lifecycle
     def _recover(self) -> dict[str, Any]:
@@ -64,14 +84,20 @@ class Jarvis:
                                (to_iso(self.store.now()), self.runtime_id, cutoff)).rowcount
         purged_events = self.store.events.purge_expired()
         purged_memories = self.store.memory.purge_expired()
+        interrupted_plans = self.plans.recover_interrupted()
+        purged_audio = self.audio.purge_expired()
         report = {"interrupted_operations": [o["id"] for o in interrupted], "interrupted_cycles": stale,
-                  "purged_expired_events": purged_events, "purged_expired_memories": purged_memories}
-        if interrupted or stale or purged_events or purged_memories:
+                  "purged_expired_events": purged_events, "purged_expired_memories": purged_memories,
+                  "interrupted_plans": interrupted_plans, "purged_audio_sessions": purged_audio}
+        if interrupted or stale or purged_events or purged_memories or interrupted_plans:
             self.store.events.append("system.recovered", actor="system", target=self.runtime_id, payload=report)
         if purged_events:
             # Expired (e.g. affect) events were deleted; truncate the WAL so their page images
             # do not linger in the -wal file (secure_delete already zeroes the freed cells).
             report["wal_truncated"] = not self.store.checkpoint()["checkpoint_busy"]
+        if interrupted or stale:
+            _log_warning(_log, "Recovery: interrupted operations/cycles found",
+                         interrupted_ops=len(interrupted), interrupted_cycles=stale)
         return report
 
     def close(self) -> None:
@@ -130,5 +156,12 @@ class Jarvis:
                 "error_stage": last["error_stage"], "error_type": last["error_type"]},
             "recovery_at_startup": self.recovery,
             "provider": None if self.provider is None else {"name": self.provider.name, "model": self.provider.model},
+            "subsystems": {
+                "clients": len(self.auth.list_clients()),
+                "reminders_pending": len(self.reminders.list_due()),
+                "plans": {status: len(self.plans.list_plans(status=status, limit=200))
+                          for status in ("proposed", "active", "awaiting_approval", "completed", "failed", "cancelled")},
+                "egress": {"default": "deny", "attempts": GUARD.attempts, "denials": GUARD.denials},
+            },
             "integrity": self.store.integrity(),
         }

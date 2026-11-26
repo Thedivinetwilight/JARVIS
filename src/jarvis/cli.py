@@ -76,6 +76,21 @@ def build_parser() -> argparse.ArgumentParser:
     evalp = sub.add_parser("eval", help="Run fixed evaluations").add_subparsers(dest="action", required=True)
     er = evalp.add_parser("retrieval"); er.add_argument("--fixture", default="evals/retrieval_v1.json"); er.add_argument("--out")
     serve = sub.add_parser("serve"); serve.add_argument("--host"); serve.add_argument("--port", type=int)
+    # Consolidated subsystems (bbff branch)
+    pair = sub.add_parser("pair", help="Manage device pairing (scoped tokens)").add_subparsers(dest="action", required=True)
+    pc = pair.add_parser("code"); pc.add_argument("--label", default="device"); pc.add_argument("--platform", default="pc")
+    pc.add_argument("--scopes", default=""); pc.add_argument("--ttl-minutes", type=int, default=10)
+    pair.add_parser("list")
+    pr = pair.add_parser("revoke"); pr.add_argument("client_id")
+    rem = sub.add_parser("reminder", help="Manage reminders").add_subparsers(dest="action", required=True)
+    ra = rem.add_parser("add"); ra.add_argument("title"); ra.add_argument("due_at"); ra.add_argument("--notes", default="")
+    ra.add_argument("--deliver-to", default="")
+    rem.add_parser("list")
+    rem.add_parser("due")
+    plan = sub.add_parser("plan", help="Manage multi-step plans").add_subparsers(dest="action", required=True)
+    plan.add_parser("list")
+    ps = plan.add_parser("show"); ps.add_argument("plan_id")
+    pe = plan.add_parser("execute"); pe.add_argument("plan_id")
     return p
 
 
@@ -275,11 +290,41 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
             "python": sys.version.split()[0],
             "permissions": {"home": file_mode(settings.home), "database": file_mode(store.path),
                             "note": "home and database should be readable only by you (0o700 / 0o600)"}})
+    elif args.command == "pair":
+        if args.action == "code":
+            scopes = [s.strip() for s in args.scopes.split(",") if s.strip()] or None
+            result = app.auth.create_pairing_code(label_hint=args.label, platform=args.platform,
+                                                  scopes=scopes, ttl_minutes=args.ttl_minutes)
+            _print(result)
+        elif args.action == "list":
+            _print([c.to_dict() for c in app.auth.list_clients()])
+        else:
+            client = app.auth.revoke(args.client_id)
+            app.reminders.cancel_for_client(client.id)
+            app.audio.purge_for_client(client.id)
+            _print(client.to_dict())
+    elif args.command == "reminder":
+        if args.action == "add":
+            reminder = app.reminders.create(title=args.title, due_at=args.due_at, notes=args.notes,
+                                            created_by="cli", delivery_client_id=args.deliver_to or None)
+            _print(reminder.to_dict())
+        elif args.action == "list":
+            _print([r.to_dict() for r in app.reminders.list_all()])
+        else:
+            _print([r.to_dict() for r in app.reminders.list_due()])
+    elif args.command == "plan":
+        if args.action == "list":
+            _print([p.to_dict() for p in app.plans.list_plans()])
+        elif args.action == "show":
+            _print(app.plans.get_plan(args.plan_id).to_dict())
+        else:
+            _print(app.plan_executor.execute(args.plan_id).to_dict())
     elif args.command == "serve":
         import socket
         from http.server import ThreadingHTTPServer
 
         from .api import load_or_create_token
+        from .egress import GUARD
         from .redact import register_secret
         host, port = args.host or settings.host, args.port or settings.port
         token, token_path = load_or_create_token(settings.home)
@@ -292,6 +337,7 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
         print(f"JARVIS v{__version__} listening on http://{shown}:{port}", flush=True)
         print(f"Requests (except GET /health) need 'Authorization: Bearer <token>'. The token is stored in "
               f"{token_path}, readable only by your user account; delete the file to rotate it.", flush=True)
+        print(f"Egress guard installed: default-deny, {len(GUARD.policy()['declared_services'])} declared services.", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:

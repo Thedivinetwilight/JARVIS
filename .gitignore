@@ -224,4 +224,5 @@ __marimo__/
 *.sqlite3-shm
 *.sqlite3-journal
 api_token
+server_secret
 .jarvis/

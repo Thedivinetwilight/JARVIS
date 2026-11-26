@@ -106,10 +106,12 @@ def _run_with_timeout(fn: Callable[[], Any], timeout: float) -> Any:
 
 
 class ToolRegistry:
-    def __init__(self, store: Store, workspace: Path, policy: Policy, *, runtime_id: str | None = None):
+    def __init__(self, store: Store, workspace: Path, policy: Policy, *, runtime_id: str | None = None,
+                 reminders=None):
         self.store, self.workspace, self.policy = store, workspace.resolve(), policy
         self.runtime_id = runtime_id
         self._tools: dict[str, Tool] = {}
+        self.reminders = reminders
         self._register_defaults()
 
     # ------------------------------------------------------------ registration
@@ -431,6 +433,14 @@ class ToolRegistry:
         raise ToolError(outcome.error_message or outcome.reason)
 
     # ------------------------------------------------------------ defaults
+    def _create_reminder(self, arguments: dict[str, Any]) -> dict[str, Any]:
+        if self.reminders is None:
+            raise ToolError("Reminder service is not configured in this runtime")
+        reminder = self.reminders.create(
+            title=arguments["title"], due_at=arguments["due_at"], notes=arguments["notes"],
+            created_by="kernel", delivery_client_id=arguments["delivery_client_id"] or None)
+        return reminder.to_dict()
+
     def _register_defaults(self) -> None:
         store = self.store
         self.register(Tool("time.now", "Return current UTC time.", "read",
@@ -480,6 +490,13 @@ class ToolRegistry:
         self.register(Tool("goal.create", "Create a user-authorised goal with optional ordered steps.", "write",
                            self._create_goal, {"title": str, "steps": list, "project": str},
                            verify=lambda a, r: _verify_row(store, "goals", r, title=a["title"])))
+        if self.reminders is not None:
+            self.register(Tool("reminder.create",
+                               "Create a local reminder with an explicit due time.", "write",
+                               self._create_reminder,
+                               {"title": str, "due_at": str, "notes": str, "delivery_client_id": str},
+                               verify=lambda a, r: (isinstance(r, dict) and r.get("id") is not None,
+                                                    "reminder row exists")))
         self.register(Tool("task.add", "Add a task, optionally to a goal (goal_id 0 = none).", "write",
                            self._add_task, {"title": str, "goal_id": int},
                            verify=lambda a, r: _verify_row(store, "tasks", r, title=a["title"])))

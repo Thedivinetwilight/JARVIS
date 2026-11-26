@@ -128,6 +128,7 @@ class Intent(_StrEnum):
     DENY = "deny"
     PREFERENCE = "preference"
     CAPABILITIES = "capabilities"
+    REMIND = "remind"
     CHAT = "chat"
 
 

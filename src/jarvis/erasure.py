@@ -26,7 +26,15 @@ Erased (content replaced by a placeholder; rows kept as content-free records):
    ``<category>:<key>``) — single words are never substring-matched, because that would
    erase unrelated history and collide with labels such as a "detailed" response style;
    and user turns that repeat a version's full value verbatim (at least
-   MIN_USER_VALUE_WORDS words and MIN_USER_VALUE_CHARS characters).
+   MIN_USER_VALUE_WORDS words and MIN_USER_VALUE_CHARS characters);
+6. Mission 001 content-bearing tables that quote the owner's words: reminder titles and
+   notes, plan titles and failure reasons, and plan-step purposes, arguments, result
+   summaries and error messages.
+
+Not textually matched: raw audio chunks stored by audio sessions. They are opaque binary
+(PCM/WAV bytes) attributable only to a client, bounded in size and lifetime, and deleted by
+TTL expiry or client revocation; this sweep cannot tell whether a sentence was spoken into
+one, so it does not claim to.
 
 Retained on purpose, and reported: the person's own messages that are not linked to the
 memory but still mention it — verbatim (``unlinked_user_mentions``) or by sharing at least
@@ -264,6 +272,30 @@ def erase_traces(db: sqlite3.Connection, events: Any, ids: list[int], versions: 
         db.execute("UPDATE sessions SET summary_json=? WHERE id=?",
                    ("{}" if match(summary) else summary, session_id))
         derived += 1
+    # Mission 001 content-bearing tables: reminders and plans quote the owner's words.
+    for reminder_id in _scan(db, "SELECT id, title, notes FROM reminders", match):
+        row = db.execute("SELECT title, notes FROM reminders WHERE id=?", (reminder_id,)).fetchone()
+        db.execute("UPDATE reminders SET title=?, notes=? WHERE id=?",
+                   (PLACEHOLDER if match(row["title"]) else row["title"],
+                    PLACEHOLDER if match(row["notes"]) else row["notes"], reminder_id))
+        derived += 1
+    for plan_id in _scan(db, "SELECT id, title, failure_reason FROM plans", match):
+        row = db.execute("SELECT title, failure_reason FROM plans WHERE id=?", (plan_id,)).fetchone()
+        db.execute("UPDATE plans SET title=?, failure_reason=? WHERE id=?",
+                   (PLACEHOLDER if match(row["title"]) else row["title"],
+                    PLACEHOLDER if match(row["failure_reason"]) else row["failure_reason"], plan_id))
+        derived += 1
+    for step_id in _scan(db, "SELECT id, purpose, arguments, result_summary, error_message "
+                             "FROM plan_steps", match):
+        row = db.execute("SELECT purpose, arguments, result_summary, error_message FROM plan_steps "
+                         "WHERE id=?", (step_id,)).fetchone()
+        db.execute("UPDATE plan_steps SET purpose=?, arguments=?, result_summary=?, error_message=? "
+                   "WHERE id=?",
+                   (PLACEHOLDER if match(row["purpose"]) else row["purpose"],
+                    "{}" if match(row["arguments"]) else row["arguments"],
+                    PLACEHOLDER if match(row["result_summary"]) else row["result_summary"],
+                    PLACEHOLDER if match(row["error_message"]) else row["error_message"], step_id))
+        derived += 1
     report["derived_records_scrubbed"] = derived
 
     # ---- post-condition: nothing derived may still contain the content -------------------------
@@ -272,6 +304,10 @@ def erase_traces(db: sqlite3.Connection, events: Any, ids: list[int], versions: 
     residue += len(_scan(db, "SELECT id, summary_json FROM sessions WHERE summary_json IS NOT NULL", match))
     residue += len(_scan(db, "SELECT key, value_json FROM state_kv", match))
     residue += len(_scan(db, "SELECT id, stages_json, validation_json FROM cycles", match))
+    residue += len(_scan(db, "SELECT id, title, notes FROM reminders", match))
+    residue += len(_scan(db, "SELECT id, title, failure_reason FROM plans", match))
+    residue += len(_scan(db, "SELECT id, purpose, arguments, result_summary, error_message "
+                              "FROM plan_steps", match))
     if wipe_user_turns and user_terms:
         residue += len(_scan(db, "SELECT id, text FROM events WHERE kind = 'observation.received'", restate))
 

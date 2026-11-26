@@ -291,6 +291,96 @@ def _migration_2(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
          f'{{"to_version":2,"audit_rows":{audit_rows},"memory_rows":{memory_rows},"fts5":{str(ctx.fts5).lower()}}}'))
 
 
+# --------------------------------------------------------------------------------------
+# Migration 3: Mission 001 consolidation — scoped clients, reminders, audio sessions, plans.
+#
+# These tables were first written by the bbff local-first server (migrations
+# 0001_core.sql .. 0003_reminder_delivery.sql) and are now part of the canonical
+# schema so that a single database holds the whole system.
+# --------------------------------------------------------------------------------------
+INFRASTRUCTURE = """
+CREATE TABLE clients (
+  id TEXT PRIMARY KEY, label TEXT NOT NULL, platform TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('operator','device')),
+  scopes TEXT NOT NULL, token_digest TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+  revoked_at TEXT, last_seen_at TEXT, token_prefix TEXT NOT NULL
+);
+CREATE INDEX idx_clients_kind ON clients(kind, revoked_at);
+
+CREATE TABLE pairing_codes (
+  code_digest TEXT PRIMARY KEY, label_hint TEXT NOT NULL, platform TEXT NOT NULL,
+  scopes TEXT NOT NULL, created_at TEXT NOT NULL, expires_at TEXT NOT NULL,
+  redeemed_at TEXT, created_by TEXT NOT NULL
+);
+
+CREATE TABLE reminders (
+  id TEXT PRIMARY KEY, task_id TEXT, title TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '', due_at TEXT NOT NULL,
+  created_at TEXT NOT NULL, created_by TEXT NOT NULL,
+  delivery_client_id TEXT, status TEXT NOT NULL DEFAULT 'pending',
+  acknowledged_at TEXT
+);
+CREATE INDEX idx_reminders_due ON reminders(status, due_at);
+
+CREATE TABLE reminder_deliveries (
+  id TEXT PRIMARY KEY, reminder_id TEXT NOT NULL REFERENCES reminders(id) ON DELETE CASCADE,
+  client_id TEXT NOT NULL,           -- a paired client id, or 'operator' (legacy token)
+  status TEXT NOT NULL DEFAULT 'queued', attempts INTEGER NOT NULL DEFAULT 0,
+  last_attempt_at TEXT, delivered_at TEXT, acknowledged_at TEXT, created_at TEXT NOT NULL,
+  UNIQUE (reminder_id, client_id)
+);
+CREATE INDEX idx_deliveries_client ON reminder_deliveries(client_id, status, created_at);
+
+CREATE TABLE audio_sessions (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,           -- a paired client id, or 'operator' (legacy token)
+  status TEXT NOT NULL DEFAULT 'open',
+  chunk_count INTEGER NOT NULL DEFAULT 0, total_bytes INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL, closed_at TEXT, expires_at TEXT NOT NULL
+);
+CREATE INDEX idx_audio_client ON audio_sessions(client_id, status);
+
+CREATE TABLE audio_chunks (
+  id TEXT PRIMARY KEY, session_id TEXT NOT NULL REFERENCES audio_sessions(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL, mime_type TEXT NOT NULL, data BLOB NOT NULL,
+  size_bytes INTEGER NOT NULL, created_at TEXT NOT NULL,
+  UNIQUE (session_id, seq)
+);
+
+CREATE TABLE plans (
+  id TEXT PRIMARY KEY, goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL,
+  title TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'proposed',
+  replans INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  completed_at TEXT, failure_reason TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX idx_plans_status ON plans(status, created_at);
+
+CREATE TABLE plan_steps (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL, capability TEXT NOT NULL,
+  arguments TEXT NOT NULL, purpose TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0, operation_id INTEGER,
+  result_summary TEXT NOT NULL DEFAULT '',
+  error_type TEXT NOT NULL DEFAULT '', error_message TEXT NOT NULL DEFAULT '',
+  UNIQUE (plan_id, seq)
+);
+CREATE INDEX idx_plan_steps_plan ON plan_steps(plan_id, seq);
+"""
+
+
+def _migration_3(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
+    _run(conn, INFRASTRUCTURE)
+    conn.execute(
+        "INSERT INTO events(ts, kind, actor, target, decision, payload_json) VALUES (?,?,?,?,?,?)",
+        (to_iso(ctx.clock()), "system.migrated", "system", "schema", "success",
+         '{"to_version":3,"tables":["clients","pairing_codes","reminders",'
+         '"reminder_deliveries","audio_sessions","audio_chunks","plans","plan_steps"]}'))
+
+
 @dataclass(frozen=True)
 class Migration:
     version: int
@@ -307,6 +397,7 @@ class MigrationContext:
 MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "v0.2 baseline", _migration_1),
     Migration(2, "genesis-0.1 persistent cognitive kernel", _migration_2),
+    Migration(3, "mission-001 scoped clients, reminders, audio, plans", _migration_3),
 )
 LATEST_VERSION = MIGRATIONS[-1].version
 

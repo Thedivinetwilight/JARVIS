@@ -26,6 +26,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
+from . import egress
+from .egress import EgressDenied
 from .redact import redact_text
 
 MAX_RESPONSE_BYTES = 2_000_000
@@ -121,12 +123,28 @@ def _check_base_url(url: str) -> str:
     return url.rstrip("/")
 
 
+def _declared_egress(url: str):
+    """Narrow egress declaration for exactly this provider endpoint.
+
+    The socket-layer guard (``jarvis.egress``) is default-deny once installed by
+    ``jarvis serve``; a provider call is the one declared path out. When the guard is
+    not installed this is a no-op context manager.
+    """
+    parsed = urllib.parse.urlparse(url)
+    host = parsed.hostname or ""
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return egress.GUARD.declare("model_provider", host, port)
+
+
 def _post_json(url: str, body: dict[str, Any], headers: dict[str, str], timeout: float, label: str) -> dict[str, Any]:
     request = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"),
                                      headers={"Content-Type": "application/json", **headers}, method="POST")
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read(MAX_RESPONSE_BYTES + 1)
+        with _declared_egress(url):
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = response.read(MAX_RESPONSE_BYTES + 1)
+    except EgressDenied as exc:
+        raise ProviderRefused(f"{label} blocked by egress policy: {exc}") from None
     except urllib.error.HTTPError as exc:
         detail = ""
         try:
@@ -259,26 +277,108 @@ class ScriptedProvider:
         return ModelResponse(text=str(item), provider=self.name, model=self.model, latency_ms=0.0, finish_reason="stop")
 
 
+class ResilientProvider:
+    """Wraps one or more providers with bounded retry and fallback.
+
+    Retry policy: transient errors (timeout, unavailable, 5xx) are retried
+    with exponential backoff up to ``max_retries`` times. Non-retryable
+    errors (refused, malformed, 4xx) fail immediately. When a primary
+    provider exhausts retries, the next provider in the chain is tried
+    (fallback). Usage and latency are tracked across attempts.
+
+    The kernel sees a single ModelProvider; resilience is invisible to it.
+    """
+
+    name = "resilient"
+    is_remote = False
+
+    def __init__(self, providers: list, *, max_retries: int = 2,
+                 backoff_base: float = 0.5, backoff_max: float = 8.0):
+        if not providers:
+            raise ValueError("ResilientProvider needs at least one provider")
+        self.providers = list(providers)
+        self.max_retries = max(0, max_retries)
+        self.backoff_base = max(0.0, backoff_base)
+        self.backoff_max = max(self.backoff_base, backoff_max)
+        self.model = "+".join(p.model for p in self.providers)
+        self.is_remote = any(getattr(p, "is_remote", False) for p in self.providers)
+        self.attempts: list[dict[str, Any]] = []
+        self.total_latency_ms = 0.0
+
+    def generate(self, request: ModelRequest) -> ModelResponse:
+        last_error: ProviderError | None = None
+        for provider in self.providers:
+            for attempt in range(self.max_retries + 1):
+                started = time.monotonic()
+                try:
+                    response = provider.generate(request)
+                    latency = (time.monotonic() - started) * 1000
+                    self.total_latency_ms += latency
+                    self.attempts.append({
+                        "provider": provider.name, "model": provider.model,
+                        "attempt": attempt, "outcome": "ok", "latency_ms": round(latency, 1)})
+                    return ModelResponse(
+                        text=response.text, provider=provider.name,
+                        model=provider.model,
+                        latency_ms=round(latency, 1),
+                        finish_reason=response.finish_reason,
+                        usage={**response.usage, "_via": self.name,
+                               "_fallback_provider": provider.name,
+                               "_attempts": len(self.attempts)})
+                except ProviderError as exc:
+                    latency = (time.monotonic() - started) * 1000
+                    self.total_latency_ms += latency
+                    self.attempts.append({
+                        "provider": provider.name, "model": provider.model,
+                        "attempt": attempt, "outcome": exc.kind,
+                        "latency_ms": round(latency, 1)})
+                    last_error = exc
+                    if not self._is_retryable(exc) or attempt >= self.max_retries:
+                        break
+                    # Backoff before retry
+                    delay = min(self.backoff_base * (2 ** attempt), self.backoff_max)
+                    if delay > 0:
+                        time.sleep(delay)
+        assert last_error is not None
+        raise last_error
+
+    @staticmethod
+    def _is_retryable(exc: ProviderError) -> bool:
+        if isinstance(exc, (ProviderTimeout, ProviderUnavailable)):
+            return True
+        if isinstance(exc, ProviderHTTPError):
+            return exc.status >= 500 or exc.status == 429
+        return False
+
+
 def build_provider(settings: Any) -> ModelProvider | None:
     """Construct the configured provider, or ``None`` (the kernel then runs without a model).
 
     ``JARVIS_PROVIDER=auto`` (default) keeps v0.2 behaviour: Gemini when network is
     enabled and a key is present; additionally an OpenAI-compatible endpoint when
     ``JARVIS_OPENAI_BASE_URL`` is explicitly set (remote endpoints still need network).
+
+    When both a Gemini key and an OpenAI-compatible endpoint are configured,
+    they are chained in a ResilientProvider (Gemini primary, local fallback).
     """
     choice = settings.provider
     if choice == "none":
         return None
+    providers: list = []
     if choice in {"auto", "gemini"} and settings.gemini_api_key:
         provider = GeminiProvider(settings.gemini_api_key, settings.gemini_model, timeout=settings.provider_timeout,
                                   base_url=settings.gemini_base_url)
         if not provider.is_remote or settings.network_enabled:
-            return provider
-        if choice == "gemini":
+            providers.append(provider)
+        elif choice == "gemini":
             return None
     if choice in {"auto", "openai_compatible"} and settings.openai_base_url:
         provider = OpenAICompatibleProvider(settings.openai_base_url, settings.openai_model,
                                             api_key=settings.openai_api_key, timeout=settings.provider_timeout)
         if not provider.is_remote or settings.network_enabled:
-            return provider
-    return None
+            providers.append(provider)
+    if not providers:
+        return None
+    if len(providers) == 1:
+        return providers[0]
+    return ResilientProvider(providers)

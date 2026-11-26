@@ -47,6 +47,8 @@ RULES: tuple[tuple[str, Intent, re.Pattern[str]], ...] = (
     ("task_block2", Intent.TASK_BLOCK, _rx(rf"^(?:i'?m\s+)?blocked\s+on\s+{_TASK_REF}(?:\s*(?:by|because(?: of)?|:)\s*(?P<reason>.+?))?\s*[.!]?$")),
     ("task_start", Intent.TASK_START, _rx(rf"^(?:start(?:ing)?|begin(?:ning)?|work(?:ing)? on|resume)\s+{_TASK_REF}\s*[.!]?$")),
     ("task_add", Intent.TASK_ADD, _rx(r"^(?:add (?:a )?task|new task|todo|to-do|task)\s*[:\-]?\s+(?P<title>.+?)(?:\s+(?:to|for)\s+goal\s*#?\s*(?P<goal>\d+))?\s*$")),
+    ("remind_plain", Intent.REMIND, _rx(r"^(?:please\s+)?set\s+a\s+reminder\s+(?:for|to)\s+(?P<title>.+?)"
+                                        + r"(?:\s+(?P<when>(?:in|at|by)\s+.+|today(?:\s+at\s+.+)?|tomorrow(?:\s+at\s+.+)?|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+at\s+.+)?))?" + r"\s*[.!]?$")),
     ("idea", Intent.IDEA, _rx(r"^(?:idea|new idea|i have an idea|here'?s an idea|thought)\s*[:\-,]?\s*(?P<body>.+)$")),
     ("preference_style", Intent.PREFERENCE, _rx(r"^(?:please\s+)?(?:be|keep (?:it|answers|responses))\s+(?:more\s+|a bit more\s+)?(?P<style>concise|brief|short|detailed|thorough)\s*(?:please)?[.!]?$")),
     ("preference_name", Intent.PREFERENCE, _rx(r"^(?:please\s+)?call me\s+(?P<name>[\w .'-]{1,40}?)\s*[.!]?$")),
@@ -56,6 +58,8 @@ RULES: tuple[tuple[str, Intent, re.Pattern[str]], ...] = (
     ("capabilities", Intent.CAPABILITIES, _rx(r"^(?:what can you do|what are your capabilities|capabilities|help|what do you know how to do)\s*\??$")),
     ("time", Intent.TIME, _rx(r"^(?:what(?:'s| is) the time|what time is it|current time|what(?:'s| is) (?:today'?s )?date|what day is (?:it|today))\s*\??$")),
     ("calculate", Intent.CALCULATE, _rx(r"^(?:calculate|compute|evaluate|what(?:'s| is)|how much is)\s+(?P<expr>[-+*/%^().\d\s]+?)\s*\??$")),
+    ("remind", Intent.REMIND, _rx(r"^(?:please\s+)?remind\s+me(?:\s+(?:to|that|about))?\s+(?P<title>.+?)"
+                                  + r"(?:\s+(?P<when>(?:in|at|by)\s+.+|today(?:\s+at\s+.+)?|tomorrow(?:\s+at\s+.+)?|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)(?:\s+at\s+.+)?))?" + r"\s*[.!]?$")),
     ("calculate_bare", Intent.CALCULATE, _rx(r"^(?P<expr>[-+(]*\d[\d\s.]*(?:[-+*/%^][\s(]*-?\d[\d\s.)]*)+)\s*=?\s*\??$")),
     ("recall_explicit", Intent.RECALL, _rx(r"^(?:what do you (?:know|remember) about|what did i (?:say|tell you|mention) about|recall|do you remember|tell me about|search (?:memory )?for)\s+(?P<query>.+?)\s*\??$")),
 )
@@ -108,6 +112,13 @@ def interpret(text: str) -> Interpretation:
         if intent == Intent.CALCULATE:
             slots["expr_display"] = " ".join(slots["expr"].split())
             slots["expr"] = slots["expr"].replace("^", "**").strip()
+        if intent == Intent.REMIND:
+            title = (slots.get("title") or "").strip(" ,.")
+            if not title:
+                return Interpretation(intent=Intent.CHAT, confidence=Confidence.LOW, slots={},
+                                      rule="remind_without_title")
+            slots["title"] = title
+            slots["when"] = (slots.get("when") or "").strip(" ,.")
         if intent == Intent.RESUME and len(stripped.split()) > 12:
             break  # a long message merely starting with "status..." is not a resume request
         return Interpretation(intent=intent, confidence=Confidence.HIGH, slots=slots, rule=rule_name)
