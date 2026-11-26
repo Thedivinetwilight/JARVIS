@@ -110,6 +110,18 @@ class StageStatus(_StrEnum):
     FAILED = "failed"
 
 
+class ObjectiveOutcome(_StrEnum):
+    """How an objective ended. Every interface reports one of these, from evidence."""
+
+    COMPLETED = "completed"                      # plan done and objective criteria verified
+    PARTIALLY_COMPLETED = "partially_completed"  # required work done, optional work not
+    FAILED = "failed"                            # attempted, evidence says it did not work
+    BLOCKED = "blocked"                          # no capability/support exists to attempt it
+    NEEDS_APPROVAL = "needs_approval"            # paused at an operation awaiting the owner
+    CANCELLED = "cancelled"                      # withdrawn by the owner
+    AWAITING_INFORMATION = "awaiting_information"  # information is genuinely missing
+
+
 class Intent(_StrEnum):
     REMEMBER = "remember"
     IDEA = "idea"

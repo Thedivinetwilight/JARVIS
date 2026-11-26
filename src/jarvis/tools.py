@@ -143,6 +143,17 @@ class ToolRegistry:
                  "verified_by_postcondition": t.verify is not None} for t in self._tools.values()]
 
     # ------------------------------------------------------------ validation
+    def validate(self, capability: str, arguments: Any) -> None:
+        """Check a proposed call against the registry without executing it.
+
+        Raises ``ToolError`` when the capability is unknown or the arguments do not match
+        its schema. Planners call this so an invalid plan is rejected before any step runs.
+        """
+        tool = self.get(capability)
+        if tool is None:
+            raise ToolError(f"Unknown capability: {capability}")
+        self._validate(tool, arguments)
+
     def _validate(self, tool: Tool, arguments: Any) -> None:
         if not isinstance(arguments, dict):
             raise ToolError("Tool arguments must be an object")

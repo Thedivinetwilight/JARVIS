@@ -24,9 +24,11 @@ direct registry path.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
+import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from .contracts import ActionOutcome, ActionRequest, OperationStatus, Origin
 from .util import to_iso
@@ -50,6 +52,12 @@ class PlanStepRecord:
     result_summary: str = ""
     error_type: str = ""
     error_message: str = ""
+    depends_on: tuple[int, ...] = ()
+    expected_output: str = ""
+    success_criteria: str = ""
+    optional: bool = False
+    risk: str = "read"
+    replaced_from: str = ""          # original capability when a repair substituted this step
 
     def to_dict(self) -> dict:
         return {
@@ -59,6 +67,9 @@ class PlanStepRecord:
             "attempts": self.attempts, "operation_id": self.operation_id,
             "result_summary": self.result_summary,
             "error_type": self.error_type, "error_message": self.error_message,
+            "depends_on": list(self.depends_on), "expected_output": self.expected_output,
+            "success_criteria": self.success_criteria, "optional": self.optional,
+            "risk": self.risk, "replaced_from": self.replaced_from,
         }
 
 
@@ -67,13 +78,14 @@ class PlanRecord:
     id: str
     goal_id: int | None
     title: str
-    status: str  # proposed | active | completed | failed | cancelled
+    status: str  # proposed | active | awaiting_approval | completed | failed | cancelled
     steps: list[PlanStepRecord] = field(default_factory=list)
     replans: int = 0
     created_at: str = ""
     updated_at: str = ""
     completed_at: str | None = None
     failure_reason: str = ""
+    objective_id: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -81,7 +93,7 @@ class PlanRecord:
             "status": self.status, "replans": self.replans,
             "created_at": self.created_at, "updated_at": self.updated_at,
             "completed_at": self.completed_at, "failure_reason": self.failure_reason,
-            "progress": self.progress,
+            "objective_id": self.objective_id, "progress": self.progress,
             "steps": [s.to_dict() for s in self.steps],
         }
 
@@ -98,9 +110,10 @@ class PlanRecord:
         done = sum(1 for s in self.steps if s.status == "succeeded")
         failed = sum(1 for s in self.steps if s.status == "failed")
         awaiting = sum(1 for s in self.steps if s.status == "awaiting_approval")
-        return {"total": total, "succeeded": done, "failed": failed,
+        skipped = sum(1 for s in self.steps if s.status == "skipped")
+        return {"total": total, "succeeded": done, "failed": failed, "skipped": skipped,
                 "awaiting_approval": awaiting,
-                "pending": total - done - failed - awaiting}
+                "pending": total - done - failed - awaiting - skipped}
 
 
 class PlanError(RuntimeError):
@@ -115,8 +128,14 @@ class PlanStore:
 
     # ------------------------------------------------------------ creation
     def create_plan(self, *, title: str, steps: list[dict[str, Any]],
-                    goal_id: int | None = None) -> PlanRecord:
-        """Create a plan with steps. Each step: {capability, arguments, purpose}."""
+                    goal_id: int | None = None, objective_id: str | None = None) -> PlanRecord:
+        """Create a plan with steps.
+
+        Each step: ``capability``, ``arguments``, ``purpose`` and optionally ``depends_on``
+        (earlier step numbers), ``expected_output``, ``success_criteria``, ``optional`` and
+        ``risk``. Dependencies and criteria are persisted so a resumed plan can still judge
+        itself after a restart.
+        """
         if not steps:
             raise PlanError("A plan needs at least one step")
         if len(steps) > MAX_STEPS:
@@ -126,15 +145,21 @@ class PlanStore:
         now = to_iso(self.store.now())
         with self.store.write() as db:
             db.execute(
-                "INSERT INTO plans (id, goal_id, title, status, created_at, updated_at) "
-                "VALUES (?,?,?,?,?,?)",
-                (plan_id, goal_id, title, "proposed", now, now))
+                "INSERT INTO plans (id, goal_id, title, status, created_at, updated_at, objective_id) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (plan_id, goal_id, title, "proposed", now, now, objective_id))
             for seq, step in enumerate(steps, start=1):
+                depends = step.get("depends_on") or ()
+                if isinstance(depends, int):
+                    depends = (depends,)
                 db.execute(
-                    "INSERT INTO plan_steps (plan_id, seq, capability, arguments, purpose) "
-                    "VALUES (?,?,?,?,?)",
-                    (plan_id, seq, step["capability"],
-                     json.dumps(step.get("arguments", {})), step.get("purpose", "")))
+                    "INSERT INTO plan_steps (plan_id, seq, capability, arguments, purpose, "
+                    "depends_on, expected_output, success_criteria, optional, risk) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    (plan_id, seq, step["capability"], json.dumps(step.get("arguments", {})),
+                     step.get("purpose", ""), json.dumps(sorted({int(d) for d in depends})),
+                     step.get("expected_output", ""), step.get("success_criteria", ""),
+                     1 if step.get("optional") else 0, step.get("risk", "")))
         return self.get_plan(plan_id)
 
     def get_plan(self, plan_id: str) -> PlanRecord:
@@ -194,6 +219,19 @@ class PlanStore:
                 "WHERE id = ?", (reason, now, plan_id))
         return self.get_plan(plan_id)
 
+    def reopen(self, plan_id: str) -> PlanRecord:
+        """Return a failed or completed plan to active for a sanctioned repair.
+
+        ``completed`` is included because a plan can finish every step and still fail the
+        objective's criteria; the repair resets the offending step to pending.
+        """
+        now = to_iso(self.store.now())
+        with self.store.write() as db:
+            db.execute(
+                "UPDATE plans SET status = 'active', failure_reason = '', updated_at = ? "
+                "WHERE id = ? AND status IN ('failed', 'completed')", (now, plan_id))
+        return self.get_plan(plan_id)
+
     def cancel(self, plan_id: str) -> PlanRecord:
         now = to_iso(self.store.now())
         with self.store.write() as db:
@@ -241,6 +279,29 @@ class PlanStore:
                        (to_iso(self.store.now()), plan_id))
         return self.get_plan(plan_id)
 
+    def mark_step_skipped(self, step_id: int, *, error_type: str = "dependency_not_met",
+                          error_message: str = "") -> None:
+        with self.store.write() as db:
+            db.execute(
+                "UPDATE plan_steps SET status = 'skipped', error_type = ?, error_message = ? "
+                "WHERE id = ?", (error_type, error_message, step_id))
+
+    def replace_step(self, step_id: int, *, capability: str, arguments: dict[str, Any],
+                     purpose: str = "", reason: str = "") -> None:
+        """Replan a step in place: new capability/arguments, reset to pending, keep attempts.
+
+        ``replaced_from`` keeps the capability the plan originally asked for, so objective
+        criteria that name it can still be judged honestly.
+        """
+        with self.store.write() as db:
+            row = db.execute("SELECT capability FROM plan_steps WHERE id = ?", (step_id,)).fetchone()
+            original = row["capability"] if row is not None else ""
+            db.execute(
+                "UPDATE plan_steps SET capability = ?, arguments = ?, status = 'pending', "
+                "error_type = '', error_message = ?, replaced_from = ?, "
+                "purpose = CASE WHEN ? = '' THEN purpose ELSE ? END WHERE id = ?",
+                (capability, json.dumps(arguments), reason, original, purpose, purpose, step_id))
+
     def mark_step_interrupted(self, step_id: int) -> None:
         with self.store.write() as db:
             db.execute(
@@ -277,16 +338,24 @@ class PlanStore:
             status=row["status"], replans=row["replans"],
             created_at=row["created_at"], updated_at=row["updated_at"],
             completed_at=row["completed_at"], failure_reason=row["failure_reason"],
+            objective_id=row["objective_id"] if "objective_id" in row.keys() else None,
             steps=[PlanStore._row_to_step(s) for s in steps])
 
     @staticmethod
     def _row_to_step(row: sqlite3.Row) -> PlanStepRecord:
+        keys = row.keys()
         return PlanStepRecord(
             id=row["id"], plan_id=row["plan_id"], seq=row["seq"],
             capability=row["capability"], arguments=json.loads(row["arguments"]),
             purpose=row["purpose"], status=row["status"], attempts=row["attempts"],
             operation_id=row["operation_id"], result_summary=row["result_summary"],
-            error_type=row["error_type"], error_message=row["error_message"])
+            error_type=row["error_type"], error_message=row["error_message"],
+            depends_on=tuple(json.loads(row["depends_on"])) if "depends_on" in keys else (),
+            expected_output=row["expected_output"] if "expected_output" in keys else "",
+            success_criteria=row["success_criteria"] if "success_criteria" in keys else "",
+            optional=bool(row["optional"]) if "optional" in keys else False,
+            risk=(row["risk"] if "risk" in keys else "") or "read",
+            replaced_from=(row["replaced_from"] if "replaced_from" in keys else "") or "")
 
 
 class PlanExecutor:
@@ -309,19 +378,32 @@ class PlanExecutor:
         self.registry = registry
         self.max_retries = max_retries
 
+    # Result references: a step may consume an earlier step's recorded result.
+    _REFERENCE = re.compile(r"^\{\{step(\d+)\.([a-z_][a-z0-9_.]*)\}\}$")
+
     def execute(self, plan_id: str, *, correlation_id: str | None = None,
                 session_id: str | None = None,
-                origin: Origin = Origin.USER_COMMAND) -> PlanRecord:
-        """Execute pending steps, resuming after approval when it was granted.
+                origin: Origin = Origin.USER_COMMAND,
+                should_cancel: "Callable[[], bool] | None" = None,
+                max_seconds: float | None = None) -> PlanRecord:
+        """Execute eligible steps, respecting dependencies, with bounded retry.
 
         ``origin`` is the authority the plan runs under: a plan the owner asked for is
         a user command; a plan a model proposed executes reads and pauses on writes.
 
+        Dependencies: a step runs only when every step it depends on succeeded; otherwise it
+        is marked ``skipped`` with ``dependency_not_met`` and never executed. A failure does
+        not stop independent later steps: they still run, so a plan can end partially done.
+
         A step that needs approval pauses the plan in ``awaiting_approval`` with the
-        proposed operation id. Calling ``execute`` again re-reads that operation: still
-        proposed -> stay paused; approved and succeeded -> the step is recorded as
-        succeeded and the plan continues; denied/cancelled/failed -> the step fails.
+        proposed operation id; calling ``execute`` again stays paused while it is still
+        proposed, continues when it succeeded, and fails the step when it was denied.
+
+        ``should_cancel`` is polled between steps (cancellation is cooperative, in-process).
+        ``max_seconds`` bounds this call; exceeding it marks the plan failed with
+        ``time_budget_exceeded`` and leaves remaining steps pending for a later resume.
         """
+        started = time.monotonic()
         plan = self.plans.get_plan(plan_id)
         if plan.status == "proposed":
             plan = self.plans.activate(plan_id)
@@ -329,17 +411,21 @@ class PlanExecutor:
             return plan
 
         for step in plan.steps:
-            if step.status == "succeeded":
+            if should_cancel is not None and should_cancel():
+                self.plans.cancel(plan_id)
+                return self.plans.get_plan(plan_id)
+            if max_seconds is not None and time.monotonic() - started > max_seconds:
+                self.plans.fail(plan_id, f"time_budget_exceeded after {time.monotonic() - started:.0f}s")
+                return self.plans.get_plan(plan_id)
+            if step.status == "succeeded" or step.status == "skipped":
                 continue
-            if step.status == "failed":
-                break                                    # already failed; do not continue past it
             if step.status == "awaiting_approval":
                 record = (self.plans.store.operations.get(step.operation_id)
                           if step.operation_id is not None else None)
                 if record is None:
                     self.plans.mark_step_failed(step.id, error_type="operation_missing",
                                                 error_message="the proposed operation no longer exists")
-                    break
+                    continue
                 if record["status"] == "proposed":
                     return self.plans.mark_awaiting_approval(plan_id)     # still waiting
                 if record["status"] == "succeeded":
@@ -349,12 +435,29 @@ class PlanExecutor:
                     continue
                 self.plans.mark_step_failed(step.id, error_type=f"approval_{record['status']}",
                                             error_message=record.get("error_message") or record["status"])
-                break
+                continue
+            if step.status == "failed":
+                continue                              # recorded; dependents are handled below
             if step.status not in ("pending", "interrupted"):
                 continue
 
+            unmet = [dep for dep in step.depends_on if not self._dependency_met(plan_id, dep)]
+            if unmet:
+                self.plans.mark_step_skipped(
+                    step.id, error_type="dependency_not_met",
+                    error_message=f"step(s) {', '.join(str(d) for d in unmet)} did not succeed")
+                continue
+
+            try:
+                arguments = self._resolve_arguments(plan_id, step)
+            except ReferenceError as exc:
+                self.plans.mark_step_failed(step.id, error_type="unresolved_reference",
+                                            error_message=str(exc))
+                continue
+
             outcome = self._execute_step(step, correlation_id=correlation_id,
-                                         session_id=session_id, origin=origin)
+                                         session_id=session_id, origin=origin,
+                                         arguments=arguments)
             if outcome.status == OperationStatus.SUCCEEDED:
                 self.plans.mark_step_succeeded(
                     step.id, operation_id=outcome.operation_id,
@@ -368,7 +471,8 @@ class PlanExecutor:
                 if self._retryable(outcome) and step.attempts < self.max_retries:
                     self.plans.reset_step_for_retry(step.id)
                     outcome = self._execute_step(step, correlation_id=correlation_id,
-                                                 session_id=session_id, origin=origin)
+                                                 session_id=session_id, origin=origin,
+                                                 arguments=arguments)
                     if outcome.status == OperationStatus.SUCCEEDED:
                         self.plans.mark_step_succeeded(
                             step.id, operation_id=outcome.operation_id,
@@ -377,26 +481,76 @@ class PlanExecutor:
                 self.plans.mark_step_failed(
                     step.id, error_type=outcome.error_type or error_kind,
                     error_message=outcome.error_message or outcome.reason)
-                break
+                continue
 
         plan = self.plans.get_plan(plan_id)
-        if all(s.status == "succeeded" for s in plan.steps):
-            return self.plans.complete(plan_id)
-        if any(s.status == "failed" for s in plan.steps):
-            failed_step = next(s for s in plan.steps if s.status == "failed")
-            return self.plans.fail(
-                plan_id,
-                f"Step {failed_step.seq} ({failed_step.capability}) failed: "
-                f"{failed_step.error_message or failed_step.error_type}")
         if any(s.status == "awaiting_approval" for s in plan.steps):
             return self.plans.mark_awaiting_approval(plan_id)
+        if all(s.status == "succeeded" or (s.optional and s.status in {"failed", "skipped"})
+               for s in plan.steps):
+            return self.plans.complete(plan_id)
+        failed_step = next((s for s in plan.steps if s.status in {"failed", "skipped"}), None)
+        if failed_step is not None:
+            reason = (f"Step {failed_step.seq} ({failed_step.capability}) "
+                      f"{'could not run' if failed_step.status == 'skipped' else 'failed'}: "
+                      f"{failed_step.error_message or failed_step.error_type}")
+            return self.plans.fail(plan_id, reason)
         return plan
 
+    # ------------------------------------------------------------ dependencies & references
+    def _dependency_met(self, plan_id: str, dependency: int) -> bool:
+        plan = self.plans.get_plan(plan_id)
+        for step in plan.steps:
+            if step.seq == dependency:
+                return step.status == "succeeded"
+        return False
+
+    def _resolve_arguments(self, plan_id: str, step: PlanStepRecord) -> dict[str, Any]:
+        """Replace ``{{stepN.path}}`` placeholders with the recorded result of step N."""
+        plan = self.plans.get_plan(plan_id)
+        by_seq = {s.seq: s for s in plan.steps}
+        results: dict[int, Any] = {}
+
+        def value_for(reference: str) -> Any:
+            match = self._REFERENCE.match(reference)
+            if not match:
+                return reference
+            seq, path = int(match.group(1)), match.group(2)
+            source = by_seq.get(seq)
+            if source is None or source.operation_id is None:
+                raise ReferenceError(f"step {seq} has no recorded result")
+            if seq not in results:
+                record = self.plans.store.operations.get(source.operation_id)
+                if record is None:
+                    raise ReferenceError(f"step {seq} result is not in the journal")
+                results[seq] = record.get("result")
+            value: Any = results[seq]
+            for part in path.split("."):
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                elif isinstance(value, list) and part.isdigit() and int(part) < len(value):
+                    value = value[int(part)]
+                else:
+                    raise ReferenceError(f"step {seq} result has no '{path}'")
+            return value
+
+        def walk(value: Any) -> Any:
+            if isinstance(value, str):
+                return value_for(value)
+            if isinstance(value, dict):
+                return {key: walk(item) for key, item in value.items()}
+            if isinstance(value, list):
+                return [walk(item) for item in value]
+            return value
+
+        return walk(step.arguments)
+
     def _execute_step(self, step: PlanStepRecord, *, correlation_id, session_id,
-                      origin: Origin = Origin.USER_COMMAND) -> ActionOutcome:
+                      origin: Origin = Origin.USER_COMMAND,
+                      arguments: dict[str, Any] | None = None) -> ActionOutcome:
         self.plans.mark_step_running(step.id)
         request = ActionRequest(
-            step.capability, step.arguments, origin,
+            step.capability, dict(arguments if arguments is not None else step.arguments), origin,
             reason=step.purpose)
         return self.registry.run(
             request, correlation_id=correlation_id, session_id=session_id)

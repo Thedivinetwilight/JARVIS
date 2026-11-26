@@ -35,7 +35,8 @@ class EventLog:
     def append(self, kind: str, *, actor: str, target: str = "", decision: str = "",
                session_id: str | None = None, cycle_id: str | None = None, caused_by: int | None = None,
                goal_id: int | None = None, task_id: int | None = None, memory_id: int | None = None,
-               operation_id: int | None = None, text: str | None = None, payload: dict[str, Any] | None = None,
+               operation_id: int | None = None, objective_id: str | None = None,
+               text: str | None = None, payload: dict[str, Any] | None = None,
                sensitivity: str = "normal", expires_at: str | None = None,
                conn: sqlite3.Connection | None = None) -> int:
         if not kind or len(kind) > 80:
@@ -43,10 +44,11 @@ class EventLog:
         safe_text = bounded(redact(text).text, MAX_TEXT) if text is not None else None
         safe_payload = dumps(redact_obj(payload or {}))
         row = (to_iso(self.store.now()), kind, actor, target, decision, session_id, cycle_id, caused_by,
-               goal_id, task_id, memory_id, operation_id, safe_text, safe_payload, sensitivity, expires_at)
+               goal_id, task_id, memory_id, operation_id, objective_id, safe_text, safe_payload,
+               sensitivity, expires_at)
         sql = ("INSERT INTO events(ts, kind, actor, target, decision, session_id, cycle_id, caused_by, goal_id, "
-               "task_id, memory_id, operation_id, text, payload_json, sensitivity, expires_at) "
-               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+               "task_id, memory_id, operation_id, objective_id, text, payload_json, sensitivity, expires_at) "
+               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         if conn is not None:
             return int(conn.execute(sql, row).lastrowid)
         with self.store.write() as db:

@@ -381,6 +381,65 @@ def _migration_3(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
          '"reminder_deliveries","audio_sessions","audio_chunks","plans","plan_steps"]}'))
 
 
+# --------------------------------------------------------------------------------------
+# Migration 4: Mission 002 objective-driven autonomy.
+#
+# An objective is the owner's request plus everything needed to judge it: the desired
+# outcome, constraints, success criteria, the plan that pursues it and the recorded outcome.
+# Plans gain per-step dependencies, success criteria and expected output so a step can be
+# judged instead of assumed; events gain objective_id so every trace stays attributable.
+# --------------------------------------------------------------------------------------
+OBJECTIVES = """
+CREATE TABLE objectives (
+  id TEXT PRIMARY KEY,
+  request TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  desired_outcome TEXT NOT NULL DEFAULT '',
+  constraints_json TEXT NOT NULL DEFAULT '[]',
+  success_criteria_json TEXT NOT NULL DEFAULT '[]',
+  memory_ids_json TEXT NOT NULL DEFAULT '[]',
+  plan_id TEXT REFERENCES plans(id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'planned',
+  outcome TEXT,
+  outcome_reason TEXT NOT NULL DEFAULT '',
+  priority INTEGER NOT NULL DEFAULT 3,
+  deadline TEXT,
+  budget_json TEXT NOT NULL DEFAULT '{}',
+  verification_json TEXT NOT NULL DEFAULT '{}',
+  planner TEXT NOT NULL DEFAULT 'rules',
+  origin TEXT NOT NULL DEFAULT 'user_command',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  replans INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  finished_at TEXT
+);
+CREATE INDEX idx_objectives_status ON objectives(status, created_at);
+CREATE INDEX idx_objectives_outcome ON objectives(outcome);
+
+ALTER TABLE plans ADD COLUMN objective_id TEXT;
+ALTER TABLE plan_steps ADD COLUMN depends_on TEXT NOT NULL DEFAULT '[]';
+ALTER TABLE plan_steps ADD COLUMN success_criteria TEXT NOT NULL DEFAULT '';
+ALTER TABLE plan_steps ADD COLUMN expected_output TEXT NOT NULL DEFAULT '';
+ALTER TABLE plan_steps ADD COLUMN optional INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE plan_steps ADD COLUMN risk TEXT NOT NULL DEFAULT '';
+ALTER TABLE plan_steps ADD COLUMN replaced_from TEXT NOT NULL DEFAULT '';
+ALTER TABLE events ADD COLUMN objective_id TEXT;
+CREATE INDEX idx_events_objective ON events(objective_id);
+"""
+
+
+def _migration_4(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
+    _run(conn, OBJECTIVES)
+    conn.execute(
+        "INSERT INTO events(ts, kind, actor, target, decision, payload_json) VALUES (?,?,?,?,?,?)",
+        (to_iso(ctx.clock()), "system.migrated", "system", "schema", "success",
+         '{"to_version":4,"tables":["objectives"],'
+         '"columns":["plans.objective_id","plan_steps.depends_on","plan_steps.success_criteria",'
+         '"plan_steps.expected_output","plan_steps.optional","plan_steps.risk","plan_steps.replaced_from",'
+         '"events.objective_id"]}'))
+
+
 @dataclass(frozen=True)
 class Migration:
     version: int
@@ -398,6 +457,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(1, "v0.2 baseline", _migration_1),
     Migration(2, "genesis-0.1 persistent cognitive kernel", _migration_2),
     Migration(3, "mission-001 scoped clients, reminders, audio, plans", _migration_3),
+    Migration(4, "mission-002 objective-driven autonomy", _migration_4),
 )
 LATEST_VERSION = MIGRATIONS[-1].version
 
