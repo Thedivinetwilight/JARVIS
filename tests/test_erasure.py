@@ -384,3 +384,50 @@ def test_forget_cost_does_not_grow_with_the_number_of_search_terms(app_factory, 
                         and "cycle_id IN" not in s]
     assert len(full_event_scans) <= 6, len(full_event_scans)
     assert app.tools.get("memory.forget").timeout_s >= 60
+
+
+def test_forget_also_scrubs_reminders_and_plans(app_factory, tmp_path):
+    """Mission 001 tables quote the owner's words: reminders and plans are swept.
+
+    The sweep is verbatim, matching the rest of ``forget``: a full value copied into a
+    reminder or a plan disappears; a paraphrase does not (reported as a limitation, not
+    silently claimed).
+    """
+    app = app_factory()
+    remembered = app.ask("remember that my qwvbnm dessert is zqxjvwk pudding 91357")
+    memory_value = remembered["actions"][0]["result"]["item"]["value"]
+    memory_id = remembered["actions"][0]["result"]["item"]["id"]
+    verbatim = memory_value
+    app.reminders.create(title=f"buy {verbatim}", due_at="2026-01-01T00:00:00+00:00",
+                         notes="notes without the value")
+    app.plans.create_plan(title=f"plan: {verbatim}", steps=[{
+        "capability": "memory.search", "arguments": {"query": verbatim},
+        "purpose": f"recall {verbatim}"}])
+    assert residue(tmp_path / "home", MARKERS)
+
+    report = app.store.memory.forget(memory_id)
+    assert report["residue"]["derived"] == 0
+    assert residue(tmp_path / "home", MARKERS) == {}
+    with app.store.read() as db:
+        step = db.execute("SELECT purpose, arguments FROM plan_steps").fetchone()
+        plan = db.execute("SELECT title FROM plans").fetchone()
+        reminder = db.execute("SELECT title, notes FROM reminders").fetchone()
+    assert "zqxjvwk" not in step["purpose"] and "zqxjvwk" not in step["arguments"]
+    assert "zqxjvwk" not in plan["title"]
+    assert "zqxjvwk" not in reminder["title"]
+    assert reminder["notes"] == "notes without the value"        # untouched, unrelated text
+
+
+def test_plan_paraphrases_are_a_reported_limitation_not_a_claim(app_factory):
+    """A paraphrase in a plan step is out of reach of the verbatim sweep; forget says so."""
+    app = app_factory()
+    remembered = app.ask("remember that my qwvbnm dessert is zqxjvwk pudding 91357")
+    memory_id = remembered["actions"][0]["result"]["item"]["id"]
+    app.plans.create_plan(title="dessert plan", steps=[{
+        "capability": "memory.search", "arguments": {"query": "pudding"},
+        "purpose": "buy zqxjvwk pudding 91357"}])          # partial phrase, not the value
+    report = app.store.memory.forget(memory_id)
+    assert report["residue"]["derived"] == 0               # nothing derived matched
+    with app.store.read() as db:
+        purpose = db.execute("SELECT purpose FROM plan_steps").fetchone()["purpose"]
+    assert "91357" in purpose                              # retained: documented, not denied
