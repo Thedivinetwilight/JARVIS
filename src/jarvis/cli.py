@@ -75,6 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="Integrity, schema, backups and configuration checks")
     evalp = sub.add_parser("eval", help="Run fixed evaluations").add_subparsers(dest="action", required=True)
     er = evalp.add_parser("retrieval"); er.add_argument("--fixture", default="evals/retrieval_v1.json"); er.add_argument("--out")
+    eo = evalp.add_parser("objectives", help="Run the 17 objective-driven autonomy scenarios")
+    eo.add_argument("--out", default=None, help="Write the JSON report here")
     serve = sub.add_parser("serve"); serve.add_argument("--host"); serve.add_argument("--port", type=int)
     # Consolidated subsystems (bbff branch)
     pair = sub.add_parser("pair", help="Manage device pairing (scoped tokens)").add_subparsers(dest="action", required=True)
@@ -87,6 +89,18 @@ def build_parser() -> argparse.ArgumentParser:
     ra.add_argument("--deliver-to", default="")
     rem.add_parser("list")
     rem.add_parser("due")
+    obj = sub.add_parser("objective", help="Give JARVIS an objective; it plans, executes and verifies")
+    obj.add_argument("request", nargs="?")
+    obj.add_argument("--list", action="store_true", help="List objectives")
+    obj.add_argument("--status", default=None, help="With --list: filter by status")
+    obj.add_argument("--show", metavar="ID", default=None, help="Show one objective and its evidence")
+    obj.add_argument("--resume", metavar="ID", default=None, help="Continue a paused objective")
+    obj.add_argument("--cancel", metavar="ID", default=None, help="Cancel an unfinished objective")
+    obj.add_argument("--budget", type=float, default=None, help="Wall-clock budget in seconds (1-900)")
+    obj.add_argument("--priority", type=int, default=3)
+    obj.add_argument("--deadline", default=None, help="Optional ISO date/time the objective is due")
+    obj.add_argument("--plan-only", action="store_true", help="Interpret and plan, do not execute")
+    obj.add_argument("--json", action="store_true", help="Print the full record instead of the answer")
     plan = sub.add_parser("plan", help="Manage multi-step plans").add_subparsers(dest="action", required=True)
     plan.add_parser("list")
     ps = plan.add_parser("show"); ps.add_argument("plan_id")
@@ -154,12 +168,22 @@ def main(argv: list[str] | None = None) -> None:
         host, port = args.host or settings.host, args.port or settings.port
         if host not in {"127.0.0.1", "::1", "localhost"}:
             raise SystemExit("Refusing non-loopback bind: the API has no TLS and must stay on this device.")
-    if args.command == "eval":
+    if args.command == "eval" and args.action == "retrieval":
         from .evaluation import run_retrieval_eval
         report = run_retrieval_eval(Path(args.fixture))
         if args.out:
             Path(args.out).write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
         _print(report["summary"])
+        return
+    if args.command == "eval" and args.action == "objectives":
+        from .objective_eval import run_objectives_eval, write_report
+        report = run_objectives_eval()
+        if args.out:
+            write_report(report, Path(args.out))
+        _print({"suite": report["suite"], "metrics": report["metrics"],
+                "scenarios": [{k: s[k] for k in ("id", "execution", "expected_outcome",
+                                                 "actual_outcome", "verified", "false_completion")}
+                              for s in report["scenarios"]], "out": args.out})
         return
     app = Jarvis(settings)
     try:
@@ -312,6 +336,34 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
             _print([r.to_dict() for r in app.reminders.list_all()])
         else:
             _print([r.to_dict() for r in app.reminders.list_due()])
+    elif args.command == "objective":
+        if args.list:
+            _print(app.objectives.list(status=args.status))
+        elif args.show:
+            _print(app.objectives.view(args.show))
+        elif args.cancel:
+            _print(app.objectives.cancel(args.cancel))
+        elif args.resume:
+            print(app.objectives.resume(args.resume)["answer"])
+        else:
+            if not args.request:
+                raise SystemExit("objective needs a request, e.g. jarvis objective \"what time is it\"")
+            kwargs = {"priority": args.priority}
+            if args.budget is not None:
+                kwargs["budget_seconds"] = args.budget
+            if args.deadline:
+                kwargs["deadline"] = args.deadline
+            if args.plan_only:
+                record = app.objectives.create(args.request, **kwargs)
+                view = app.objectives.view(record.id)
+            else:
+                view = app.objectives.submit(args.request, **kwargs)
+            if args.json:
+                _print(view)
+            else:
+                print(view["answer"])
+                print(f"objective {view['objective']['id']}  outcome={view['objective']['outcome']}"
+                      f"  plan={view['objective']['plan_id']}")
     elif args.command == "plan":
         if args.action == "list":
             _print([p.to_dict() for p in app.plans.list_plans()])

@@ -22,6 +22,7 @@ from .db import Store
 from .egress import GUARD
 from .kernel import CognitiveKernel
 from .logging import configure_logging, get_logger, info as _log_info, warning as _log_warning
+from .objectives import ObjectiveService, ObjectiveStore
 from .plans import PlanExecutor, PlanStore
 from .provider import ModelProvider, build_provider
 from .redact import register_secret
@@ -66,6 +67,11 @@ class Jarvis:
         self.audio = AudioSessionService(self.store)
         self.plans = PlanStore(self.store)
         self.plan_executor = PlanExecutor(self.plans, self.tools)
+        # Objective-driven autonomy (Mission 002): interpretation -> plan -> execution ->
+        # evidence-based verification -> honest outcome. Steps still run through self.tools.
+        self.objectives = ObjectiveService(self.store, self.tools, self.plans,
+                                           executor=self.plan_executor, provider=self.provider,
+                                           settings=self.settings)
         self.recovery = self._recover()
         self.kernel = CognitiveKernel(store=self.store, registry=self.tools, policy=self.policy,
                                       provider=self.provider, settings=self.settings, runtime_id=self.runtime_id,
@@ -85,11 +91,17 @@ class Jarvis:
         purged_events = self.store.events.purge_expired()
         purged_memories = self.store.memory.purge_expired()
         interrupted_plans = self.plans.recover_interrupted()
+        # Unfinished objectives become `interrupted` (never silently resumed or marked done);
+        # the owner decides whether to continue them.
+        objective_state = self.objectives.resume_after_restart()
         purged_audio = self.audio.purge_expired()
         report = {"interrupted_operations": [o["id"] for o in interrupted], "interrupted_cycles": stale,
                   "purged_expired_events": purged_events, "purged_expired_memories": purged_memories,
-                  "interrupted_plans": interrupted_plans, "purged_audio_sessions": purged_audio}
-        if interrupted or stale or purged_events or purged_memories or interrupted_plans:
+                  "interrupted_plans": interrupted_plans, "purged_audio_sessions": purged_audio,
+                  "interrupted_objectives": objective_state["interrupted"],
+                  "unfinished_objectives": [o["id"] for o in objective_state["unfinished"]]}
+        if interrupted or stale or purged_events or purged_memories or interrupted_plans \
+                or objective_state["interrupted"]:
             self.store.events.append("system.recovered", actor="system", target=self.runtime_id, payload=report)
         if purged_events:
             # Expired (e.g. affect) events were deleted; truncate the WAL so their page images
@@ -161,6 +173,9 @@ class Jarvis:
                 "reminders_pending": len(self.reminders.list_due()),
                 "plans": {status: len(self.plans.list_plans(status=status, limit=200))
                           for status in ("proposed", "active", "awaiting_approval", "completed", "failed", "cancelled")},
+                "objectives": {outcome: len(self.objectives.list(outcome=outcome, limit=200))
+                               for outcome in ("completed", "partially_completed", "failed", "blocked",
+                                               "needs_approval", "cancelled", "awaiting_information")},
                 "egress": {"default": "deny", "attempts": GUARD.attempts, "denials": GUARD.denials},
             },
             "integrity": self.store.integrity(),

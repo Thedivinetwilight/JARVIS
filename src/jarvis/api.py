@@ -67,6 +67,7 @@ _GET_SCOPES: dict[str, str] = {
     "/v1/reminders/due": manifests.SCOPE_REMINDERS_READ,
     "/v1/reminders/inbox": manifests.SCOPE_REMINDERS_RECEIVE,
     "/v1/plans": manifests.SCOPE_PLANS_READ,
+    "/v1/objectives": manifests.SCOPE_PLANS_READ,
     "/v1/clients": manifests.SCOPE_CLIENTS_READ,
     "/v1/audio/capabilities": manifests.SCOPE_STATUS_READ,
 }
@@ -74,6 +75,7 @@ _GET_SCOPES: dict[str, str] = {
 _GET_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"/v1/cycles/[A-Za-z0-9_]{1,80}", manifests.SCOPE_STATUS_READ),
     (r"/v1/plans/[A-Za-z0-9_]{1,80}", manifests.SCOPE_PLANS_READ),
+    (r"/v1/objectives/[A-Za-z0-9_]{1,80}", manifests.SCOPE_PLANS_READ),
     (r"/v1/audio/sessions/[A-Za-z0-9_]{1,80}", manifests.SCOPE_AUDIO_CAPTURE),
 )
 
@@ -81,6 +83,7 @@ _POST_SCOPES: dict[str, str] = {
     "/v1/ask": manifests.SCOPE_CONVERSE,
     "/v1/reminders": manifests.SCOPE_REMINDERS_WRITE,
     "/v1/plans": manifests.SCOPE_PLANS_WRITE,
+    "/v1/objectives": manifests.SCOPE_PLANS_WRITE,
     "/v1/audio/sessions": manifests.SCOPE_AUDIO_CAPTURE,
     "/v1/clients/pairing": manifests.SCOPE_CLIENTS_PAIR,
 }
@@ -89,6 +92,7 @@ _POST_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"/v1/operations/\d{1,12}/(approve|deny)", manifests.SCOPE_OPERATIONS_WRITE),
     (r"/v1/reminders/inbox/[A-Za-z0-9_]{1,80}/ack", manifests.SCOPE_REMINDERS_WRITE),
     (r"/v1/plans/[A-Za-z0-9_]{1,80}/execute", manifests.SCOPE_PLANS_WRITE),
+    (r"/v1/objectives/[A-Za-z0-9_]{1,80}/(cancel|resume)", manifests.SCOPE_PLANS_WRITE),
     (r"/v1/audio/sessions/[A-Za-z0-9_]{1,80}/(audio|end)", manifests.SCOPE_AUDIO_CAPTURE),
     (r"/v1/clients/[A-Za-z0-9_]{1,80}/revoke", manifests.SCOPE_CLIENTS_REVOKE),
 )
@@ -301,6 +305,10 @@ def make_handler(app: "Jarvis", *, token: str):
                 if path == "/v1/plans":
                     status = (query.get("status") or [None])[0]
                     return self._send(200, [p.to_dict() for p in app.plans.list_plans(status=status)])
+                if path == "/v1/objectives":
+                    status = (query.get("status") or [None])[0]
+                    outcome = (query.get("outcome") or [None])[0]
+                    return self._send(200, app.objectives.list(status=status, outcome=outcome))
                 if path == "/v1/clients":
                     return self._send(200, [c.to_dict() for c in app.auth.list_clients()])
                 if path == "/v1/audio/capabilities":
@@ -321,6 +329,12 @@ def make_handler(app: "Jarvis", *, token: str):
                         return self._send(200, app.plans.get_plan(match.group(1)).to_dict())
                     except Exception:
                         return self._send(404, {"error": "plan_not_found"})
+                match = re.fullmatch(r"/v1/objectives/([A-Za-z0-9_]{1,80})", path)
+                if match:
+                    try:
+                        return self._send(200, app.objectives.view(match.group(1)))
+                    except LookupError:
+                        return self._send(404, {"error": "objective_not_found"})
                 match = re.fullmatch(r"/v1/audio/sessions/([A-Za-z0-9_]{1,80})", path)
                 if match:
                     session = app.audio.get_session(match.group(1))
@@ -343,10 +357,12 @@ def make_handler(app: "Jarvis", *, token: str):
             audio_end = re.fullmatch(r"/v1/audio/sessions/([A-Za-z0-9_]{1,80})/end", path)
             audio_chunk = re.fullmatch(r"/v1/audio/sessions/([A-Za-z0-9_]{1,80})/audio", path)
             revoke = re.fullmatch(r"/v1/clients/([A-Za-z0-9_]{1,80})/revoke", path)
+            objective_action = re.fullmatch(
+                r"/v1/objectives/([A-Za-z0-9_]{1,80})/(cancel|resume)", path)
             known = {"/v1/ask", "/v1/pairing", "/v1/reminders", "/v1/plans", "/v1/audio/sessions",
-                     "/v1/clients/pairing"}
+                     "/v1/clients/pairing", "/v1/objectives"}
             if path not in known and not approve and not ack_rem and not exec_plan \
-                    and not audio_end and not audio_chunk and not revoke:
+                    and not audio_end and not audio_chunk and not revoke and not objective_action:
                 return self._send(404, {"error": "not_found"})
             data = self._read_json()
             if data is None:
@@ -388,6 +404,34 @@ def make_handler(app: "Jarvis", *, token: str):
                 if ack_rem:
                     event = app.reminders.acknowledge(ack_rem.group(1))
                     return self._send(200, event.to_dict())
+                if path == "/v1/objectives":
+                    if not isinstance(data, dict) or not isinstance(data.get("request"), str) \
+                            or not data["request"].strip():
+                        return self._send(400, {"error": "request_required"})
+                    try:
+                        kwargs = {}
+                        if data.get("budget_seconds") is not None:
+                            kwargs["budget_seconds"] = float(data["budget_seconds"])
+                        if data.get("priority") is not None:
+                            kwargs["priority"] = int(data["priority"])
+                        if isinstance(data.get("deadline"), str):
+                            kwargs["deadline"] = data["deadline"][:80]
+                        if data.get("execute", True):
+                            view = app.objectives.submit(data["request"], **kwargs)
+                        else:
+                            record = app.objectives.create(data["request"], **kwargs)
+                            view = app.objectives.view(record.id)
+                    except ValueError as exc:
+                        return self._send(400, {"error": "invalid_objective", "detail": str(exc)[:200]})
+                    return self._send(201, view)
+                if objective_action:
+                    objective_id, action = objective_action.group(1), objective_action.group(2)
+                    try:
+                        view = (app.objectives.cancel(objective_id) if action == "cancel"
+                                else app.objectives.resume(objective_id))
+                    except LookupError:
+                        return self._send(404, {"error": "objective_not_found"})
+                    return self._send(200, view)
                 if path == "/v1/plans":
                     if not isinstance(data, dict) or not data.get("steps"):
                         return self._send(400, {"error": "steps_required"})
