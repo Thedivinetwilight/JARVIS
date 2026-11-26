@@ -9,7 +9,7 @@ import stat
 import sys
 from pathlib import Path
 
-from conftest import run_cli
+from conftest import open_sqlite, run_cli
 from jarvis.voice import speakable, voice_loop
 
 STT = """#!{python}
@@ -59,7 +59,7 @@ def test_spoken_conversation_through_the_real_cli(tmp_path):
     assert "Okay. Your session is saved." in spoken
     assert "•" not in spoken and "#" not in spoken                     # symbols stripped for speech
     import sqlite3
-    with sqlite3.connect(home / "jarvis.sqlite3") as db:
+    with open_sqlite(home / "jarvis.sqlite3") as db:
         channels = {r[0] for r in db.execute("SELECT payload_json FROM events WHERE kind='observation.received'")}
     assert all('"channel":"voice"' in c for c in channels)
 

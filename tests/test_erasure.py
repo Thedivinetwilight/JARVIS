@@ -12,7 +12,7 @@ import threading
 import time
 from pathlib import Path
 
-from conftest import db_bytes, run_cli
+from conftest import db_bytes, open_sqlite, run_cli
 from jarvis.contracts import ActionRequest, MemoryQuery, Origin
 from jarvis.db import Store
 from jarvis.migrations import V02_BASELINE
@@ -88,7 +88,7 @@ def test_forget_through_cli_erases_the_journal_copy(tmp_path):
     saved = json.loads(run_cli(home, "memory", "save", "qwvbnm dessert", "zqxjvwk pudding 91357").stdout)
     corrected = json.loads(run_cli(home, "memory", "correct", str(saved["id"]), "zqxjvwk custard 24680").stdout)
     assert corrected["status"] == "succeeded"
-    with sqlite3.connect(home / "jarvis.sqlite3") as db:
+    with open_sqlite(home / "jarvis.sqlite3") as db:
         journal = " ".join(str(r) for r in db.execute("SELECT arguments_json, result_json FROM operations"))
     assert "zqxjvwk" not in journal and "qwvbnm" not in journal       # content never journaled
     forgot = json.loads(run_cli(home, "memory", "forget", str(saved["id"]), "--yes").stdout)
@@ -343,7 +343,7 @@ def test_reply_of_a_cycle_running_during_forget_is_withheld_and_never_stored(app
     in_model, release, seen = threading.Event(), threading.Event(), {}
 
     def slow_model(request):
-        with sqlite3.connect(tmp_path / "home" / "jarvis.sqlite3") as db:      # observed from outside, mid-cycle
+        with open_sqlite(tmp_path / "home" / "jarvis.sqlite3") as db:      # observed from outside, mid-cycle
             seen["consulted"] = [json.loads(r[0]) for r in db.execute(
                 "SELECT memory_ids_json FROM cycles WHERE status='running'")]
         in_model.set()

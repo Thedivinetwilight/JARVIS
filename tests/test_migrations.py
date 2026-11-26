@@ -5,8 +5,11 @@ import gc
 import sqlite3
 import warnings
 
+import pytest
+
 from jarvis.db import Store
 from jarvis.migrations import LATEST_VERSION, V02_BASELINE, apply_migrations, split_script
+from conftest import open_sqlite
 
 
 def test_fresh_database_reaches_latest_version_without_backup(tmp_path):
@@ -18,16 +21,16 @@ def test_fresh_database_reaches_latest_version_without_backup(tmp_path):
 
 def test_existing_v02_database_is_backed_up_before_migration(tmp_path):
     path = tmp_path / "old.sqlite3"
-    with sqlite3.connect(path) as db:
+    with open_sqlite(path) as db:
         db.executescript(V02_BASELINE)
         db.execute("INSERT INTO memories(category,key,value,confidence,source,created_at,updated_at) "
                    "VALUES('general','k','v',1.0,'user','t','t')")
     report = apply_migrations(path, backup_dir=tmp_path / "backups")
     assert report.backup is not None
-    with sqlite3.connect(report.backup) as backup:
+    with open_sqlite(report.backup) as backup:
         assert backup.execute("PRAGMA user_version").fetchone()[0] == 0
         assert backup.execute("SELECT value FROM memories").fetchone()[0] == "v"
-    with sqlite3.connect(path) as db:
+    with open_sqlite(path) as db:
         assert [r[0] for r in db.execute("SELECT version FROM schema_migrations ORDER BY version")] == [2, 3]
 
 
@@ -47,6 +50,31 @@ def test_connections_are_closed_deterministically(tmp_path):
             store.search_memories(f"note {i}")
         gc.collect()
     assert not [w for w in caught if issubclass(w.category, ResourceWarning) and "sqlite3" in str(w.message)]
+
+
+def test_every_connection_opened_by_the_store_is_closed(tmp_path, monkeypatch):
+    """Version-independent version of the check above: hold every connection we open and
+    prove it is unusable (closed) afterwards. Python 3.11 raises no ResourceWarning, so the
+    warning-based test alone cannot catch a leak there; this one can."""
+    opened = []
+    real_connect = sqlite3.connect
+
+    def tracking_connect(*args, **kwargs):
+        connection = real_connect(*args, **kwargs)
+        opened.append(connection)
+        return connection
+
+    monkeypatch.setattr(sqlite3, "connect", tracking_connect)
+    store = Store(tmp_path / "jarvis.sqlite3")
+    for i in range(5):
+        store.memory.remember(f"note {i}", kind="note")
+        store.search_memories(f"note {i}")
+    monkeypatch.undo()
+
+    assert len(opened) >= 5
+    for connection in opened:
+        with pytest.raises(sqlite3.ProgrammingError):
+            connection.execute("SELECT 1")
 
 
 def test_nested_write_transactions_fail_fast(tmp_path):
@@ -108,7 +136,7 @@ def test_personal_data_files_are_owner_only_even_with_a_permissive_umask(tmp_pat
         reader.close()
         legacy_home = tmp_path / "legacy"
         legacy_home.mkdir()
-        with sqlite3.connect(legacy_home / "jarvis.sqlite3") as db:
+        with open_sqlite(legacy_home / "jarvis.sqlite3") as db:
             db.executescript(V02_BASELINE)
         os.chmod(legacy_home / "jarvis.sqlite3", 0o644)
         Store(legacy_home / "jarvis.sqlite3")                               # migrates v0.2 with a backup
@@ -125,7 +153,7 @@ def test_genesis_v2_database_is_backed_up_and_upgraded_to_v3(tmp_path):
     from jarvis.migrations import MIGRATIONS, apply_migrations
     path = tmp_path / "v2.sqlite3"
     apply_migrations(path, backup_dir=tmp_path / "backups", migrations=MIGRATIONS[:2])
-    with sqlite3.connect(path) as db:                     # write without opening the Store (which migrates)
+    with open_sqlite(path) as db:                     # write without opening the Store (which migrates)
         db.execute("PRAGMA user_version = 2")
         db.execute("INSERT INTO projects(name, description, status, created_at, updated_at) "
                    "VALUES('AXIOM','kept','active','t','t')")

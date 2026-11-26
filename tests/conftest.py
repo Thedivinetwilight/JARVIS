@@ -3,8 +3,10 @@ real subprocesses; only the language model is replaced by a local fake server or
 scripted provider (never a mock of JARVIS's own subsystems)."""
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import sqlite3
 import subprocess
 import sys
 import threading
@@ -145,3 +147,18 @@ def db_bytes(home: Path) -> bytes:
     for path in sorted(home.glob("jarvis.sqlite3*")):
         data += path.read_bytes()
     return data
+
+
+@contextlib.contextmanager
+def open_sqlite(path, **kwargs):
+    """Open a raw SQLite connection that is committed and **closed** on exit.
+
+    ``with sqlite3.connect(...) as conn`` commits but never closes; the leaked handle is
+    only reclaimed by the garbage collector, which Python 3.13 reports as a ResourceWarning.
+    """
+    conn = sqlite3.connect(path, **kwargs)
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()

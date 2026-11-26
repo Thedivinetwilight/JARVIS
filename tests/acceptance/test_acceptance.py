@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import FAKE_GEMINI_KEY, ROOT, db_bytes, make_settings, run_cli
+from conftest import FAKE_GEMINI_KEY, ROOT, db_bytes, make_settings, open_sqlite, run_cli
 from jarvis.contracts import ActionRequest, OperationStatus, Origin
 from jarvis.core import Jarvis
 from jarvis.db import Store
@@ -42,7 +42,7 @@ def test_01_persistent_identity_across_process_restarts(tmp_path):
     first = _json(run_cli(home, "identity"))
     second = _json(run_cli(home, "identity"))
     assert first["identity"]["system_id"] == second["identity"]["system_id"]
-    with sqlite3.connect(home / "jarvis.sqlite3") as db:
+    with open_sqlite(home / "jarvis.sqlite3") as db:
         assert db.execute("SELECT COUNT(*) FROM identity").fetchone()[0] == 1
         assert db.execute("SELECT COUNT(*) FROM runtime_instances").fetchone()[0] == 2
         assert db.execute("SELECT COUNT(*) FROM runtime_instances WHERE ended_at IS NOT NULL").fetchone()[0] == 2
@@ -58,7 +58,7 @@ def test_02_cross_session_memory_through_the_cli(tmp_path):
     chat = run_cli(home, "chat", input_text="what do you know about the irrigation pump?\n/quit\n")
     assert chat.returncode == 0, chat.stderr
     assert "2A at 12V" in chat.stdout and "you told me" in chat.stdout
-    with sqlite3.connect(home / "jarvis.sqlite3") as db:
+    with open_sqlite(home / "jarvis.sqlite3") as db:
         sessions = db.execute("SELECT DISTINCT session_id FROM events WHERE kind='observation.received'").fetchall()
     assert len(sessions) == 2
 
@@ -152,7 +152,7 @@ def test_06_interruption_recovery_after_sigkill(tmp_path):
         while time.time() < deadline and not marker.exists():
             time.sleep(0.05)
         assert marker.exists(), "child never started the operation"
-        with sqlite3.connect(home / "jarvis.sqlite3") as db:
+        with open_sqlite(home / "jarvis.sqlite3") as db:
             assert db.execute("SELECT status FROM operations WHERE idempotency_key='slow-1'").fetchone()[0] == "started"
         os.kill(child.pid, signal.SIGKILL)
         child.wait(timeout=10)
@@ -340,7 +340,7 @@ def test_12_preexisting_v02_tests_still_pass():
 
 
 def _make_v02_db(path: Path) -> None:
-    with sqlite3.connect(path) as db:
+    with open_sqlite(path) as db:
         db.executescript(V02_BASELINE)
         db.execute("INSERT INTO projects(name,description,created_at,updated_at) VALUES('AXIOM','paper','t','t')")
         db.execute("INSERT INTO tasks(project_id,title,status,created_at,updated_at) VALUES(1,'old task','done','t','t')")
@@ -363,7 +363,7 @@ def test_13_data_integrity_under_migration_failure_and_bad_files(tmp_path):
     with pytest.raises(MigrationError) as info:
         apply_migrations(legacy, backup_dir=tmp_path / "backups", migrations=broken)
     assert info.value.backup and info.value.backup.exists()
-    with sqlite3.connect(legacy) as db:
+    with open_sqlite(legacy) as db:
         assert db.execute("PRAGMA user_version").fetchone()[0] == 1          # migration 1 committed, 2 rolled back
         assert db.execute("SELECT value FROM memories").fetchone()[0] == "paper"
         assert db.execute("SELECT name FROM sqlite_master WHERE name='half_done'").fetchone() is None
@@ -374,7 +374,7 @@ def test_13_data_integrity_under_migration_failure_and_bad_files(tmp_path):
     assert task["completion_evidence"]["type"] == "legacy_unverified"
     assert store.recent_audit()[-1]["action"] == "project.create"
     newer = tmp_path / "newer.sqlite3"
-    with sqlite3.connect(newer) as db:
+    with open_sqlite(newer) as db:
         db.execute("PRAGMA user_version = 99")
     before = newer.read_bytes()
     from jarvis.migrations import DatabaseIntegrityError, SchemaTooNewError
