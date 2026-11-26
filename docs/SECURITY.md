@@ -93,3 +93,60 @@ untrusted device.
 4. Subprocess/container sandbox with resource limits before any code execution (R5).
 5. Dependency pinning and vulnerability scanning in CI (blocked on CI billing).
 6. Security tests for symlink races and concurrent writers.
+
+
+## Mission 001: scoped clients, egress and audio (2026-11-26)
+
+### Two token systems
+| Token | Where it lives | What it grants | Rotation |
+|---|---|---|---|
+| legacy static token | `<JARVIS_HOME>/api_token` (0600) | operator-equivalent access to every route | delete the file |
+| scoped client token (`jvs_<client>.<body>`) | shown once to the client at pairing; the server keeps only an HMAC-SHA256 digest | only the scopes in that client's manifest | `jarvis pair revoke <client_id>` |
+
+A token is created only by pairing: the operator runs `jarvis pair code` (or
+`POST /v1/clients/pairing`), the device redeems it with `POST /v1/pairing`. Codes are
+single-use, expire (default 10 minutes), and redemption is throttled after 10 failures in
+10 minutes. Device tokens **cannot** be issued with admin scopes (`clients.read`,
+`clients.revoke`, `clients.pair`, `audit.read`) or `plans.write`; attempt returns 400.
+The signing secret is a random value in `<JARVIS_HOME>/server_secret` (0600), generated on
+first start, never printed, and registered with the redactor.
+
+### Route → scope
+Every route's required scope lives in one table in `api.py` (`required_scope`); an unknown
+route is treated as needing `status.read` rather than being implicitly public.
+`GET /health` and `POST /v1/pairing` are the only public routes; both still require the
+Host/Origin checks. Authentication without the scope is 403 `scope_denied`.
+
+### Egress
+`egress.EgressGuard` replaces `socket.socket.connect` and `socket.create_connection` so that
+any library (urllib, http.client, a future adapter) is subject to the same rule: loopback is
+allowed, everything else is denied unless the caller opened
+`GUARD.declare(service, host, port)` for that exact destination. The guard is installed when
+`Jarvis` is constructed, so it also applies to the CLI, not only to `jarvis serve`. Model
+provider calls are wrapped in a single-destination declaration and a blocked call surfaces as
+a `ProviderRefused` error (never a silent success). Declarations are thread-local. There is no
+environment variable that disables the guard.
+
+### Audio
+Audio sessions store raw bytes locally with per-chunk (256 KiB), per-session (10 MiB) and TTL
+(default 30 minutes) limits. Revoking a client deletes all of its chunks in the same
+transaction that marks the sessions purged. There is **no** speech recognition or synthesis:
+`/v1/audio/capabilities` reports both as false, and the manifests mark both capabilities
+unavailable. `forget` does not textually scan audio bytes and says so.
+
+### Reminders and plans
+A reminder is queued only for the client named at creation and delivered only when that client
+polls; there is no push channel. Plan execution runs through the tool registry, so policy
+applies per step: a plan executed under a model proposal pauses in `awaiting_approval` for
+writes and resumes only after the operation was approved. Retries are bounded
+(`MAX_RETRIES_PER_STEP = 2`, `MAX_STEPS = 12`) and a denied or validation failure is never
+retried.
+
+### Remaining risks (unchanged in nature, newly relevant)
+- Same-user processes can read the token files and the database; the API boundary is only as
+  strong as file permissions.
+- The API still has no TLS; it must stay on loopback.
+- Pairing codes are short and human-entered; the throttle is in-process, so restarting the
+  server resets it. A paired device's first token is trusted until revoked.
+- Audio blobs are the largest personal data this build stores; their TTL is the only retention
+  control.

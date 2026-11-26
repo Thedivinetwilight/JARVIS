@@ -24,7 +24,16 @@ effective configuration with secrets shown only as `set`/`unset`.
 | `JARVIS_AFFECT_RETENTION_DAYS` | `30` | 0–3650; 0 = appraisals expire immediately |
 | `JARVIS_SESSION_IDLE_MINUTES` | `30` | idle time before a new session starts |
 | `JARVIS_HOST` / `JARVIS_PORT` | `127.0.0.1` / `8765` | API bind (`127.0.0.1`, `::1` or `localhost`); other hosts are refused. Every route except `GET /health` needs `Authorization: Bearer <token>`; the token is created on first `jarvis serve` in `<JARVIS_HOME>/api_token` (mode 0600). Delete the file to rotate it. |
-| `JARVIS_LOG_LEVEL` | `INFO` | reserved |
+| `JARVIS_LOG_LEVEL` | `INFO` | `DEBUG`/`INFO`/`WARNING`/`ERROR`/`CRITICAL`; JSON-lines records on stderr (redacted) |
+
+Files JARVIS creates in `<JARVIS_HOME>` besides the database: `api_token` (legacy operator
+token, 0600) and `server_secret` (HMAC signing key for scoped tokens, 0600). Both are
+recreated on demand if deleted; deleting `server_secret` invalidates every paired client
+token, deleting `api_token` rotates the legacy operator token.
+
+Provider retry and fallback are deliberately not configurable environment variables in this
+build: `ResilientProvider` retries transient errors twice with exponential backoff
+(0.5 s → 8 s) and then falls back to the next configured provider.
 
 Development vs production: there is no separate production mode yet; the defaults are the
 safe (local, offline, approval-gated) configuration.

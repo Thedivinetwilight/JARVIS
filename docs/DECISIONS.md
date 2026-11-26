@@ -204,3 +204,98 @@ decision and reasons · trade-offs · migration · tests · revisit when.
   it is the observation of what actually happened.
 - **Tests:** `test_tools_policy::test_deny_racing_an_approval_never_reports_an_executed_operation_as_cancelled`,
   `::test_concurrent_approvals_execute_once_and_every_caller_gets_an_outcome`.
+
+## ADR-0014 — Genesis is canonical; the local-first server is source material (Mission 001)
+- **Question:** the repository contains two divergent systems — Genesis 0.1 (`src/jarvis`:
+  kernel, memory with provenance, goals, journal, erasure, CLI, API, 162 tests) and the
+  local-first server direction (`arena/bbffddd4-jarvis`: `app/jarvis` pairing/scopes/reminders/
+  audio/migrations/egress, `client/` Windows companion, product spec). Which is JARVIS?
+- **Evidence:** the trees are disjoint; `main` is an empty initial commit; neither direction
+  had ever been run by anyone else. Genesis carries the cognitive core (state, authorisation,
+  recovery, verification) while the server carries the transport and delivery concerns —
+  pairing, scopes, reminder delivery, audio capture, an egress deny-list.
+- **Alternatives:** (a) adopt `app/` as canonical (rejected: no kernel, no memory model, no
+  verification; the cognitive foundation would start again); (b) keep both (rejected: two
+  databases, two task systems, two permission models); (c) merge `app/` wholesale into
+  `src/jarvis` (rejected: duplicate routers, migrations and ID schemes, and an untested
+  Windows client would become part of the runtime).
+- **Decision:** Genesis `src/jarvis` is the canonical modular monolith. The server direction is
+  ported piece by piece into it, with Genesis conventions (one SQLite store, one permission
+  path, frozen contracts, stdlib only): `auth.py`, `manifests.py`, `egress.py`,
+  `reminders.py`, `audio_sessions.py`, `plans.py` are adaptations, and the Windows companion
+  is **not** imported (it has never run and is not needed for the foundation).
+- **Trade-offs:** the product specification and client work in `bbffddd4` are not on the
+  canonical branch; they remain in history and can be revisited. Some capabilities
+  (capabilities C-01..C-14 in that direction) remain unimplemented here and are listed honestly
+  in `manifests.py` rather than claimed.
+- **Tests:** the ported modules each have their own suite (`tests/test_auth.py`,
+  `test_manifests.py`, `test_egress.py`, `test_reminders.py`, `test_audio_sessions.py`,
+  `test_plans.py`) plus API-level scope tests.
+- **Revisit when:** a second interface (desktop/web/Android client) needs the server contract.
+
+## ADR-0015 — New tables go into a versioned migration, not lazy `CREATE TABLE`
+- **Question:** the ported services need tables; where do they come from?
+- **Alternatives:** create them on service construction (as the ported code did); add
+  migration 3 to the existing migration chain.
+- **Decision:** migration 3. One schema version, one backup before migration, one rollback
+  point, and `SchemaTooNewError` protection continue to hold. Services no longer create
+  schema at runtime, so a missing table is an immediate, obvious error rather than a silent
+  divergence between databases.
+- **Consequences:** schema version 3; existing v2 databases migrate with a backup and an
+  `events` record naming the tables; tests that asserted version 2 now assert 3.
+- **Tests:** `tests/test_migrations.py`, `tests/test_cli.py` (status reports schema 3).
+
+## ADR-0016 — Route scopes are enforced centrally; pairing is the only tokenless write
+- **Question:** how does a paired device get exactly the access it was granted?
+- **Decision:** one `required_scope(method, path)` table in `api.py` maps every route to a
+  scope; `_authorised` checks Host/Origin, then the token, then the scope. `GET /health` and
+  `POST /v1/pairing` are public. Unknown paths require `status.read` so probing cannot
+  discover routes. Device pairing cannot request admin or `plans.write` scopes (validated on
+  creation, not only at use). The legacy static token remains operator-equivalent so existing
+  CLI/API workflows are unchanged.
+- **Trade-offs:** a scope table must be maintained alongside routes; a missing entry fails
+  closed (needs `status.read`) rather than open.
+- **Tests:** `tests/test_api_scopes.py` (401/403/200 per scope, revocation, audio, plans).
+
+## ADR-0017 — The egress guard is installed at start-up, not at `serve`
+- **Question:** where should default-deny egress apply?
+- **Evidence:** the ported guard was installed only by the server, so `jarvis ask` or the REPL
+  with a configured remote provider could reach the network without any policy check.
+  Additionally, installing it in `serve` alone would have broken remote model calls, because
+  the provider was not inside a declaration.
+- **Decision:** `Jarvis.__init__` installs the guard for every entry point. Only loopback is
+  allowed unconditionally; `provider._post_json` wraps each call in a single-destination
+  declaration (`model_provider`, host, port), and a blocked call becomes `ProviderRefused`.
+  Declarations are thread-local so a concurrent request cannot inherit another's permission.
+- **Trade-offs:** any future adapter that needs the network must add an explicit declaration;
+  that is the intended cost.
+- **Tests:** `tests/test_egress.py`, `tests/test_provider_resilience.py` (real HTTP retry and
+  fallback through the guard).
+
+## ADR-0018 — Plan execution is origin-aware and pauses for approval instead of failing
+- **Question:** what may a multi-step plan do, and what happens when a step needs consent?
+- **Evidence:** the first implementation marked a step that produced a proposal as *failed*
+  with `needs_approval`, which reported a plan as failed when it was only waiting; and its
+  retry classification compared error types against a set that the registry never emits, so
+  retries never happened.
+- **Decision:** `PlanExecutor.execute(..., origin=…)` executes under the authority of the
+  caller: an owner-asked plan is `user_command`, a model-proposed plan is `model_proposal` and
+  therefore pauses on writes. A proposing step moves the plan to `awaiting_approval` with the
+  operation id; calling `execute` again re-reads that operation (still proposed → stay paused;
+  approved → step recorded as succeeded and the plan continues; denied/cancelled → step fails).
+  Retryability is decided from status (`TIMED_OUT` is always transient) plus an explicit set of
+  transient error names; denials and validation errors are never retried. Retries remain
+  bounded (2 per step) and steps interrupted by a crash are marked `interrupted`, never
+  succeeded, then resumed.
+- **Tests:** `tests/test_plans.py` (pause/resume, denial, bounded retries, recovery, restart).
+
+## ADR-0019 — Natural-language reminders are parsed narrowly and ask when unsure
+- **Question:** should `remind me to …` create a reminder directly through the kernel?
+- **Decision:** yes, via a deterministic interpreter rule plus `reminders.parse_due`, which
+  understands durations (`in 2 hours`, `3 days`), `today`/`tomorrow`/weekdays with optional
+  clock times, bare clock times and ISO-8601 — and returns `None` for anything else. When the
+  time is missing or unparseable the kernel asks for it (clarification) instead of inventing a
+  due time or defaulting silently. Creation goes through the `reminder.create` capability, so
+  a model-proposed reminder is journaled as a proposal and needs approval.
+- **Tests:** `tests/test_reminders.py` (parser table, kernel creation, clarification,
+  model-proposal approval).

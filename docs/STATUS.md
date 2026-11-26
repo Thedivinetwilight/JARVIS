@@ -1,9 +1,36 @@
-# Development status (authoritative) — updated 2026-10-17
+# Development status (authoritative) — updated 2026-11-26
 
-Version `0.3.0` · kernel generation `genesis-0.1` · schema version 2 · branch
-`arena/07f8421e-jarvis`: history rebuilt on top of PR #1's unchanged commits (`54b9e6b`).
-**Not pushed**; no pull request opened, modified or closed. **Not ready for release** until
-the CI matrix has run and passed.
+Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 3** · branch
+`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **251 passed**
+(Python 3.11.2). **Not released**; CI has never run successfully (billing block, see
+"Blocked by environment").
+
+## Mission 001 consolidation (2026-11-26)
+
+The repository held two divergent implementations: Genesis 0.1 (`src/jarvis`, the cognitive
+kernel) and the local-first server direction (`arena/bbffddd4-jarvis`, `app/` + `client/`).
+**Genesis is canonical**; the server direction was used as source material, not merged
+wholesale (ADR-0014). What changed, and is covered by tests:
+
+| Area | Change | Evidence |
+|---|---|---|
+| Schema | migration 3 adds `clients`, `pairing_codes`, `reminders`, `reminder_deliveries`, `audio_sessions`, `audio_chunks`, `plans`, `plan_steps` — one database for the whole system | `tests/test_migrations.py`, `tests/test_auth.py` |
+| Auth | `auth.py`: HMAC-digested per-client tokens, single-use pairing codes, expiry, revocation, pairing throttle; the legacy static token still works (operator-equivalent) | `tests/test_auth.py`, `tests/test_api_scopes.py` |
+| Scopes | `manifests.py`: scope vocabulary, admin vs device scopes, every route mapped to a required scope in one table | `tests/test_manifests.py`, `tests/test_api_scopes.py` |
+| Egress | `egress.py`: default-deny socket-layer guard, installed at `Jarvis` start-up for every entry point; provider calls declare exactly one destination | `tests/test_egress.py`, `tests/test_provider_resilience.py` |
+| Reminders | `reminders.py`: explicit routing, poll-and-acknowledge, one attempt per retry interval, expiry, failed attempts bounded, cancellation on revocation; natural-language creation through the kernel (`remind me to … in 2 hours`) with an "ask for a time" clarification | `tests/test_reminders.py` |
+| Audio | `audio_sessions.py`: local capture sessions with hard byte/chunk limits, TTL expiry and purge on revocation. **No ASR/TTS**: spoken output is refused, not faked | `tests/test_audio_sessions.py` |
+| Plans | `plans.py`: persisted multi-step plans (`MAX_STEPS=12`), bounded retries, approval pause/resume, interrupted-step recovery, no step assumed successful | `tests/test_plans.py` |
+| Models | `provider.py`: `ResilientProvider` with bounded exponential backoff and a fallback chain; truthful provider attribution; egress declarations | `tests/test_provider_resilience.py` |
+| Observability | `logging.py`: JSON-lines records with redaction of every field and exception text; cycle and capability traces (identifiers/statuses/durations only) | `tests/test_observability.py` |
+| Erasure | `forget` now also sweeps reminder and plan text (verbatim matching, same policy as before) and reports paraphrases as not reached | `tests/test_erasure.py` |
+| Interfaces | CLI: `pair code|list|revoke`, `reminder add|list|due`, `plan list|show|execute`; API: pairing, clients, reminders, plans, audio, manifests, scoped authorisation | `tests/test_cli.py`, `tests/test_api_scopes.py` |
+
+Known gaps after this mission are listed in "Partially implemented" and "Designed, not
+implemented" below; the delivery report is in this mission's summary, not in this file.
+
+The sections below describe the Genesis 0.1 baseline this consolidation builds on and remain
+accurate except where marked above.
 
 ## Most recent change
 Second-pass pre-release review (PRE_RELEASE_AUDIT.md §11). It re-verified the audit with
@@ -37,7 +64,8 @@ Further changes:
 ## Tests actually run (2026-10-17, Linux x86_64, Python 3.11.2, SQLite 3.40.1)
 | Command | Result |
 |---|---|
-| `python -m pytest` (dev venv) | **162 passed** in ~25 s (14 original v0.2, unchanged and byte-identical to PR #1 · 111 Genesis · 27 audit · 9 review regression + 1 review coverage test) |
+| `python -m pytest` (2026-11-26, after Mission 001 consolidation) | **251 passed** in ~36 s |
+| `python -m pytest` (dev venv, Genesis 0.1 baseline) | **162 passed** in ~25 s (14 original v0.2, unchanged and byte-identical to PR #1 · 111 Genesis · 27 audit · 9 review regression + 1 review coverage test) |
 | fresh venv: `pip install -e ".[dev]"` then `python -m pytest` | 162 passed (only pytest and its dependencies installed) |
 | `python -m pytest tests/acceptance` | 15 passed |
 | `python -m compileall -q src` | OK |
@@ -118,7 +146,10 @@ Manual end-to-end checks (scratch homes under `/tmp`):
 
 ## Partially implemented
 - Reasoning: deterministic arithmetic and verification only; no strategy selector.
-- Planning: at most 4 steps mapped from one intent; no autonomous multi-step execution or replanning.
+- Planning: the kernel still maps one intent to at most 4 steps; separate from that,
+  `plans.py` executes *persisted* multi-step plans with bounded retries and approval pauses,
+  but nothing yet decomposes a free-form objective into such a plan automatically
+  (no replanning, no autonomous plan creation).
 - Self-model: capability report and claims check; no calibration or resource monitoring.
 - Perception: text only, plus `workspace.read` for small UTF-8 files.
 - Curiosity signal: open conflicts surfaced in resume only.

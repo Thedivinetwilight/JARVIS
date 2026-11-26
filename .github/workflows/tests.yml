@@ -1,7 +1,6 @@
 name: tests
 on:
-  push:
-    branches: ["main", "feat/**"]
+  push:            # every branch: arena/* and feature branches were never tested before
   pull_request:
   workflow_dispatch:
 permissions:
@@ -22,4 +21,7 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev]"
       - run: python -m compileall -q src
-      - run: pytest
+      - run: python -m pytest
+      - run: python -m jarvis eval retrieval --out /tmp/exp-001.json
+        env:
+          JARVIS_HOME: /tmp/jarvis-ci

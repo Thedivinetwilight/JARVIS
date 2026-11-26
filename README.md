@@ -6,7 +6,9 @@ record of everything it does, and picks up where you left off. Standard library 
 declared for Python 3.10+ (so far executed on 3.11 only — see STATUS); designed to run on a
 laptop or Android/Termux (not yet run there).
 
-> Release: **0.3.0 — Genesis 0.1 persistent cognitive kernel**, built on Core v0.2.
+> Release: **0.3.0 — Genesis 0.1 persistent cognitive kernel**, built on Core v0.2, plus the
+> Mission 001 consolidation (scoped clients, reminders, plans, audio sessions, structured
+> logging, default-deny egress), schema version 3.
 > This is a tested foundation, not a claim of general intelligence or of feelings.
 > Without a language model JARVIS still works (deterministically); with one configured it
 > can also hold free-form conversation. See [docs/STATUS.md](docs/STATUS.md) for exactly
@@ -30,6 +32,16 @@ laptop or Android/Termux (not yet run there).
   rejects cross-site requests.
 - **Emotional context:** stated feelings shape tone; guesses from wording are never
   asserted as facts; appraisals are private and expire.
+- **Reminders:** `remind me to call mom in 2 hours` creates a persisted reminder; if you give
+  no time it asks for one instead of guessing. Devices poll their own queue
+  (`GET /v1/reminders/inbox`) and acknowledge; nothing is pushed.
+- **Plans:** persisted multi-step plans (`jarvis plan list|show|execute`) run through the same
+  permission-checked registry, retry transient failures a bounded number of times, pause for
+  approval when a step is not allowed yet, and recover interrupted steps after a crash.
+- **Scoped devices:** pair a phone or another machine with a single-use code; it receives a
+  token limited to the scopes in its manifest, revocable immediately, stored only as a digest.
+- **Default-deny egress:** every non-loopback socket connection is refused unless the code
+  path declared exactly that destination (model providers are the only such path).
 - **Models are optional and replaceable:** Gemini (opt-in, header auth) or any local
   OpenAI-compatible server such as Ollama.
 
@@ -65,10 +77,22 @@ speaks the answer (tested with simulated Termux commands; not yet on a real devi
 Other commands: `jarvis ask "…"`, `resume`, `goal add|list|show`, `task add|list|status|depend|block`,
 `memory save|search|correct|history|forget|conflicts|resolve|export`, `ops`, `approve N`,
 `deny N`, `trace`, `events`, `state`, `capabilities`, `identity`, `doctor`,
-`eval retrieval`, `serve` (loopback API: `GET /health`, `/v1/state`, `/v1/goals`,
-`/v1/memory/search?q=`, `/v1/cycles/<id>`, `POST /v1/ask`, `POST /v1/operations/<id>/approve`;
-every route except `/health` needs `Authorization: Bearer <token>`, with the token in
-`~/.jarvis/api_token`). JARVIS keeps its data directory and files readable only by you.
+`eval retrieval`, `pair code|list|revoke`, `reminder add|list|due`, `plan list|show|execute`,
+`serve`.
+
+The loopback API (`jarvis serve`) exposes `GET /health`, `/v1/status`, `/v1/state`, `/v1/goals`,
+`/v1/tasks`, `/v1/operations`, `/v1/events`, `/v1/capabilities`, `/v1/manifests`, `/v1/clients`,
+`/v1/memory/search?q=`, `/v1/reminders`, `/v1/reminders/due`, `/v1/reminders/inbox`,
+`/v1/plans`, `/v1/plans/<id>`, `/v1/audio/capabilities`, `/v1/audio/sessions/<id>`,
+`/v1/cycles/<id>`, `POST /v1/ask`, `POST /v1/pairing`, `POST /v1/clients/pairing`,
+`POST /v1/clients/<id>/revoke`, `POST /v1/reminders`, `POST /v1/reminders/inbox/<id>/ack`,
+`POST /v1/plans`, `POST /v1/plans/<id>/execute`, `POST /v1/audio/sessions`,
+`POST /v1/audio/sessions/<id>/audio|end`, `POST /v1/operations/<id>/approve|deny`.
+
+Two kinds of bearer token are accepted: the operator token in `~/.jarvis/api_token`, and
+scoped per-client tokens obtained by pairing. Every route except `GET /health` and
+`POST /v1/pairing` needs a token; every route also needs the matching scope. JARVIS keeps its
+data directory and files readable only by you.
 
 Using a model: set `JARVIS_OPENAI_BASE_URL=http://127.0.0.1:11434/v1` and
 `JARVIS_OPENAI_MODEL=<model>` for a local Ollama server, or `JARVIS_NETWORK_ENABLED=true`
@@ -76,7 +100,7 @@ plus `JARVIS_GEMINI_API_KEY` for Gemini. See [docs/CONFIGURATION.md](docs/CONFIG
 
 ## Development
 ```bash
-python -m pytest                     # 162 tests (15 acceptance tests in tests/acceptance)
+python -m pytest                     # 251 tests (15 acceptance tests in tests/acceptance)
 python -m jarvis eval retrieval      # EXP-001 on the pinned evaluation set
 python -m compileall -q src
 ```
