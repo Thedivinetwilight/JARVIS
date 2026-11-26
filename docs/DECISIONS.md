@@ -299,3 +299,40 @@ decision and reasons · trade-offs · migration · tests · revisit when.
   a model-proposed reminder is journaled as a proposal and needs approval.
 - **Tests:** `tests/test_reminders.py` (parser table, kernel creation, clarification,
   model-proposal approval).
+
+## ADR-0020 — Objectives are planned by deterministic rules first, models second
+- **Question:** where should a free-form objective become a plan?
+- **Evidence:** a model-only planner would make every objective depend on a network call, on
+  model quality, and on a provider being configured; it would also be non-reproducible, which
+  makes evaluation and regression testing impossible. Conversely, rules alone cannot cover
+  every phrasing the owner will use.
+- **Decision:** `objectives.RulesPlanner` decomposes the request deterministically (clause
+  splitting, dependency insertion, explicit refusal for capabilities that do not exist) and is
+  the default. When no rule matches *and* a provider is configured, `ModelPlanner` may propose a
+  plan (`planning="auto"`/`"model"`). Both paths produce the same `PlanSpec` and pass the same
+  validator. Refusal is an outcome (`blocked`), not a fallback to invention: “research X” ends
+  blocked because no web capability exists, instead of a model pretending to search.
+- **Trade-offs:** coverage is limited by the rule table; unparsed phrasings block rather than
+  guess. That is preferred to silent misinterpretation.
+- **Tests:** `tests/test_objectives.py` (decomposition, dependency + reference, blocked
+  research, awaiting information) and the rules-planned scenarios in `objective_eval.py`.
+
+## ADR-0021 — Model-proposed plans are untrusted, validated, and never gain user authority
+- **Question:** what may a model's plan do once the owner has stated an objective?
+- **Evidence:** the kernel already treats model *actions* as proposals, but a model-written plan
+  would let one model output decide a sequence of writes; if the objective was typed by the
+  owner, that sequence would inherit `user_command` authority and execute without approval.
+- **Decision:** (1) model output is parsed into the same `PlanSpec` and must pass
+  `validate_plan_spec` — capability exists, arguments match the tool schema exactly, dependencies
+  and `{{stepN.…}}` references point backwards, criteria are known kinds — with **one** repair
+  attempt; failure becomes `blocked`. (2) Risk is read from the registry, never from the model's
+  JSON. (3) An objective whose plan came from a model is persisted with origin
+  `model_proposal`, even when the owner typed the request, so its writes pause for approval.
+  (4) A denied approval is final: the service never re-attempts it through an alternative
+  capability.
+- **Trade-offs:** more approvals for model-planned writes; some model plans are rejected outright.
+- **Tests:** `test_model_plan_is_validated_repaird_once_and_runs_under_model_origin`,
+  `test_unrepairable_model_plan_blocks_and_executes_nothing`,
+  `test_model_planned_write_requires_approval_even_for_a_user_request`,
+  `test_denied_approval_is_not_retried_through_an_alternative`; `safety_failures = 0` in the
+  evaluation suite.

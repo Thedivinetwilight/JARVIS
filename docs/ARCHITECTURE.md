@@ -26,9 +26,11 @@ actions; they are never the source of truth for whether something happened.
 | Network | `egress.py` | default-deny socket-layer egress guard, installed at start-up |
 | Delivery | `reminders.py` | reminder queue with poll-and-acknowledge delivery, retry interval, expiry and revocation cancellation |
 | Capture | `audio_sessions.py` | local audio capture sessions with hard limits, TTL and purge (no ASR/TTS) |
-| Planning | `plans.py` | persisted multi-step plans, bounded retries, approval pause/resume, interrupted-step recovery |
+| Planning | `plans.py` | persisted multi-step plans, dependency gating, result references, bounded retries, cancellation/budget hooks, approval pause/resume, interrupted-step recovery |
+| Objectives | `objectives.py` | objective records and criteria, rules planner, validated model planner, execution service, failure diagnosis, evidence-based verification, outcome reporting |
+| Evaluation | `objective_eval.py` | 17-scenario objective suite (real vs simulated execution) with ten metrics |
 | Diagnostics | `logging.py` | JSON-lines structured logging with redaction |
-| Evaluation | `evaluation.py`, `evals/` | pinned experiments (EXP-001) |
+| Evaluation | `evaluation.py`, `evals/` | pinned experiments (EXP-001), retrieval fixture |
 | Utilities | `util.py`, `redact.py`, `config.py` | time/JSON helpers, secret redaction, settings |
 
 ## One interaction
@@ -37,12 +39,35 @@ observe → interpret → appraise → retrieve → assess → plan → act → 
 record. Each stage is recorded in the `cycles` table and linked events share the cycle id
 (`jarvis trace`).
 
-## Data model (schema version 3)
+## Data model (schema version 4)
 `identity`, `runtime_instances`, `sessions`, `state_kv`, `events` (+`episode_fts`),
 `memory_items` (+`memory_fts`), `memory_conflicts`, `projects`, `goals`, `tasks`,
-`task_dependencies`, `operations`, `cycles`, `schema_migrations`, and from migration 3:
+`task_dependencies`, `operations`, `cycles`, `schema_migrations`; from migration 3:
 `clients`, `pairing_codes`, `reminders`, `reminder_deliveries`, `audio_sessions`,
-`audio_chunks`, `plans`, `plan_steps`.
+`audio_chunks`, `plans`, `plan_steps`; from migration 4: `objectives`, plus `plans.objective_id`,
+plan-step dependency/criteria/risk/`replaced_from` columns and `events.objective_id`.
+
+## Objective-driven autonomy (schema 4)
+
+`Jarvis.objectives` (`objectives.ObjectiveService`) is the owner-facing path from a sentence to
+a verified outcome. It reuses everything below it:
+
+1. **Interpret and plan.** `RulesPlanner` decomposes the request deterministically; when no rule
+   applies and a provider is configured, `ModelPlanner` may propose a plan (ADR-0021). Every
+   plan is validated against the registry before it is persisted.
+2. **Persist.** The objective row carries the request, criteria, constraints, memory ids,
+   budget, origin and planner; steps are persisted through `PlanStore` with dependencies,
+   criteria and registry-derived risk.
+3. **Execute.** `PlanExecutor` runs steps through `ToolRegistry.run` under the objective's
+   origin, so `Policy` decides per capability exactly as for any other action. Dependencies gate
+   execution; `{{stepN.path}}` placeholders are resolved from the operation journal.
+4. **Verify and report.** `verify_plan` judges each step from `operations.verified` and the
+   objective from its criteria. The outcome (seven values) and a deterministic answer are stored
+   and exposed through the API, the CLI and `Jarvis.state()`. Model prose is never evidence.
+
+A model-authored plan always executes with origin `model_proposal`, even when the owner typed
+the objective, so its writes pause for approval. Approvals, denials, policy refusals and scopes
+are the same mechanisms as every other action; this layer adds no new authority.
 
 ## Two authorisation layers, one execution path
 1. **Transport**: `auth.py` authenticates a bearer token (legacy operator token or a
@@ -57,4 +82,6 @@ connection unless the calling code is inside an explicit declaration for that ho
 
 ## Deliberate non-goals in this milestone
 No arbitrary shell execution, browser automation, background self-modification, financial
-actions, actuator commands or autonomy levels 4–5.
+actions, actuator commands or autonomy levels 4–5. In the objective layer specifically: no web
+research (it ends `blocked`), no deadline scheduling, no automatic resumption of interrupted
+objectives, and no structural re-planning (repairs are in-place).

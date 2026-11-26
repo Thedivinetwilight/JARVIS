@@ -14,6 +14,14 @@ hardening, EXP-001. Pre-release audit (2026-10-17): erasure policy, journal mini
 API token; second-pass review (races, disclosure, private files): 162 tests. See STATUS.md and
 PRE_RELEASE_AUDIT.md.
 
+### M2 — Objective-driven autonomy (2026-11-26, schema 4)
+Objectives are now first-class: deterministic rules planning (or a validated model plan),
+dependency-aware execution through the unchanged policy layer, one sanctioned repair per failure
+family, evidence-based verification, seven explicit outcomes surfaced in the API and CLI, and a
+17-scenario evaluation suite with ten metrics. Record: `docs/MISSION-002.md`; ADR-0020/0021.
+Known bound: planning is only as useful as the capabilities that exist, so web research and file
+editing still end `blocked`.
+
 ## Next, in priority order
 Ordered by dependencies, usefulness, risk and cost.
 
@@ -22,7 +30,8 @@ Ordered by dependencies, usefulness, risk and cost.
 | R1 | **Reproducible verification**: restore GitHub Actions (billing — owner action), add a `-W error::ResourceWarning` 3.13 job, run the suite on Termux. | Compatibility claims for 3.10/3.13/Android are currently unverified. | CI green on 3.10–3.13; Termux run recorded in STATUS. |
 | R2 | **Voice companion (Android)** — *implemented 2026-10-17, simulated-device tests only*: `jarvis voice` loop using Termux:API (`termux-speech-to-text` → kernel → `termux-tts-speak`) behind a capability probe. Remaining: real-device verification, wake word / push-to-talk, desktop speech backends. | Highest user value ("speak naturally"); no new Python dependencies; kernel unchanged. | Real-device transcript recorded in STATUS; recognition errors handled (confirmation before writes from low-quality transcripts). |
 | R3 | **EXP-002 semantic retrieval**: build retrieval_v2 (more paraphrases, scope-sensitive queries); compare FTS5 vs a small local embedding model (via Ollama `/v1/embeddings` or similar) vs hybrid. | Paraphrase recall ≈0/3 is the measured weakness. | Adopt only if Recall@5 on paraphrases improves with no regression on retrieval_v1 and acceptable phone latency. |
-| R4 | **Plans that survive failure**: multi-step plan records (steps, preconditions, expected outcomes, budgets, stopping conditions), replanning after a failed step, resumption at the first unverified step. | Builds on the journal and evidence rules; needed for "carry out approved work". | Acceptance tests for failed-step replanning and interrupted plan resumption. |
+| R4 | **Plans that survive failure** — *largely delivered by M2*: step records with preconditions, expected output, criteria, budget and stopping conditions; bounded in-place replanning; resumption at the first unverified step. Remaining: structural re-decomposition and automatic resumption after restart. | Builds on the journal and evidence rules. | Acceptance tests for re-decomposition; a resumed objective completes without manual intervention. |
+| R11 | **Real capability expansion for objectives** (Mission 003 proposal): read-only workspace search, one allow-listed GET reader behind the egress guard, objective scheduling by priority/deadline, and a prompt-injection fixture proving external text is data. | M2 is limited by what JARVIS can do, not by how it plans. | ≥3 new real capabilities, each with policy, verification and tests; no regression in the M2 metrics. |
 | R5 | **Sandboxed job runner**: subprocess execution with timeouts, resource limits, cancellation; git-worktree based code changes with test gates. | Enables coding assistance and true cancellation. | No in-process side effects for long jobs; cancel kills the job; outcome journaled. |
 | R6 | **Reasoning strategy selector**: route problems to deterministic tools, search, or model drafting + independent verification, by risk and verifiability; record which strategy was used. | Spec §5.5/E1; reuses verification hooks. | Fixed problem set with independently checkable answers; per-strategy accuracy reported. |
 | R7 | **Self-model calibration and resources**: track correction rates per source/kind to calibrate confidence labels; CPU/RAM/storage reporting; provider reachability probe on demand. | Makes uncertainty statements evidence-based. | Calibration table in STATUS; no fabricated precision. |

@@ -27,3 +27,6 @@ jobs:
       - run: python -m jarvis eval retrieval --out /tmp/exp-001.json
         env:
           JARVIS_HOME: /tmp/jarvis-ci
+      - run: python -m jarvis eval objectives --out /tmp/objectives.json
+        env:
+          JARVIS_HOME: /tmp/jarvis-ci

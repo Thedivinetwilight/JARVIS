@@ -38,6 +38,14 @@ there — see STATUS).
 - **Plans:** persisted multi-step plans (`jarvis plan list|show|execute`) run through the same
   permission-checked registry, retry transient failures a bounded number of times, pause for
   approval when a step is not allowed yet, and recover interrupted steps after a crash.
+- **Objectives:** `jarvis objective "remember that the release is on friday; create a goal
+  called launch"` — JARVIS interprets the request, retrieves a little relevant memory, plans
+  (deterministically, or with a validated model plan), executes with dependencies, repairs a
+  failure once, verifies completion from recorded evidence, and reports one of seven explicit
+  outcomes (`completed`, `partially_completed`, `failed`, `blocked`, `needs_approval`,
+  `cancelled`, `awaiting_information`). It says `blocked` for things it cannot do — web
+  research, for example — instead of pretending. `jarvis eval objectives` runs the 17-scenario
+  suite.
 - **Scoped devices:** pair a phone or another machine with a single-use code; it receives a
   token limited to the scopes in its manifest, revocable immediately, stored only as a digest.
 - **Default-deny egress:** every non-loopback socket connection is refused unless the code
@@ -77,16 +85,19 @@ speaks the answer (tested with simulated Termux commands; not yet on a real devi
 Other commands: `jarvis ask "…"`, `resume`, `goal add|list|show`, `task add|list|status|depend|block`,
 `memory save|search|correct|history|forget|conflicts|resolve|export`, `ops`, `approve N`,
 `deny N`, `trace`, `events`, `state`, `capabilities`, `identity`, `doctor`,
-`eval retrieval`, `pair code|list|revoke`, `reminder add|list|due`, `plan list|show|execute`,
-`serve`.
+`eval retrieval|objectives`, `pair code|list|revoke`, `reminder add|list|due`,
+`plan list|show|execute`, `objective "…"` (`--list`, `--show ID`, `--resume ID`, `--cancel ID`,
+`--plan-only`, `--budget`, `--priority`, `--deadline`), `serve`.
 
 The loopback API (`jarvis serve`) exposes `GET /health`, `/v1/status`, `/v1/state`, `/v1/goals`,
 `/v1/tasks`, `/v1/operations`, `/v1/events`, `/v1/capabilities`, `/v1/manifests`, `/v1/clients`,
 `/v1/memory/search?q=`, `/v1/reminders`, `/v1/reminders/due`, `/v1/reminders/inbox`,
-`/v1/plans`, `/v1/plans/<id>`, `/v1/audio/capabilities`, `/v1/audio/sessions/<id>`,
+`/v1/plans`, `/v1/plans/<id>`, `/v1/objectives`, `/v1/objectives/<id>` (objective, plan,
+verification, answer, events), `/v1/audio/capabilities`, `/v1/audio/sessions/<id>`,
 `/v1/cycles/<id>`, `POST /v1/ask`, `POST /v1/pairing`, `POST /v1/clients/pairing`,
 `POST /v1/clients/<id>/revoke`, `POST /v1/reminders`, `POST /v1/reminders/inbox/<id>/ack`,
-`POST /v1/plans`, `POST /v1/plans/<id>/execute`, `POST /v1/audio/sessions`,
+`POST /v1/plans`, `POST /v1/plans/<id>/execute`, `POST /v1/objectives`,
+`POST /v1/objectives/<id>/cancel|resume`, `POST /v1/audio/sessions`,
 `POST /v1/audio/sessions/<id>/audio|end`, `POST /v1/operations/<id>/approve|deny`.
 
 Two kinds of bearer token are accepted: the operator token in `~/.jarvis/api_token`, and

@@ -1,10 +1,30 @@
 # Development status (authoritative) — updated 2026-11-26
 
-Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 3** · branch
-`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **254 passed**
+Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 4** · branch
+`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **279 passed**
 (Python 3.11.2). **GitHub Actions is green on Python 3.10, 3.11, 3.12 and 3.13** for this
-branch (run 45812796068, 2026-11-26 — see "CI" below). Not released; no merge to `main` has
-been performed.
+branch (run 45812796068, 2026-11-26 — see "CI" below; the Mission 002 run is newer). Not
+released; no merge to `main` has been performed.
+
+## Mission 002 — objective-driven autonomy (2026-11-26)
+
+An owner can now state an objective in natural language and JARVIS interprets it, retrieves
+bounded memory context, builds and validates a plan, executes it through the unchanged policy
+layer, observes results, performs at most one sanctioned repair per failure family, verifies
+completion from recorded evidence, and reports one of seven explicit outcomes. The full record
+is `docs/MISSION-002.md`.
+
+| Area | Change | Evidence |
+|---|---|---|
+| Schema | migration 4: `objectives` table (+2 indexes); `plans.objective_id`; `plan_steps.depends_on/success_criteria/expected_output/optional/risk/replaced_from`; `events.objective_id` | `tests/test_migrations.py` |
+| Planning | `objectives.RulesPlanner` (deterministic, offline) and `ModelPlanner` (untrusted, validated, one repair) — ADR-0020, ADR-0021 | `tests/test_objectives.py` |
+| Execution | `plans.PlanExecutor` now gates on dependencies, resolves `{{stepN.path}}` from the journal, honours cancellation and a wall-clock budget, and continues past a failure for independent steps | `tests/test_plans.py`, `tests/test_objectives.py` |
+| Verification | `verify_plan` judges steps from `operations.verified` and objective criteria; a tool with no postcondition is reported unverified, never verified | `test_failed_postcondition_…` |
+| Replanning | `diagnose()` + once-per-family repairs (transient retry, postcondition retry, mapped alternative capability); denials and policy refusals are final; `MAX_REPLANS = 3` | transient/permanent/alternative/denial tests |
+| Memory | one bounded `MemoryQuery` per objective; ids recorded on the objective; task state never written to long-term memory; restart marks objectives `interrupted` | memory-context and restart tests |
+| Outcomes | `completed`, `partially_completed`, `failed`, `blocked`, `needs_approval`, `cancelled`, `awaiting_information` via API, CLI and `Jarvis.state()` | API/CLI tests |
+| Interfaces | CLI `objective` (add/list/show/resume/cancel/plan-only/budget/priority/deadline), `eval objectives`; API `GET/POST /v1/objectives`, `GET /v1/objectives/{id}`, `POST …/(cancel|resume)` under `plans.read`/`plans.write` | `tests/test_objectives.py` |
+| Evaluation | 17 scenarios, 10 metrics; 17/17 expected outcomes, verified-completion 1.0, false-completion 0.0, safety failures 0, `real` vs `simulated` labelled per scenario | `jarvis eval objectives` |
 
 ## Mission 001 consolidation (2026-11-26)
 
@@ -148,10 +168,12 @@ Manual end-to-end checks (scratch homes under `/tmp`):
 
 ## Partially implemented
 - Reasoning: deterministic arithmetic and verification only; no strategy selector.
-- Planning: the kernel still maps one intent to at most 4 steps; separate from that,
-  `plans.py` executes *persisted* multi-step plans with bounded retries and approval pauses,
-  but nothing yet decomposes a free-form objective into such a plan automatically
-  (no replanning, no autonomous plan creation).
+- Planning (updated by Mission 002): free-form objectives are decomposed by the deterministic
+  rules planner, or by a validated model plan when a provider is configured; execution,
+  evidence-based verification and bounded in-place replanning exist. What remains partial:
+  repairs cannot re-decompose a plan into different steps, `priority`/`deadline` are recorded
+  but not scheduled, and cancellation is cooperative between steps (an executing step finishes).
+  Planning coverage is limited to the capabilities that exist — web research is `blocked`.
 - Self-model: capability report and claims check; no calibration or resource monitoring.
 - Perception: text only, plus `workspace.read` for small UTF-8 files.
 - Curiosity signal: open conflicts surfaced in resume only.
@@ -235,14 +257,17 @@ command, backup retention/encryption.
 - The default `gemini-2.5-flash` model name is still served (configurable).
 
 ## Next highest-priority task
-1. The owner authorises publishing, then:
+1. Mission 002 review, then Mission 003 (`docs/ROADMAP.md`, R7): real capability expansion
+   (read-only workspace search, a single allow-listed GET reader, objective scheduling,
+   re-decomposition) under the same verification rules.
+2. The owner authorises publishing, then:
    - recreate the reviewed commits deterministically and verify their IDs;
    - push `arena/07f8421e-jarvis` and open one replacement PR into `main`;
    - close PR #1 as superseded once authorised.
    Unblock CI (above) and let the 3.10–3.13 matrix pass before the release is called ready.
-2. Then R1 in ROADMAP.md: verify 3.10/3.13 and Termux, including a first real-device run of
+3. Then R1 in ROADMAP.md: verify 3.10/3.13 and Termux, including a first real-device run of
    `jarvis voice`.
-3. Then R3 (EXP-002 semantic retrieval on a held-out retrieval_v2).
+4. Then R3 (EXP-002 semantic retrieval on a held-out retrieval_v2).
 
 ## Do not change without reconsideration
 `Policy.decide` inputs; the erasure policy (ADR-0011) and journal minimisation; the API
