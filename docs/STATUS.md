@@ -1,9 +1,10 @@
 # Development status (authoritative) — updated 2026-11-26
 
 Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 3** · branch
-`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **251 passed**
-(Python 3.11.2). **Not released**; CI has never run successfully (billing block, see
-"Blocked by environment").
+`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **254 passed**
+(Python 3.11.2). **GitHub Actions is green on Python 3.10, 3.11, 3.12 and 3.13** for this
+branch (run 45812796068, 2026-11-26 — see "CI" below). Not released; no merge to `main` has
+been performed.
 
 ## Mission 001 consolidation (2026-11-26)
 
@@ -64,7 +65,8 @@ Further changes:
 ## Tests actually run (2026-10-17, Linux x86_64, Python 3.11.2, SQLite 3.40.1)
 | Command | Result |
 |---|---|
-| `python -m pytest` (2026-11-26, after Mission 001 consolidation) | **251 passed** in ~36 s |
+| `python -m pytest` (2026-11-26, after Mission 001 consolidation) | **254 passed** in ~38 s |
+| GitHub Actions `tests` workflow (2026-11-26, PR #3, commit `760c2f1`) | **green** — 3.10, 3.11, 3.12, 3.13; each job ran `pytest` and `jarvis eval retrieval` |
 | `python -m pytest` (dev venv, Genesis 0.1 baseline) | **162 passed** in ~25 s (14 original v0.2, unchanged and byte-identical to PR #1 · 111 Genesis · 27 audit · 9 review regression + 1 review coverage test) |
 | fresh venv: `pip install -e ".[dev]"` then `python -m pytest` | 162 passed (only pytest and its dependencies installed) |
 | `python -m pytest tests/acceptance` | 15 passed |
@@ -128,8 +130,8 @@ Manual end-to-end checks (scratch homes under `/tmp`):
 - EXP-001 retrieval evaluation with a pinned fixture (reproduced; see "Not independently verified").
 
 ## Implemented, not fully tested
-- **Python 3.10, 3.12 and 3.13:** declared in `pyproject.toml`, but only 3.11.2 was executed;
-  static checks are clean.
+- **Python 3.10, 3.12 and 3.13:** executed by the CI matrix on `ubuntu-latest` (green), but not
+  on any other OS or distribution; only 3.11.2 was executed in the development sandbox.
 - **Android/Termux runtime:** never executed.
 - **Voice (`jarvis voice`):** tested only with simulated `termux-speech-to-text` and
   `termux-tts-speak` executables. Recognition quality, permissions and latency on a real
@@ -165,7 +167,16 @@ autonomy levels 4–5, learning pipeline beyond the eval harness, model training
 workflow to resolve the unknown outcome of an interrupted operation, a conversation-deletion
 command, backup retention/encryption.
 
-## Blocked by environment
+## CI
+- **Resolved for this branch (2026-11-26):** the `tests` workflow ran on PR #3 for Python
+  3.10–3.13 and all four jobs passed, including `python -m jarvis eval retrieval`. The
+  workflow now triggers on every branch (previously `main` and `feat/**` only, so `arena/*`
+  branches were never tested). One real defect was found by the first 3.13 run (leaked raw
+  SQLite connections in the tests) and fixed.
+- **Workflow improvement:** on failure, the JUnit report is converted into GitHub
+  annotations, so failing test ids are readable even when job logs are not reachable.
+
+## Environment block (historical, PR #1, 2026-10-17)
 - **GitHub Actions CI:** none of PR #1's jobs ever started (4 runs, 16 jobs; empty runner,
   zero steps). Annotation: *"recent account payments have failed or your spending limit needs
   to be increased"*. These jobs are neither passes nor code failures.

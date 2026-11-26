@@ -3,8 +3,8 @@
 **A persistent, permissioned personal cognitive system** — it remembers what you tell it
 (with provenance and corrections), tracks goals and tasks with evidence, keeps an auditable
 record of everything it does, and picks up where you left off. Standard library only;
-declared for Python 3.10+ (so far executed on 3.11 only — see STATUS); designed to run on a
-laptop or Android/Termux (not yet run there).
+Python 3.10–3.13 (CI matrix green); designed to run on a laptop or Android/Termux (not yet run
+there — see STATUS).
 
 > Release: **0.3.0 — Genesis 0.1 persistent cognitive kernel**, built on Core v0.2, plus the
 > Mission 001 consolidation (scoped clients, reminders, plans, audio sessions, structured
@@ -100,7 +100,7 @@ plus `JARVIS_GEMINI_API_KEY` for Gemini. See [docs/CONFIGURATION.md](docs/CONFIG
 
 ## Development
 ```bash
-python -m pytest                     # 251 tests (15 acceptance tests in tests/acceptance)
+python -m pytest                     # 254 tests (15 acceptance tests in tests/acceptance)
 python -m jarvis eval retrieval      # EXP-001 on the pinned evaluation set
 python -m compileall -q src
 ```

@@ -97,16 +97,20 @@ New tests (8 files): `test_auth.py`, `test_manifests.py`, `test_egress.py`, `tes
 
 ## F. Verification
 
-Command: `python -m pytest` — **253 passed** in ~38 s.
+Command: `python -m pytest` — **254 passed** in ~38 s.
 Environment: Linux x86_64, Python 3.11.2, SQLite 3.40.1, stdlib only (dev extra: `pytest`).
+CI: GitHub Actions run 45812796068 (PR #3, commit `760c2f1`) — **green on Python 3.10, 3.11,
+3.12 and 3.13**, each job running `pytest` and `python -m jarvis eval retrieval`. The first
+3.13 run exposed a real defect (leaked raw SQLite connections in tests, invisible on 3.10–3.12);
+it was fixed and re-run green.
 Skips: none in the executed run.
 Integration exercised for real: SQLite files, threads, a loopback HTTP server, a fake model
 HTTP server, subprocess CLI runs, socket-layer egress patch.
 Manual end-to-end: fresh home → `ask` → `remind` → `reminder list` → `pair code` → `serve` →
 real HTTP checks (health, 401 without token, 403 cross-origin, pairing, device 403 on
 `/v1/clients`, reminder delivery, revocation → 401).
-Not verified here: Python 3.10/3.12/3.13, Termux, real Gemini/Ollama endpoints, real audio
-hardware, Windows client.
+Not verified here: Termux, real Gemini/Ollama endpoints, real audio hardware, Windows client,
+other operating systems.
 
 ## G. Security
 
@@ -161,7 +165,7 @@ and is the smallest next step that turns the current foundation into an outcome 
 | Permissions | VERIFIED | scopes + policy + egress, tested over HTTP and at the registry |
 | Persistence | VERIFIED | migrations v1→v3 with backup/rollback, restart tests |
 | Observability | VERIFIED | JSON logs, cycle/capability traces, `/v1/state` |
-| Testing | VERIFIED locally (253), CI matrix runs but has not yet reported a result | see PR checks |
+| Testing | VERIFIED | 254 tests locally; CI matrix green on 3.10–3.13 (PR #3) |
 | Interface | VERIFIED | CLI and loopback API incl. pairing/reminders/plans/audio |
 | Reliability | PARTIAL | no long-running concurrency soak; in-process handlers cannot be cancelled |
 
@@ -178,7 +182,7 @@ and is the smallest next step that turns the current foundation into an outcome 
 | Application runs | VERIFIED (CLI + server smoke test) |
 | Cognitive orchestrator integrated | VERIFIED |
 | Memory integrated | VERIFIED |
-| Model abstraction integrated | IMPLEMENTED BUT UNVERIFIED (real providers) |
+| Model abstraction integrated | IMPLEMENTED BUT UNVERIFIED against real providers (fake HTTP server only) |
 | Planning foundations integrated | VERIFIED (executor) / PARTIAL (decomposition) |
 | Tool interface integrated | VERIFIED |
 | Execution foundation integrated | VERIFIED |
@@ -188,7 +192,7 @@ and is the smallest next step that turns the current foundation into an outcome 
 | Structured logging implemented | VERIFIED |
 | Automated tests executed | VERIFIED (253 passed) |
 | Critical test failures addressed | VERIFIED (6 defects found and fixed during the mission) |
-| CI established or improved | IMPLEMENTED BUT UNVERIFIED (runs triggered; result pending) |
+| CI established or improved | VERIFIED (matrix green on 3.10–3.13; runs on every branch) |
 | Documentation updated | VERIFIED |
 | Actual limitations identified | VERIFIED (STATUS.md, SECURITY.md, this file) |
 | Delivery report produced | VERIFIED (this file) |
