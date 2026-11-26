@@ -17,7 +17,7 @@ def test_python_m_jarvis_entry_point_and_v02_commands(tmp_path):
     hits = json.loads(run_cli(home, "memory", "search", "what is the AXIOM broker mode").stdout)
     assert hits and hits[0]["value"] == "paper"
     status = json.loads(run_cli(home, "status").stdout)
-    assert status["projects"] == 1 and status["schema_version"] == 3
+    assert status["projects"] == 1 and status["schema_version"] == 4
 
 
 def test_chat_repl_and_trace(tmp_path):
