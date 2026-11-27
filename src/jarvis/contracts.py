@@ -91,6 +91,7 @@ class Origin(_StrEnum):
     APPROVAL = "approval"                # user approved a previously proposed operation
     MODEL_PROPOSAL = "model_proposal"    # suggested by a language model (untrusted)
     KERNEL = "kernel"                    # initiated by JARVIS's own logic (an inference)
+    SCHEDULE = "scheduled"               # owner-authored request run later, unattended
 
 
 class OperationStatus(_StrEnum):

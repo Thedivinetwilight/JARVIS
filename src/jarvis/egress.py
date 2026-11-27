@@ -41,6 +41,11 @@ DECLARED_SERVICES: tuple[DeclaredService, ...] = (
         service="update_downloads", adapter="not_implemented", enabled=False,
         note="Software and model updates are not automated."),
     DeclaredService(
+        service="web_research", adapter="implemented", enabled=False,
+        note="Read-only GET through an explicit host allow-list (JARVIS_ALLOWLIST). Every "
+             "connection is declared to this guard by validated IP, ports 80/443 only, and "
+             "the capability is refused unless JARVIS_NETWORK_ENABLED=true."),
+    DeclaredService(
         service="model_provider", adapter="configured", enabled=False,
         note="Model providers (Gemini, OpenAI-compatible) are the only declared "
              "egress. Enabled only when JARVIS_NETWORK_ENABLED=true and a provider "
@@ -73,6 +78,7 @@ class EgressGuard:
         self.attempts = 0
         self.denials = 0
         self.events: list[EgressEvent] = []
+        self._enabled: dict[str, bool] = {}
 
     def _declarations(self) -> list[tuple[str, str, int]]:
         stack = getattr(self._local, "stack", None)
@@ -145,12 +151,24 @@ class EgressGuard:
         socket.create_connection = self._originals["create_connection"]  # type: ignore[method-assign]
         self._installed = False
 
+    def set_enabled(self, service: str, enabled: bool) -> None:
+        """Record that a declared service is currently usable (or not). Configuration-driven.
+
+        This never widens the policy: it only makes the *reported* state match configuration, so
+        a capability report cannot claim a service is available when it is not, or vice versa.
+        """
+        declared = {item.service for item in DECLARED_SERVICES}
+        if service not in declared:
+            raise KeyError(f"Service is not declared: {service}")
+        self._enabled[service] = bool(enabled)
+
     def policy(self) -> dict:
         return {
             "default": "deny",
             "allow_loopback": self.allow_loopback,
             "declared_services": [
-                {"service": s.service, "adapter": s.adapter, "enabled": s.enabled, "note": s.note}
+                {"service": s.service, "adapter": s.adapter,
+                 "enabled": self._enabled.get(s.service, s.enabled), "note": s.note}
                 for s in DECLARED_SERVICES
             ],
             "attempts": self.attempts,

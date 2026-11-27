@@ -36,12 +36,11 @@ from .db import Store
 from .redact import contains_secret, redact_obj, redact_text
 from .security import Policy, Risk
 from .util import bounded, digest
+from .web import WebError, WebFetcher, WebPolicy
+from .workspace import (DENIED_NAMES as _DENIED_NAMES, DENIED_SUFFIXES as _DENIED_SUFFIXES,
+                        Workspace, WorkspaceError, load_roots)
 
 MAX_READ_BYTES = 64 * 1024
-# File names that must never be read through workspace tools (credentials/secrets).
-_DENIED_NAMES = (".env", ".netrc", ".git-credentials", ".pgpass", ".npmrc", ".pypirc", "id_rsa", "id_dsa",
-                 "id_ecdsa", "id_ed25519")
-_DENIED_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".keystore", ".jks", ".sqlite3", ".db")
 
 
 @dataclass(frozen=True)
@@ -107,8 +106,14 @@ def _run_with_timeout(fn: Callable[[], Any], timeout: float) -> Any:
 
 class ToolRegistry:
     def __init__(self, store: Store, workspace: Path, policy: Policy, *, runtime_id: str | None = None,
-                 reminders=None):
+                 reminders=None, workspace_intel: Workspace | None = None,
+                 web_policy: WebPolicy | None = None):
         self.store, self.workspace, self.policy = store, workspace.resolve(), policy
+        # Mission 003: bounded read-only workspace intelligence and allow-listed retrieval. Both
+        # are optional so the registry keeps working for callers that only need the old tools.
+        self.workspace_intel = workspace_intel or Workspace(load_roots(self.workspace))
+        self.web_policy = web_policy
+        self.web_fetcher = WebFetcher(web_policy) if (web_policy is not None and web_policy.enabled) else None
         self.runtime_id = runtime_id
         self._tools: dict[str, Tool] = {}
         self.reminders = reminders
@@ -469,10 +474,38 @@ class ToolRegistry:
                            lambda a: store.search_memories(a["query"]), {"query": str},
                            sensitive_args=("query",), journal_result=_hits_summary))
         self.register(Tool("workspace.list", "List files beneath the configured workspace.", "read",
-                           self._list_files, {"relative_path": str}))
+                           self._list_files, {"relative_path": str},
+                           verify=lambda a, r: (isinstance(r, list), f"{len(r) if isinstance(r, list) else 0} entries")))
         self.register(Tool("workspace.read", "Read a UTF-8 text file (max 64 KiB) inside the workspace; "
                            "credential files are refused.", "read", self._read_file, {"relative_path": str},
-                           journal_result=_file_read_summary))
+                           verify=_verify_read, journal_result=_file_read_summary))
+        self.register(Tool("workspace.stat", "Read metadata for one file or directory inside the "
+                           "configured workspace roots (read-only).", "read", self._stat_file,
+                           {"relative_path": str}, verify=_verify_stat))
+        self.register(Tool("workspace.find", "Find files by name (substring or glob) under the "
+                           "workspace roots. Read-only and bounded.", "read", self._find_files,
+                           {"pattern": str, "limit": int}, verify=_verify_find,
+                           journal_result=_find_summary))
+        self.register(Tool("workspace.search", "Search file contents under the workspace roots and "
+                           "return ranked matches with short snippets. Read-only and bounded.",
+                           "read", self._search_files, {"query": str, "limit": int},
+                           verify=_verify_search, journal_result=_search_summary, timeout_s=30.0))
+        self.register(Tool("workspace.summarize", "Summarize the workspace documents that match a "
+                           "query (extractive, offline) with per-document provenance. Read-only.",
+                           "read", self._summarize_workspace,
+                           {"query": str, "max_sentences": int, "limit": int},
+                           verify=_verify_summary_result, journal_result=_summary_journal,
+                           timeout_s=30.0))
+        if self.web_fetcher is not None:
+            self.register(Tool("web.get", "Fetch one allow-listed http(s) URL (GET only) and return "
+                               "its readable text as untrusted data with provenance.", "network",
+                               self._web_get, {"url": str}, verify=_verify_web,
+                               journal_result=_web_journal, timeout_s=25.0))
+            self.register(Tool("web.summarize", "Fetch one allow-listed URL and return a "
+                               "deterministic extractive summary with provenance.", "network",
+                               self._web_summarize, {"url": str, "max_sentences": int},
+                               verify=_verify_web_summary, journal_result=_web_summary_journal,
+                               timeout_s=30.0))
         self.register(Tool("task.create", "Create a task after explicit user request.", "write",
                            lambda a: store.add_task(a["title"], project=a["project"] or None,
                                                     description=a["description"], priority=a["priority"]),
@@ -564,42 +597,197 @@ class ToolRegistry:
             cycle_id=ctx.correlation_id, source_event_id=ctx.source_event_id)
 
     def _resolve_in_workspace(self, relative_path: str) -> Path:
-        base = (self.workspace / relative_path).resolve()
-        if not base.is_relative_to(self.workspace):
-            raise ToolError("Path escapes the configured workspace")
-        if not base.exists():
-            raise ToolError("Path does not exist")
-        return base
+        try:
+            return self.workspace_intel.resolve(relative_path)
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
 
     def _list_files(self, args: dict[str, Any]) -> list[dict[str, Any]]:
-        base = self._resolve_in_workspace(args["relative_path"])
-        if not base.is_dir():
-            raise ToolError("Path must be a directory")
-        results = []
-        for path in sorted(base.iterdir(), key=lambda p: p.name.lower())[:200]:
-            results.append({"name": path.name, "type": "directory" if path.is_dir() else "file"})
-        return results
+        try:
+            return self.workspace_intel.list(args["relative_path"])
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
 
     def _read_file(self, args: dict[str, Any]) -> dict[str, Any]:
-        path = self._resolve_in_workspace(args["relative_path"])
-        if not path.is_file():
-            raise ToolError("Path must be a file")
-        lowered = path.name.lower()
-        rel_parts = {p.lower() for p in path.relative_to(self.workspace).parts}
-        if (lowered in _DENIED_NAMES or lowered.startswith(".env") or lowered.endswith(_DENIED_SUFFIXES)
-                or "credential" in lowered or "secret" in lowered or ".git" in rel_parts or ".ssh" in rel_parts):
-            raise ToolError("Refusing to read a file that may contain credentials")
-        size = path.stat().st_size
-        if size > MAX_READ_BYTES:
-            raise ToolError(f"File is larger than {MAX_READ_BYTES} bytes")
-        data = path.read_bytes()
-        if b"\x00" in data:
-            raise ToolError("Binary files are not supported")
         try:
-            text = data.decode("utf-8")
-        except UnicodeDecodeError:
-            raise ToolError("File is not valid UTF-8 text") from None
-        return {"path": str(path.relative_to(self.workspace)), "bytes": size, "text": redact_text(text)}
+            result = self.workspace_intel.read(args["relative_path"])
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
+        result["text"] = redact_text(result["text"])
+        return result
+
+    # ------------------------------------------------------------ workspace intelligence
+    def _stat_file(self, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return self.workspace_intel.stat(args["relative_path"])
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
+
+    def _find_files(self, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            result = self.workspace_intel.find(args["pattern"], limit=args["limit"] or 20)
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
+        self._audit_workspace("workspace.found", payload={
+            "pattern": args["pattern"][:200], "count": result["count"],
+            "scanned": result["scanned"], "truncated": result["truncated"]})
+        return result
+
+    def _search_files(self, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            result = self.workspace_intel.search(args["query"], limit=args["limit"] or 20)
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
+        self._audit_workspace("workspace.searched", payload={
+            "query": args["query"][:200], "count": result["count"],
+            "scanned": result["scanned"], "truncated": result["truncated"]})
+        return result
+
+    def _summarize_workspace(self, args: dict[str, Any]) -> dict[str, Any]:
+        try:
+            result = self.workspace_intel.summarize(args["query"],
+                                                    max_sentences=args["max_sentences"] or 5,
+                                                    limit=args["limit"] or 10)
+        except WorkspaceError as exc:
+            raise ToolError(str(exc)) from None
+        self._audit_workspace("workspace.summarized", payload={
+            "query": args["query"][:200], "documents": result["document_count"],
+            "scanned": result["scanned"]})
+        return result
+
+    # ------------------------------------------------------------ constrained retrieval
+    def _web_get(self, args: dict[str, Any]) -> dict[str, Any]:
+        if self.web_fetcher is None:                     # defensive: tool is not registered then
+            raise ToolError("Web retrieval is not configured")
+        try:
+            result = self.web_fetcher.get(args["url"])
+        except WebError as exc:
+            raise ToolError(str(exc)) from None
+        self._audit_web(result)
+        result["text"] = redact_text(result["text"])
+        return result
+
+    def _web_summarize(self, args: dict[str, Any]) -> dict[str, Any]:
+        if self.web_fetcher is None:
+            raise ToolError("Web retrieval is not configured")
+        try:
+            result = self.web_fetcher.summarize(args["url"],
+                                                max_sentences=args["max_sentences"] or 5)
+        except WebError as exc:
+            raise ToolError(str(exc)) from None
+        self._audit_web(result, summarized=True)
+        result["summary"] = redact_text(result["summary"])
+        return result
+
+    def _audit_workspace(self, kind: str, *, payload: dict[str, Any]) -> None:
+        """Audit a workspace read: what was asked and how much was scanned, never content."""
+        self.store.events.append(kind, actor="system", target="workspace",
+                                 payload={**payload, "read_only": True})
+
+    def _audit_web(self, result: dict[str, Any], *, summarized: bool = False) -> None:
+        self.store.events.append(
+            "web.retrieved" if not summarized else "web.summarized", actor="system",
+            target=str(result.get("final_url") or result.get("url"))[:200],
+            payload={"url": str(result.get("url"))[:500], "status": result.get("status"),
+                     "bytes": result.get("bytes"), "sha256": result.get("sha256"),
+                     "redirects": len(result.get("redirects") or []),
+                     "trust": "untrusted"})
+
+
+
+
+# ---------------------------------------------------------------- mission 003 verification
+def _verify_read(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and isinstance(result.get("text"), str)
+    if not ok:
+        return False, "no file text was returned"
+    return True, f"read {result.get('bytes', 0)} bytes"
+
+
+def _verify_stat(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and isinstance(result.get("path"), str)
+    return ok, "path metadata read" if ok else "no metadata was returned"
+
+
+def _verify_find(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and isinstance(result.get("matches"), list)
+    if not ok:
+        return False, "no file listing was returned"
+    return True, f"scanned {result.get('scanned', 0)} files, {result.get('count', 0)} name match(es)"
+
+
+def _verify_search(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and isinstance(result.get("matches"), list)
+    if not ok:
+        return False, "no search result was returned"
+    return True, (f"scanned {result.get('scanned', 0)} files, {result.get('count', 0)} "
+                  f"content match(es)")
+
+
+def _verify_summary_result(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and isinstance(result.get("summary"), str)         and isinstance(result.get("documents"), list)
+    if not ok:
+        return False, "no summary was produced"
+    return True, (f"summarized {result.get('document_count', 0)} document(s) from "
+                  f"{result.get('scanned', 0)} scanned file(s)")
+
+
+def _find_summary(result: Any) -> Any:
+    if not isinstance(result, dict):
+        return None
+    return {"count": result.get("count"), "scanned": result.get("scanned"),
+            "truncated": result.get("truncated"),
+            "paths": [m.get("path") for m in result.get("matches", [])][:20]}
+
+
+def _search_summary(result: Any) -> Any:
+    if not isinstance(result, dict):
+        return None
+    return {"count": result.get("count"), "scanned": result.get("scanned"),
+            "truncated": result.get("truncated"), "trust": "untrusted",
+            "paths": [m.get("path") for m in result.get("matches", [])][:20]}
+
+
+def _summary_journal(result: Any) -> Any:
+    if not isinstance(result, dict):
+        return None
+    return {"document_count": result.get("document_count"), "scanned": result.get("scanned"),
+            "truncated": result.get("truncated"), "sources": result.get("sources", [])[:10],
+            "summary": str(result.get("summary", ""))[:1200], "trust": "untrusted"}
+
+
+def _verify_web(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and result.get("status") == 200 \
+        and isinstance(result.get("text"), str) and bool(result.get("sha256"))
+    if not ok:
+        return False, "no page text was retrieved"
+    return True, (f"HTTP 200, {result.get('bytes', 0)} bytes of "
+                  f"{result.get('content_type', 'text')}")
+
+
+def _web_journal(result: Any) -> Any:
+    if not isinstance(result, dict):
+        return None
+    return {key: result.get(key) for key in ("url", "final_url", "status", "content_type", "bytes",
+                                             "sha256", "fetched_at", "truncated", "trust")}
+
+
+def _verify_web_summary(arguments: dict[str, Any], result: Any) -> tuple[bool, str]:
+    ok = isinstance(result, dict) and result.get("status") == 200 \
+        and isinstance(result.get("summary"), str)
+    if not ok:
+        return False, "no summary was produced"
+    return True, f"summary of {len(result.get('sentences') or [])} sentence(s) from {result.get('final_url')}"
+
+
+def _web_summary_journal(result: Any) -> Any:
+    if not isinstance(result, dict):
+        return None
+    return {"url": result.get("url"), "final_url": result.get("final_url"),
+            "status": result.get("status"), "sha256": result.get("sha256"),
+            "fetched_at": result.get("fetched_at"), "trust": "untrusted",
+            "sources": result.get("sources", [])[:5],
+            "summary": str(result.get("summary", ""))[:1200]}
 
 
 # ---------------------------------------------------------------- verification

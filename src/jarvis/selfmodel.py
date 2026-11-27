@@ -19,8 +19,9 @@ if TYPE_CHECKING:  # pragma: no cover
 # Designed or requested capabilities that are NOT implemented in this build.
 NOT_IMPLEMENTED: dict[str, str] = {
     "vision.images": "not implemented",
-    "documents.ingest": "not implemented (workspace.read can read small UTF-8 text files)",
-    "web.search": "not implemented; no network tools are registered",
+    "documents.ingest": "partially implemented: workspace.read/find/search/summarize read small "
+                        "UTF-8 text files from configured roots; no PDF/Office parsing",
+    "web.search": "not implemented; retrieval is a direct allow-listed GET (web.get), not a search engine",
     "shell.exec": "deliberately excluded by the security policy",
     "calendar_email": "not implemented; external accounts require explicit scoped connectors",
     "semantic_embeddings": "not implemented; retrieval is lexical (see EXP-001)",
@@ -41,6 +42,46 @@ def check_claims(text: str, *, executed_operations: int) -> list[str]:
     if executed_operations > 0:
         return []
     return [m.group(0) for m in _CLAIM.finditer(text)]
+
+
+#: Mission 003 capability matrix. Statuses are deliberately narrow: IMPLEMENTED means the code
+#: exists, TESTED means automated tests exercise it, VERIFIED means it was observed working
+#: outside the test suite, SIMULATED means it was exercised only through stand-ins, UNVERIFIED
+#: means no evidence exists yet, NOT IMPLEMENTED means it does not exist.
+MISSION_003: tuple[dict[str, str], ...] = (
+    {"capability": "workspace intelligence (stat/find/search/summarize)",
+     "status": "TESTED",
+     "evidence": "tests/test_workspace.py, eval workspace_search_real/workspace_summary_real",
+     "limits": "read-only; configured roots only; 64 KiB reads; 2 MiB files; 2000-file scans"},
+    {"capability": "web retrieval (allow-listed GET + extractive summary)",
+     "status": "TESTED",
+     "evidence": "tests/test_web.py, eval web_summary_real (loopback server)",
+     "limits": "GET only; explicit host allow-list; 80/443 unless authorised loopback; 512 KiB cap"},
+    {"capability": "web search provider",
+     "status": "NOT IMPLEMENTED",
+     "evidence": "no search API is integrated; a request for research is blocked honestly",
+     "limits": "—"},
+    {"capability": "prompt-injection resistance",
+     "status": "SIMULATED",
+     "evidence": "tests/test_injection.py, eval injection_workspace_real/injection_web_real",
+     "limits": "adversarial fixtures and fenced untrusted content; no production traffic sample"},
+    {"capability": "structural re-decomposition",
+     "status": "TESTED",
+     "evidence": "tests/test_schedule_api.py, eval structural_replan_simulated",
+     "limits": "at most 2 revisions; policy/approval denials are never re-planned"},
+    {"capability": "persistent scheduler (priority/deadline/recurrence)",
+     "status": "TESTED",
+     "evidence": "tests/test_scheduler.py, eval schedule_dedupe_simulated",
+     "limits": "once/hourly/daily/weekly; max 3 dispatches per tick; skipped slots are not replayed"},
+    {"capability": "objective leases (single writer, fencing tokens)",
+     "status": "TESTED",
+     "evidence": "tests/test_leases.py, eval lease_single_writer_simulated",
+     "limits": "in-process threads and separate connections; no multi-host verification"},
+    {"capability": "multi-process / multi-host coordination",
+     "status": "UNVERIFIED",
+     "evidence": "concurrency is tested with threads and independent SQLite connections only",
+     "limits": "a shared database on a network filesystem is untested"},
+)
 
 
 def capability_report(*, registry: "ToolRegistry", store: "Store", policy: "Policy", provider: Any,
@@ -80,5 +121,13 @@ def capability_report(*, registry: "ToolRegistry", store: "Store", policy: "Poli
         "provider": provider_state,
         "tools": tools,
         "not_implemented": NOT_IMPLEMENTED,
+        "mission_003": list(MISSION_003),
+        "workspace_access": {
+            "roots": list(getattr(settings, "workspace_roots", ()) or [str(settings.workspace)]),
+            "read_only": True,
+            "web_allowlist": list(getattr(settings, "web_allowlist", ())),
+            "retrieval_enabled": bool(getattr(settings, "web_allowlist", ()))
+            and bool(getattr(settings, "network_enabled", False)),
+        },
         "sensitive_data_to_provider": bool(getattr(settings, "allow_sensitive_to_provider", False)),
     }

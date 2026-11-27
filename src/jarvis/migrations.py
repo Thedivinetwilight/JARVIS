@@ -440,6 +440,65 @@ def _migration_4(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
          '"events.objective_id"]}'))
 
 
+
+MISSION_003 = """
+-- A lease fences one single-writer resource: an objective id, or a coarse namespace such as
+-- 'scheduler:tick'. It is deliberately *not* foreign-keyed to objectives: namespaces are rows
+-- too, and a lease must be able to outlive an objective without cascading away.
+CREATE TABLE objective_leases (
+  resource TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  token INTEGER NOT NULL DEFAULT 1,
+  acquired_at TEXT NOT NULL,
+  heartbeat_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE INDEX idx_objective_leases_expiry ON objective_leases(expires_at);
+
+CREATE TABLE objective_schedules (
+  id TEXT PRIMARY KEY,
+  request TEXT NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 3,
+  interval_seconds INTEGER,
+  next_run_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'scheduled',
+  deadline_minutes INTEGER,
+  budget_seconds REAL NOT NULL DEFAULT 120,
+  max_runs INTEGER,
+  runs INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_run_at TEXT,
+  last_objective_id TEXT,
+  last_outcome TEXT
+);
+CREATE INDEX idx_schedules_due ON objective_schedules(status, next_run_at);
+CREATE INDEX idx_schedules_priority ON objective_schedules(status, priority, next_run_at);
+
+ALTER TABLE plans ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE plans ADD COLUMN replaces_plan_id TEXT;
+ALTER TABLE plans ADD COLUMN superseded_by TEXT;
+ALTER TABLE objectives ADD COLUMN schedule_id TEXT;
+ALTER TABLE objectives ADD COLUMN scheduled_for TEXT;
+ALTER TABLE objectives ADD COLUMN revision INTEGER NOT NULL DEFAULT 1;
+
+-- One objective per (schedule, scheduled slot): a second worker racing the same due slot
+-- cannot create a duplicate objective even if it wins a different code path.
+CREATE UNIQUE INDEX idx_objectives_schedule_slot ON objectives(schedule_id, scheduled_for)
+  WHERE schedule_id IS NOT NULL;
+"""
+
+
+def _migration_5(conn: sqlite3.Connection, ctx: "MigrationContext") -> None:
+    _run(conn, MISSION_003)
+    conn.execute(
+        "INSERT INTO events(ts, kind, actor, target, decision, payload_json) VALUES (?,?,?,?,?,?)",
+        (to_iso(ctx.clock()), "system.migrated", "system", "schema", "success",
+         '{"to_version":5,"tables":["objective_leases","objective_schedules"],'
+         '"columns":["plans.revision","plans.replaces_plan_id","plans.superseded_by",'
+         '"objectives.schedule_id","objectives.scheduled_for","objectives.revision"]}'))
+
+
 @dataclass(frozen=True)
 class Migration:
     version: int
@@ -458,6 +517,7 @@ MIGRATIONS: tuple[Migration, ...] = (
     Migration(2, "genesis-0.1 persistent cognitive kernel", _migration_2),
     Migration(3, "mission-001 scoped clients, reminders, audio, plans", _migration_3),
     Migration(4, "mission-002 objective-driven autonomy", _migration_4),
+    Migration(5, "mission-003 capabilities, leases and scheduling", _migration_5),
 )
 LATEST_VERSION = MIGRATIONS[-1].version
 

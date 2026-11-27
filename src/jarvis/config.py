@@ -29,6 +29,12 @@ def _load_dotenv(path: Path) -> None:
             os.environ[key] = value
 
 
+def _list(name: str, separator: str) -> tuple[str, ...]:
+    raw = os.getenv(name, "")
+    items = [item.strip() for item in raw.split(separator)]
+    return tuple(item for item in items if item)
+
+
 def _bool(name: str, default: bool = False) -> bool:
     return os.getenv(name, str(default)).strip().lower() in {"1", "true", "yes", "on"}
 
@@ -80,6 +86,13 @@ class Settings:
     affect_retention_days: int = 30
     session_idle_minutes: int = 30
     principal_name: str = "Sivaram"
+    # --- Mission 003: workspace intelligence and constrained retrieval ---
+    workspace_roots: tuple[str, ...] = ()
+    scheduler_interval: float = 15.0
+    web_allowlist: tuple[str, ...] = ()
+    web_allow_loopback: bool = False
+    web_max_bytes: int = 512 * 1024
+    web_timeout: float = 8.0
 
     @classmethod
     def load(cls, dotenv: Path | None = None) -> "Settings":
@@ -112,6 +125,12 @@ class Settings:
             affect_retention_days=_int("JARVIS_AFFECT_RETENTION_DAYS", 30, 0, 3650),
             session_idle_minutes=_int("JARVIS_SESSION_IDLE_MINUTES", 30, 1, 10080),
             principal_name=os.getenv("JARVIS_PRINCIPAL_NAME", "Sivaram").strip() or "Sivaram",
+            scheduler_interval=_float("JARVIS_SCHEDULER_INTERVAL", 15.0, 0.0, 3600.0),
+            workspace_roots=_list("JARVIS_WORKSPACE_ROOTS", os.pathsep),
+            web_allowlist=_list("JARVIS_ALLOWLIST", ","),
+            web_allow_loopback=_bool("JARVIS_WEB_ALLOW_LOOPBACK", False),
+            web_max_bytes=_int("JARVIS_WEB_MAX_BYTES", 512 * 1024, 1024, 4 * 1024 * 1024),
+            web_timeout=_float("JARVIS_WEB_TIMEOUT", 8.0, 0.5, 60.0),
         )
 
     def describe(self) -> dict[str, object]:
@@ -123,4 +142,9 @@ class Settings:
                 "openai_api_key": "set" if self.openai_api_key else "unset",
                 "autonomy_level": self.autonomy_level, "allow_sensitive_to_provider": self.allow_sensitive_to_provider,
                 "affect_retention_days": self.affect_retention_days,
-                "session_idle_minutes": self.session_idle_minutes, "host": self.host, "port": self.port}
+                "session_idle_minutes": self.session_idle_minutes, "host": self.host, "port": self.port,
+                "workspace_roots": list(self.workspace_roots),
+                "scheduler_interval": self.scheduler_interval,
+                "web_allowlist": list(self.web_allowlist),
+                "web_allow_loopback": self.web_allow_loopback,
+                "web_max_bytes": self.web_max_bytes, "web_timeout": self.web_timeout}

@@ -82,20 +82,21 @@ class Policy:
                 return Decision(False, "Approval origin without an approval record", risk)
             return Decision(True, "Approved by the user", risk)
         if requires_approval:
-            if origin in {"model_proposal", "kernel"} and self.autonomy_level < AutonomyLevel.PREPARE:
+            if (origin in {"model_proposal", "kernel", "scheduled"}
+                    and self.autonomy_level < AutonomyLevel.PREPARE):
                 return Decision(False, f"Autonomy level {int(self.autonomy_level)} does not permit preparing "
                                        "actions", risk)
             return Decision(False, "Irreversible operation requires explicit approval", risk, needs_approval=True)
         if origin == "user_command":
             return Decision(True, "Allowed by local policy", risk)
-        if origin in {"model_proposal", "kernel"}:
+        if origin in {"model_proposal", "kernel", "scheduled"}:
             if risk == "read":
                 return Decision(True, "Read-only operation allowed by local policy", risk)
             if self.autonomy_level < AutonomyLevel.PREPARE:
                 return Decision(False, f"Autonomy level {int(self.autonomy_level)} does not permit preparing "
                                        "actions", risk)
-            return Decision(False, "Operations proposed by JARVIS or a model require user approval", risk,
-                            needs_approval=True)
+            return Decision(False, "Operations proposed by JARVIS, a model, or a schedule require "
+                                   "user approval", risk, needs_approval=True)
         # Unspecified origin (v0.2 behaviour): reads allowed, writes need explicit intent.
         if risk == "write":
             return Decision(False, "Write operation requires explicit user intent", risk)
