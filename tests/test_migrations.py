@@ -14,7 +14,7 @@ from conftest import open_sqlite
 
 def test_fresh_database_reaches_latest_version_without_backup(tmp_path):
     report = apply_migrations(tmp_path / "new.sqlite3", backup_dir=tmp_path / "backups")
-    assert report.to_version == LATEST_VERSION and report.applied == (1, 2, 3, 4) and report.backup is None
+    assert report.to_version == LATEST_VERSION and report.applied == (1, 2, 3, 4, 5) and report.backup is None
     again = apply_migrations(tmp_path / "new.sqlite3", backup_dir=tmp_path / "backups")
     assert again.applied == () and again.backup is None
 
@@ -31,7 +31,7 @@ def test_existing_v02_database_is_backed_up_before_migration(tmp_path):
         assert backup.execute("PRAGMA user_version").fetchone()[0] == 0
         assert backup.execute("SELECT value FROM memories").fetchone()[0] == "v"
     with open_sqlite(path) as db:
-        assert [r[0] for r in db.execute("SELECT version FROM schema_migrations ORDER BY version")] == [2, 3, 4]
+        assert [r[0] for r in db.execute("SELECT version FROM schema_migrations ORDER BY version")] == [2, 3, 4, 5]
 
 
 def test_split_script_keeps_trigger_bodies_intact():
@@ -159,7 +159,7 @@ def test_genesis_v2_database_is_backed_up_and_upgraded_to_v3(tmp_path):
                    "VALUES('AXIOM','kept','active','t','t')")
 
     report = apply_migrations(path, backup_dir=tmp_path / "backups")
-    assert report.from_version == 2 and report.to_version == 4 and report.applied == (3, 4)
+    assert report.from_version == 2 and report.to_version == 5 and report.applied == (3, 4, 5)
     assert report.backup is not None and report.backup.exists()
 
     reopened = Store(path)
@@ -168,5 +168,6 @@ def test_genesis_v2_database_is_backed_up_and_upgraded_to_v3(tmp_path):
         tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         versions = [r[0] for r in db.execute("SELECT version FROM schema_migrations ORDER BY version")]
     assert {"clients", "pairing_codes", "reminders", "reminder_deliveries",
-            "audio_sessions", "audio_chunks", "plans", "plan_steps", "objectives"} <= tables
-    assert versions == [2, 3, 4]
+            "audio_sessions", "audio_chunks", "plans", "plan_steps", "objectives",
+            "objective_leases", "objective_schedules"} <= tables
+    assert versions == [2, 3, 4, 5]

@@ -101,7 +101,9 @@ def test_credential_arguments_are_rejected(registry):
 def test_workspace_read_refuses_credentials_binary_and_escape(registry):
     ok = registry.run(ActionRequest("workspace.read", {"relative_path": "notes.txt"}, Origin.MODEL_PROPOSAL))
     assert ok.ok and ok.result["text"] == "pump draws 2A"
-    for path, message in ((".env", "credentials"), ("blob.bin", "Binary"), ("../outside.txt", "escapes")):
+    # Binary content is refused by type (an allow-list of text types), never handed to the model.
+    for path, message in ((".env", "credentials"), ("blob.bin", "unsupported file type"),
+                          ("../outside.txt", "escapes")):
         outcome = registry.run(ActionRequest("workspace.read", {"relative_path": path}, Origin.MODEL_PROPOSAL))
         assert outcome.status in {OperationStatus.FAILED, OperationStatus.DENIED}
         assert message.lower() in (outcome.error_message or outcome.reason).lower()
