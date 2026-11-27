@@ -78,7 +78,7 @@ class PlanRecord:
     id: str
     goal_id: int | None
     title: str
-    status: str  # proposed | active | awaiting_approval | completed | failed | cancelled
+    status: str  # proposed | active | awaiting_approval | completed | failed | cancelled | superseded
     steps: list[PlanStepRecord] = field(default_factory=list)
     replans: int = 0
     created_at: str = ""
@@ -86,6 +86,9 @@ class PlanRecord:
     completed_at: str | None = None
     failure_reason: str = ""
     objective_id: str | None = None
+    revision: int = 1
+    replaces_plan_id: str | None = None
+    superseded_by: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -93,7 +96,9 @@ class PlanRecord:
             "status": self.status, "replans": self.replans,
             "created_at": self.created_at, "updated_at": self.updated_at,
             "completed_at": self.completed_at, "failure_reason": self.failure_reason,
-            "objective_id": self.objective_id, "progress": self.progress,
+            "objective_id": self.objective_id, "revision": self.revision,
+            "replaces_plan_id": self.replaces_plan_id, "superseded_by": self.superseded_by,
+            "progress": self.progress,
             "steps": [s.to_dict() for s in self.steps],
         }
 
@@ -128,7 +133,8 @@ class PlanStore:
 
     # ------------------------------------------------------------ creation
     def create_plan(self, *, title: str, steps: list[dict[str, Any]],
-                    goal_id: int | None = None, objective_id: str | None = None) -> PlanRecord:
+                    goal_id: int | None = None, objective_id: str | None = None,
+                    revision: int = 1, replaces_plan_id: str | None = None) -> PlanRecord:
         """Create a plan with steps.
 
         Each step: ``capability``, ``arguments``, ``purpose`` and optionally ``depends_on``
@@ -145,9 +151,10 @@ class PlanStore:
         now = to_iso(self.store.now())
         with self.store.write() as db:
             db.execute(
-                "INSERT INTO plans (id, goal_id, title, status, created_at, updated_at, objective_id) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (plan_id, goal_id, title, "proposed", now, now, objective_id))
+                "INSERT INTO plans (id, goal_id, title, status, created_at, updated_at, objective_id, "
+                "revision, replaces_plan_id) VALUES (?,?,?,?,?,?,?,?,?)",
+                (plan_id, goal_id, title, "proposed", now, now, objective_id, int(revision),
+                 replaces_plan_id))
             for seq, step in enumerate(steps, start=1):
                 depends = step.get("depends_on") or ()
                 if isinstance(depends, int):
@@ -230,6 +237,15 @@ class PlanStore:
             db.execute(
                 "UPDATE plans SET status = 'active', failure_reason = '', updated_at = ? "
                 "WHERE id = ? AND status IN ('failed', 'completed')", (now, plan_id))
+        return self.get_plan(plan_id)
+
+    def supersede(self, plan_id: str, by_plan_id: str) -> PlanRecord:
+        """Keep a plan for history but mark it replaced by a revised plan."""
+        now = to_iso(self.store.now())
+        with self.store.write() as db:
+            db.execute(
+                "UPDATE plans SET status = 'superseded', superseded_by = ?, updated_at = ? "
+                "WHERE id = ?", (by_plan_id, now, plan_id))
         return self.get_plan(plan_id)
 
     def cancel(self, plan_id: str) -> PlanRecord:
@@ -339,6 +355,9 @@ class PlanStore:
             created_at=row["created_at"], updated_at=row["updated_at"],
             completed_at=row["completed_at"], failure_reason=row["failure_reason"],
             objective_id=row["objective_id"] if "objective_id" in row.keys() else None,
+            revision=row["revision"] if "revision" in row.keys() else 1,
+            replaces_plan_id=row["replaces_plan_id"] if "replaces_plan_id" in row.keys() else None,
+            superseded_by=row["superseded_by"] if "superseded_by" in row.keys() else None,
             steps=[PlanStore._row_to_step(s) for s in steps])
 
     @staticmethod

@@ -75,7 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="Integrity, schema, backups and configuration checks")
     evalp = sub.add_parser("eval", help="Run fixed evaluations").add_subparsers(dest="action", required=True)
     er = evalp.add_parser("retrieval"); er.add_argument("--fixture", default="evals/retrieval_v1.json"); er.add_argument("--out")
-    eo = evalp.add_parser("objectives", help="Run the 17 objective-driven autonomy scenarios")
+    eo = evalp.add_parser("objectives", help="Run the objective-driven autonomy scenarios")
     eo.add_argument("--out", default=None, help="Write the JSON report here")
     serve = sub.add_parser("serve"); serve.add_argument("--host"); serve.add_argument("--port", type=int)
     # Consolidated subsystems (bbff branch)
@@ -101,6 +101,19 @@ def build_parser() -> argparse.ArgumentParser:
     obj.add_argument("--deadline", default=None, help="Optional ISO date/time the objective is due")
     obj.add_argument("--plan-only", action="store_true", help="Interpret and plan, do not execute")
     obj.add_argument("--json", action="store_true", help="Print the full record instead of the answer")
+    sched = sub.add_parser("schedule", help="Persistent scheduled objectives")
+    sched.add_argument("action", choices=["add", "list", "show", "pause", "resume", "cancel",
+                                          "tick", "run"],
+                       nargs="?", default="list")
+    sched.add_argument("value", nargs="?", help="With add: the request; with show/pause: the id")
+    sched.add_argument("--cadence", default="once", choices=["once", "hourly", "daily", "weekly"])
+    sched.add_argument("--at", default=None, help="First run time (ISO 8601); defaults to now")
+    sched.add_argument("--priority", type=int, default=3)
+    sched.add_argument("--max-runs", type=int, default=None)
+    sched.add_argument("--deadline-minutes", type=int, default=None)
+    sched.add_argument("--budget", type=float, default=120.0)
+    sched.add_argument("--interval", type=float, default=15.0, help="With run: seconds between ticks")
+    sched.add_argument("--ticks", type=int, default=None, help="With run: stop after N ticks")
     plan = sub.add_parser("plan", help="Manage multi-step plans").add_subparsers(dest="action", required=True)
     plan.add_parser("list")
     ps = plan.add_parser("show"); ps.add_argument("plan_id")
@@ -364,6 +377,34 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
                 print(view["answer"])
                 print(f"objective {view['objective']['id']}  outcome={view['objective']['outcome']}"
                       f"  plan={view['objective']['plan_id']}")
+    elif args.command == "schedule":
+        schedules = app.scheduler.schedules
+        if args.action == "add":
+            if not args.value:
+                raise SystemExit("schedule add needs a request, e.g. jarvis schedule add \"what time is it\" --cadence daily")
+            schedule = schedules.create(
+                args.value, cadence=args.cadence, first_run_at=args.at, priority=args.priority,
+                max_runs=args.max_runs, deadline_minutes=args.deadline_minutes,
+                budget_seconds=args.budget)
+            _print(schedule.to_dict())
+        elif args.action == "list":
+            _print([s.to_dict() for s in schedules.list()])
+        elif args.action in {"show", "pause", "resume", "cancel"}:
+            if not args.value:
+                raise SystemExit(f"schedule {args.action} needs a schedule id")
+            if args.action == "show":
+                schedule = schedules.get(args.value)
+                _print({"schedule": schedule.to_dict(),
+                        "objectives": [o for o in app.objectives.list(limit=50)
+                                       if o.get("schedule_id") == schedule.id]})
+            else:
+                _print(getattr(schedules, args.action)(args.value).to_dict())
+        elif args.action == "tick":
+            _print(app.scheduler.tick())
+        else:
+            for report in app.scheduler.run_forever(interval_seconds=args.interval,
+                                                    max_ticks=args.ticks):
+                _print(report)
     elif args.command == "plan":
         if args.action == "list":
             _print([p.to_dict() for p in app.plans.list_plans()])
@@ -377,6 +418,7 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
 
         from .api import load_or_create_token
         from .egress import GUARD
+        from .scheduler import start_background
         from .redact import register_secret
         host, port = args.host or settings.host, args.port or settings.port
         token, token_path = load_or_create_token(settings.home)
@@ -390,11 +432,20 @@ def _dispatch(app: Jarvis, args: argparse.Namespace, settings: Settings) -> None
         print(f"Requests (except GET /health) need 'Authorization: Bearer <token>'. The token is stored in "
               f"{token_path}, readable only by your user account; delete the file to rotate it.", flush=True)
         print(f"Egress guard installed: default-deny, {len(GUARD.policy()['declared_services'])} declared services.", flush=True)
+        scheduler_thread, stop_scheduler = start_background(app.scheduler,
+                                                            settings.scheduler_interval)
+        if settings.scheduler_interval > 0:
+            print(f"Scheduler ticking every {settings.scheduler_interval:g}s; "
+                  f"{len(app.scheduler.schedules.list())} schedule(s) stored.", flush=True)
+        else:
+            print("Scheduler background loop disabled (JARVIS_SCHEDULER_INTERVAL=0).", flush=True)
         try:
             server.serve_forever()
         except KeyboardInterrupt:
             pass
         finally:
+            stop_scheduler.set()
+            scheduler_thread.join(timeout=5)
             server.server_close()
 
 

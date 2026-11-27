@@ -33,7 +33,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable
 
+from .charter import untrusted_block
 from .contracts import (ActionOutcome, ActionRequest, ObjectiveOutcome, OperationStatus, Origin)
+from .leases import LeaseError, LeaseStore
 from .interpret import parse_keyed
 from .plans import (MAX_REPLANS, MAX_STEPS, PlanError, PlanExecutor, PlanRecord, PlanStore)
 from .redact import redact, redact_text
@@ -43,6 +45,8 @@ from .util import to_iso
 MAX_SUBTASKS = 5                 # clauses a request may be split into
 MAX_PLAN_ATTEMPTS = 2            # model plan + one repair
 MAX_OBJECTIVE_STEPS = 24         # steps executed across replans
+MAX_PLAN_REVISIONS = 2           # structural re-decompositions per objective (so 3 plans max)
+LEASE_TTL_SECONDS = 60           # single-writer lease on an objective; renewed every iteration
 DEFAULT_BUDGET_SECONDS = 120.0
 MAX_BUDGET_SECONDS = 900.0
 MIN_BUDGET_SECONDS = 1.0
@@ -139,6 +143,9 @@ class Objective:
     created_at: str
     updated_at: str
     finished_at: str | None
+    revision: int = 1
+    schedule_id: str | None = None
+    scheduled_for: str | None = None
 
     @property
     def finished(self) -> bool:
@@ -158,7 +165,9 @@ class Objective:
             "outcome_reason": self.outcome_reason, "priority": self.priority,
             "deadline": self.deadline, "budget": self.budget, "verification": self.verification,
             "planner": self.planner, "origin": self.origin, "attempts": self.attempts,
-            "replans": self.replans, "created_at": self.created_at,
+            "replans": self.replans, "revision": self.revision,
+            "schedule_id": self.schedule_id, "scheduled_for": self.scheduled_for,
+            "created_at": self.created_at,
             "updated_at": self.updated_at, "finished_at": self.finished_at,
         }
 
@@ -259,6 +268,48 @@ def default_criteria(steps: list[StepSpec]) -> list[dict[str, Any]]:
     return criteria
 
 
+
+# --------------------------------------------------------------------------------------
+# Structural re-decomposition helpers
+# --------------------------------------------------------------------------------------
+def _canonical(arguments: Any) -> str:
+    """Stable signature of a step's arguments, including any unresolved references."""
+    try:
+        return json.dumps(arguments, sort_keys=True, default=str)
+    except (TypeError, ValueError):                                  # pragma: no cover - defensive
+        return repr(arguments)
+
+
+def _spec_from_step(step) -> StepSpec:
+    """A persisted step expressed as a plan spec (used to re-derive success criteria)."""
+    return StepSpec(step.capability, dict(step.arguments), step.purpose,
+                    step.expected_output, step.success_criteria,
+                    tuple(step.depends_on or ()), bool(step.optional))
+
+
+def _remap_references(value: Any, mapping: dict[int, int]) -> tuple[Any, list[int]]:
+    """Rewrite ``{{stepN.field}}`` for a revised plan; report references that cannot move."""
+    broken: list[int] = []
+
+    def walk(node: Any) -> Any:
+        if isinstance(node, str):
+            match = _REFERENCE.match(node)
+            if match:
+                old = int(match.group(1))
+                if old not in mapping:
+                    broken.append(old)
+                    return node
+                return f"{{{{step{mapping[old]}.{match.group(2)}}}}}"
+            return node
+        if isinstance(node, dict):
+            return {key: walk(item) for key, item in node.items()}
+        if isinstance(node, list):
+            return [walk(item) for item in node]
+        return node
+
+    return walk(value), broken
+
+
 # --------------------------------------------------------------------------------------
 # Deterministic rules planner
 # --------------------------------------------------------------------------------------
@@ -291,6 +342,30 @@ _TASKS = re.compile(r"^(?:list|show)(?:\s+me)?\s+(?:my\s+)?(?:open\s+)?tasks(?:\
 _GOALS = re.compile(r"^(?:list|show)(?:\s+me)?\s+(?:my\s+)?goals\s*[.!]?$", re.IGNORECASE)
 _FILES = re.compile(r"^(?:list|show)(?:\s+me)?\s+(?:the\s+)?files(?:\s+(?:in|under)\s+(?P<path>.+?))?\s*[.!]?$",
                     re.IGNORECASE)
+_URL = re.compile(r"""https?://[^\s<>"')]+""", re.IGNORECASE)
+_WS_DOCS = re.compile(
+    r"^(?:please\s+)?(?:find|search(?:\s+for)?|look\s+for|show\s+me|get)\s+(?:all\s+)?(?:the\s+)?"
+    r"(?:documents?|files?|notes?|docs)\s+"
+    r"(?:about|on|regarding|relating\s+to|related\s+to|mentioning|containing|that\s+mention)\s+"
+    r"(?P<query>.+?)(?:,?\s+(?P<summ>and\s+summari[sz]e(?:\s+them|\s+the\s+results?|\s+it)?))?\s*[.!]?$",
+    re.IGNORECASE)
+_WS_SUMMARY_ONLY = re.compile(
+    r"^(?:please\s+)?summari[sz]e\s+(?:the\s+)?(?:documents?|files?|notes?|findings|information|content)\s+"
+    r"(?:about|on|regarding|relating\s+to|related\s+to|mentioning|containing)\s+(?P<query>.+?)"
+    r"(?:\s+(?:in|from|under)\s+(?:the\s+)?workspace(?:\s+roots?)?)?\s*[.!]?$", re.IGNORECASE)
+_WS_SEARCH = re.compile(
+    r"^(?:please\s+)?(?:search|grep|look\s+through)\s+(?:the\s+)?workspace(?:\s+roots?)?\s+for\s+"
+    r"(?P<query>.+?)\s*[.!]?$", re.IGNORECASE)
+_WS_FIND = re.compile(
+    r"^(?:please\s+)?(?:find|list)\s+(?:all\s+)?(?:the\s+)?files?\s+(?:named|called|matching)\s+"
+    r"(?P<pattern>.+?)\s*[.!]?$", re.IGNORECASE)
+_WS_READ = re.compile(
+    r"^(?:please\s+)?(?:read|open|show(?:\s+me)?)\s+(?:the\s+)?(?:file\s+)?"
+    r"(?P<path>[\w./\\-]+\.[A-Za-z0-9]{1,10})\s*[.!]?$", re.IGNORECASE)
+_WS_STAT = re.compile(
+    r"^(?:what(?:'s| is)|show|get)\s+(?:me\s+)?(?:the\s+)?(?:size|metadata|details|info)\s+"
+    r"(?:of|for)\s+(?:the\s+)?(?:file\s+)?(?P<path>[\w./\\-]+\.[A-Za-z0-9]{1,10})\s*[?]?$",
+    re.IGNORECASE)
 _RESEARCH = re.compile(r"^(?:research|look up|find out about|search the web for|google)\s+(?P<topic>.+)$",
                        re.IGNORECASE)
 _UNTRUSTED = re.compile(r"(ignore (?:all |the |your )?(?:previous|prior|above) instructions|"
@@ -359,6 +434,106 @@ class RulesPlanner:
                         current = extended
                 return current
 
+        # ---- Mission 003: retrieval and workspace intelligence -------------------------
+        url_match = _URL.search(clause)
+        if url_match:
+            url = url_match.group(0).rstrip(".,;)")
+            if not (self.registry.get("web.get") and self.registry.get("web.summarize")):
+                return PlanningOutcome(
+                    "blocked",
+                    reason=("web retrieval is not configured in this build: no domain is "
+                            "allow-listed, so the request cannot be sent. Configure "
+                            "JARVIS_ALLOWLIST (and JARVIS_NETWORK_ENABLED=true) to enable it."),
+                    notes=["no capability was invented or substituted"])
+            wants_summary = bool(re.search(r"summari[sz]e|digest|tl;?dr", clause, re.IGNORECASE))
+            if wants_summary:
+                spec = StepSpec("web.summarize", {"url": url, "max_sentences": 5},
+                                purpose=f"retrieve and summarize {url}",
+                                expected_output="an extractive summary with provenance",
+                                success_criteria="HTTP 200 and a summary were produced")
+            else:
+                spec = StepSpec("web.get", {"url": url},
+                                purpose=f"retrieve {url}",
+                                expected_output="readable page text with provenance",
+                                success_criteria="HTTP 200 and text were returned")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked",
+                                       reason=f"the retrieval step could not be built for {url}")
+            return self._add(prior, spec)
+        match = _WS_SUMMARY_ONLY.match(clause)
+        if match:
+            query = match.group("query").strip(" ,.")
+            if not query:
+                return PlanningOutcome("awaiting_information",
+                                       question="What should I summarize the workspace documents about?")
+            spec = StepSpec("workspace.summarize",
+                            {"query": query, "max_sentences": 5, "limit": 10},
+                            purpose=f"summarize workspace documents about '{query}'",
+                            expected_output="an extractive summary with per-document provenance",
+                            success_criteria="the workspace was searched and a summary was produced")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason="workspace summarization is unavailable")
+            return self._add(prior, spec)
+        match = _WS_DOCS.match(clause)
+        if match:
+            query = match.group("query").strip(" ,.")
+            if not query:
+                return PlanningOutcome("awaiting_information",
+                                       question="What should I look for in the workspace?")
+            if match.group("summ"):
+                spec = StepSpec("workspace.summarize",
+                                {"query": query, "max_sentences": 5, "limit": 10},
+                                purpose=f"find and summarize workspace documents about '{query}'",
+                                expected_output="a summary with per-document provenance",
+                                success_criteria="the workspace was searched and a summary was produced")
+            else:
+                spec = StepSpec("workspace.search", {"query": query, "limit": 20},
+                                purpose=f"search workspace documents for '{query}'",
+                                expected_output="ranked matching documents",
+                                success_criteria="the workspace was searched")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason="workspace search is unavailable")
+            return self._add(prior, spec)
+        match = _WS_SEARCH.match(clause)
+        if match:
+            query = match.group("query").strip(" ,.")
+            spec = StepSpec("workspace.search", {"query": query, "limit": 20},
+                            purpose=f"search the workspace for '{query}'",
+                            expected_output="ranked matching documents",
+                            success_criteria="the workspace was searched")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason="workspace search is unavailable")
+            return self._add(prior, spec)
+        match = _WS_FIND.match(clause)
+        if match:
+            pattern = match.group("pattern").strip(" ,.")
+            spec = StepSpec("workspace.find", {"pattern": pattern, "limit": 20},
+                            purpose=f"find workspace files named '{pattern}'",
+                            expected_output="matching file paths",
+                            success_criteria="the workspace was scanned")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason="workspace file search is unavailable")
+            return self._add(prior, spec)
+        match = _WS_STAT.match(clause)
+        if match:
+            path = match.group("path").strip()
+            spec = StepSpec("workspace.stat", {"relative_path": path},
+                            purpose=f"read metadata for {path}",
+                            expected_output="file metadata",
+                            success_criteria="the path exists inside a workspace root")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason=f"'{path}' is not a readable workspace path")
+            return self._add(prior, spec)
+        match = _WS_READ.match(clause)
+        if match:
+            path = match.group("path").strip()
+            spec = StepSpec("workspace.read", {"relative_path": path},
+                            purpose=f"read {path}",
+                            expected_output="the file text",
+                            success_criteria="the file was read inside a workspace root")
+            if not self._validated(spec, notes):
+                return PlanningOutcome("blocked", reason=f"'{path}' is not a readable workspace path")
+            return self._add(prior, spec)
         match = _TIME.match(clause)
         if match:
             return self._add(prior, StepSpec("time.now", {}, purpose="read the clock",
@@ -489,17 +664,20 @@ class RulesPlanner:
         if match:
             return PlanningOutcome(
                 "blocked",
-                reason=("web retrieval is not implemented in this build, so I cannot research "
-                        f"'{match.group('topic').strip()[:120]}'. No network capability exists and none "
-                        "is silently substituted."),
-                notes=["available alternatives: memory.search (only what you already told me), "
-                       "workspace.read (local files)"])
+                reason=("no search provider is integrated, so I cannot research "
+                        f"'{match.group('topic').strip()[:120]}'. I can fetch a specific page from an "
+                        "allow-listed domain if you give me its URL, or search your workspace."),
+                notes=["retrieval is a direct allow-listed GET (web.get/web.summarize), not a search "
+                       "engine; nothing is silently substituted"])
         return None
 
     # ------------------------------------------------------------------ helpers
     def _matches_any(self, clause: str) -> bool:
+        if _URL.search(clause):
+            return True
         return any(pattern.match(clause) for pattern in
-                   (_TIME, _CALC, _REMEMBER, _RECALL, _GOAL_AND_TASK, _GOAL, _REMIND, _TASK_ADD,
+                   (_WS_SUMMARY_ONLY, _WS_DOCS, _WS_SEARCH, _WS_FIND, _WS_STAT, _WS_READ,
+                    _TIME, _CALC, _REMEMBER, _RECALL, _GOAL_AND_TASK, _GOAL, _REMIND, _TASK_ADD,
                     _PROJECTS, _TASKS, _GOALS, _FILES, _RESEARCH))
 
     def _add(self, prior: list[StepSpec], step: StepSpec) -> list[StepSpec]:
@@ -677,8 +855,8 @@ def verify_plan(plan: PlanRecord, criteria: list[dict[str, Any]], store,
 _OBJECTIVE_COLUMNS = (
     "id, request, objective, desired_outcome, constraints_json, success_criteria_json, "
     "memory_ids_json, plan_id, status, outcome, outcome_reason, priority, deadline, "
-    "budget_json, verification_json, planner, origin, attempts, replans, created_at, "
-    "updated_at, finished_at"
+    "budget_json, verification_json, planner, origin, attempts, replans, revision, "
+    "schedule_id, scheduled_for, created_at, updated_at, finished_at"
 )
 _UNSET = object()
 
@@ -696,7 +874,8 @@ class ObjectiveStore:
                constraints: list[str], success_criteria: list[dict[str, Any]],
                memory_ids: list[int], status: str, outcome: str | None, outcome_reason: str,
                priority: int, deadline: str | None, budget: dict[str, Any],
-               planner: str, origin: str, plan_id: str | None = None) -> Objective:
+               planner: str, origin: str, plan_id: str | None = None,
+               schedule_id: str | None = None, scheduled_for: str | None = None) -> Objective:
         if outcome is not None and outcome not in {o.value for o in ObjectiveOutcome}:
             raise ValueError(f"Unknown outcome: {outcome}")
         now = to_iso(self.store.now())
@@ -706,12 +885,13 @@ class ObjectiveStore:
                 "INSERT INTO objectives (id, request, objective, desired_outcome, constraints_json, "
                 "success_criteria_json, memory_ids_json, plan_id, status, outcome, outcome_reason, "
                 "priority, deadline, budget_json, verification_json, planner, origin, attempts, "
-                "replans, created_at, updated_at, finished_at) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "replans, revision, schedule_id, scheduled_for, created_at, updated_at, finished_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (objective_id, request, objective, desired_outcome, json.dumps(constraints),
                  json.dumps(success_criteria), json.dumps(memory_ids), plan_id, status, outcome,
                  outcome_reason, priority, deadline, json.dumps(budget), "{}", planner, origin,
-                 0, 0, now, now, now if outcome is not None else None))
+                 0, 0, 1, schedule_id, scheduled_for, now, now,
+                 now if outcome is not None else None))
         return self.get(objective_id)
 
     def get(self, objective_id: str) -> Objective | None:
@@ -773,6 +953,21 @@ class ObjectiveStore:
                 "UPDATE objectives SET replans = replans + 1, status = 'running', "
                 "outcome_reason = ?, updated_at = ? WHERE id = ?",
                 (reason, to_iso(self.store.now()), objective_id))
+        return self.get(objective_id)
+
+    def set_plan(self, objective_id: str, plan_id: str, *, revision: int) -> Objective:
+        """Point the objective at its current plan revision (history stays in ``plans``)."""
+        with self.store.write() as db:
+            db.execute("UPDATE objectives SET plan_id = ?, revision = ?, updated_at = ? WHERE id = ?",
+                       (plan_id, int(revision), to_iso(self.store.now()), objective_id))
+        return self.get(objective_id)
+
+    def set_criteria(self, objective_id: str, criteria: list[dict[str, Any]]) -> Objective:
+        """Replace success criteria when a structural revision changes what the plan must do."""
+        with self.store.write() as db:
+            db.execute(
+                "UPDATE objectives SET success_criteria_json = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(criteria), to_iso(self.store.now()), objective_id))
         return self.get(objective_id)
 
     def set_budget(self, objective_id: str, budget: dict[str, Any]) -> None:
@@ -841,7 +1036,10 @@ class ObjectiveStore:
             verification=json.loads(row["verification_json"]), planner=row["planner"],
             origin=row["origin"], attempts=row["attempts"], replans=row["replans"],
             created_at=row["created_at"], updated_at=row["updated_at"],
-            finished_at=row["finished_at"])
+            finished_at=row["finished_at"],
+            revision=row["revision"] if "revision" in row.keys() else 1,
+            schedule_id=row["schedule_id"] if "schedule_id" in row.keys() else None,
+            scheduled_for=row["scheduled_for"] if "scheduled_for" in row.keys() else None)
 
 
 # --------------------------------------------------------------------------------------
@@ -919,6 +1117,7 @@ class ObjectiveService:
         self.provider = provider
         self.settings = settings
         self.objectives = ObjectiveStore(store)
+        self.leases = LeaseStore(store)
 
     # ------------------------------------------------------------------ planning
     def _memory_context(self, request: str, limit: int = 5) -> tuple[list[int], list[str]]:
@@ -939,7 +1138,8 @@ class ObjectiveService:
     def create(self, request: str, *, origin: Origin = Origin.USER_COMMAND,
                planning: str = "rules", budget_seconds: float | None = None,
                priority: int = 3, deadline: str | None = None,
-               memory_limit: int = 5) -> Objective:
+               memory_limit: int = 5, schedule_id: str | None = None,
+               scheduled_for: str | None = None) -> Objective:
         """Interpret a request and persist an objective, plan and criteria. Does not execute."""
         if not isinstance(request, str) or not request.strip():
             raise ValueError("Objective request cannot be empty")
@@ -1000,7 +1200,8 @@ class ObjectiveService:
                 priority=int(priority), deadline=deadline,
                 budget={"max_seconds": budget, "used_seconds": 0.0,
                         "max_steps": MAX_OBJECTIVE_STEPS, "replans": MAX_REPLANS},
-                planner="model" if used_model else "rules", origin=origin_value)
+                planner="model" if used_model else "rules", origin=origin_value,
+                schedule_id=schedule_id, scheduled_for=scheduled_for)
             step_dicts = []
             for step in outcome.plan.steps:
                 item = step.to_dict()
@@ -1028,7 +1229,7 @@ class ObjectiveService:
                 outcome=ObjectiveOutcome.AWAITING_INFORMATION.value, outcome_reason=question,
                 priority=int(priority), deadline=deadline,
                 budget={"max_seconds": budget, "used_seconds": 0.0}, planner="rules",
-                origin=origin_value)
+                origin=origin_value, schedule_id=schedule_id, scheduled_for=scheduled_for)
 
         # blocked, or a model planning attempt that produced nothing usable
         reason = outcome.reason or "no deterministic plan and no model provider to propose one"
@@ -1038,7 +1239,7 @@ class ObjectiveService:
             memory_ids=memory_ids, status="blocked", outcome=ObjectiveOutcome.BLOCKED.value,
             outcome_reason=reason, priority=int(priority), deadline=deadline,
             budget={"max_seconds": budget, "used_seconds": 0.0}, planner="rules",
-            origin=origin_value)
+            origin=origin_value, schedule_id=schedule_id, scheduled_for=scheduled_for)
 
     def _plan_with_model(self, request: str, *, feedback: str = "") -> tuple[PlanSpec | None, str]:
         """Ask a provider for a plan, validate it, and allow exactly one repair.
@@ -1091,6 +1292,31 @@ class ObjectiveService:
             return self.view(objective.id)
         if objective.outcome == ObjectiveOutcome.AWAITING_INFORMATION.value:
             return self.view(objective.id)       # needs a new request, not another run
+
+        # Single writer per objective. Two workers may not execute the same objective
+        # concurrently: the loser observes the holder instead of duplicating side effects.
+        lease = self.leases.acquire(objective.id, owner=f"objective-runner-{secrets.token_hex(4)}",
+                                    ttl=LEASE_TTL_SECONDS)
+        if lease is None:
+            holder = self.leases.held_by(objective.id)
+            self.store.events.append(
+                "objective.run_refused", actor="system", target=objective.id,
+                objective_id=objective.id,
+                payload={"reason": "another worker holds the objective lease",
+                         "holder": holder.owner if holder else None})
+            return self.view(objective.id)
+        try:
+            return self._run_leased(objective, lease, should_cancel=should_cancel,
+                                    max_seconds=max_seconds)
+        finally:
+            try:
+                self.leases.release(lease)
+            except LeaseError:                    # already expired or taken over: nothing to free
+                pass
+
+    def _run_leased(self, objective: Objective, lease, *, should_cancel: Callable[[], bool] | None,
+                    max_seconds: float | None) -> dict[str, Any]:
+        """The execution loop, fenced by ``lease``. Every write below is lease-guarded."""
         if objective.plan_id is None:
             return self._finish(objective, ObjectiveOutcome.FAILED,
                                 "no plan was persisted for this objective", None, None)
@@ -1103,6 +1329,15 @@ class ObjectiveService:
         objective = self.objectives.record_attempt(objective.id)
 
         while True:
+            if not self.leases.renew(lease):
+                # Fencing: another worker owns this objective now. Its writes are authoritative,
+                # so this worker stops without finishing the objective or touching the plan.
+                self.store.events.append(
+                    "objective.lease_lost", actor="system", target=objective.id,
+                    objective_id=objective.id,
+                    payload={"reason": "lease expired or was taken over; abandoning this run",
+                             "owner": lease.owner, "token": lease.token})
+                return self.view(objective.id)
             elapsed = time.monotonic() - started
             remaining = budget_seconds - elapsed
             plan = self.plans.get_plan(objective.plan_id)
@@ -1148,6 +1383,31 @@ class ObjectiveService:
 
             verdict = self._next_action(objective, plan, verification)
             action = verdict["action"]
+            if action in {"stop", "blocked"}:
+                # Mission 003: before giving up, try a *structural* revision — a genuinely
+                # different decomposition that keeps verified work. Denials are never re-planned.
+                revised = self._structural_replan(objective, plan, verdict)
+                if revised is not None:
+                    self.store.events.append(
+                        "objective.replanned_structurally", actor="system", target=objective.id,
+                        decision="replanned", objective_id=objective.id,
+                        text=(f"plan revision {revised.revision}: {len(revised.steps)} step(s), "
+                              f"replacing {plan.id}"),
+                        payload={"from_plan": plan.id, "to_plan": revised.id,
+                                 "revision": revised.revision,
+                                 "diagnosis": verdict.get("diagnosis"),
+                                 "carried_steps": [s.seq for s in revised.steps
+                                                   if s.status == "succeeded"],
+                                 "dropped": [s.capability for s in plan.steps
+                                             if s.status in {"failed", "skipped"}]})
+                    narrative.append(
+                        f"structural replan (revision {revised.revision}) after: {verdict['reason']}")
+                    objective = self.objectives.record_replan(
+                        objective.id, reason=f"structural revision {revised.revision}: "
+                                             f"{verdict['reason']}")
+                    objective = self.objectives.set_plan(objective.id, revised.id,
+                                                         revision=revised.revision)
+                    continue
             if action == "replan":
                 step = next((s for s in plan.steps if s.seq == verdict["step"]), None)
                 if step is not None and verdict.get("alternative"):
@@ -1245,6 +1505,104 @@ class ObjectiveService:
         return {"action": "stop",
                 "reason": "objective criteria are not met: " +
                           ", ".join(str(c.get("kind")) for c in unmet[:4])}
+
+    # ------------------------------------------------------------------ structural replanning
+    def _structural_replan(self, objective: Objective, plan: PlanRecord,
+                           verdict: dict[str, Any]) -> PlanRecord | None:
+        """Re-decompose an objective into a revised plan, preserving verified work.
+
+        This is a *structural* revision, not a retry: the objective is planned again from the
+        request against the live registry, steps that already succeeded are carried over with
+        their operation evidence, and material changes are required for the revision to count.
+        Refused because a revision cannot be justified, or because the failure was a policy or
+        approval decision — re-planning must never become a way around a denial.
+        """
+        diagnosis = verdict.get("diagnosis") or {}
+        category = diagnosis.get("category")
+        if category in {"policy_denied", "approval_denied"}:
+            return None
+        if objective.revision > MAX_PLAN_REVISIONS or objective.replans >= MAX_REPLANS:
+            return None
+        completed = [s for s in plan.steps if s.status == "succeeded"]
+        done_positions: dict[tuple[str, str], int] = {}
+        for position, step in enumerate(completed, start=1):
+            done_positions.setdefault((step.capability, _canonical(step.arguments)), position)
+
+        planner = RulesPlanner(self.registry, self.store)
+        outcome = planner.plan(objective.request)
+        if not outcome.ok or outcome.plan is None:
+            return None                                   # nothing to re-decompose into
+        specs = list(outcome.plan.steps)
+
+        # Map the new decomposition onto positions in the revised plan: an already-succeeded
+        # step keeps its work, everything else becomes a fresh pending step.
+        positions: dict[int, int | None] = {}
+        pending: list[tuple[PlanStepRecord, int]] = []
+        next_position = len(completed) + 1
+        for index, spec in enumerate(specs, start=1):
+            signature = (spec.capability, _canonical(spec.arguments))
+            if signature in done_positions:
+                positions[index] = done_positions[signature]
+                continue
+            dependencies = list(spec.depends_on or [])
+            if any(positions.get(dependency) is None for dependency in dependencies):
+                positions[index] = None                   # depends on work that cannot be planned
+                continue
+            arguments, broken = _remap_references(spec.arguments, positions)
+            if broken:
+                positions[index] = None                   # references work that will not exist
+                continue
+            positions[index] = next_position
+            pending.append(({
+                "capability": spec.capability, "arguments": arguments, "purpose": spec.purpose,
+                "expected_output": spec.expected_output, "success_criteria": spec.success_criteria,
+                "depends_on": [positions[dependency] for dependency in dependencies],
+                "optional": spec.optional}, next_position))
+            next_position += 1
+
+        if not pending:
+            return None                                   # no new work: a retry in disguise
+
+        # Materiality: the revision must change what will actually run.
+        old_pending = {(s.capability, _canonical(s.arguments))
+                       for s in plan.steps if s.status in {"failed", "skipped", "pending"}
+                       and not s.optional}
+        new_pending = {(step["capability"], _canonical(step["arguments"])) for step, _ in pending}
+        if new_pending <= old_pending:
+            return None
+
+        carried = [{
+            "capability": step.capability, "arguments": step.arguments, "purpose": step.purpose,
+            "expected_output": step.expected_output,
+            "success_criteria": step.success_criteria, "depends_on": [],
+            "optional": step.optional} for step in completed]
+        steps = carried + [step for step, _ in sorted(pending, key=lambda item: item[1])]
+        try:
+            revised = self.plans.create_plan(
+                title=plan.title, steps=steps, goal_id=plan.goal_id,
+                objective_id=objective.id, revision=objective.revision + 1,
+                replaces_plan_id=plan.id)
+        except Exception:                                 # pragma: no cover - defensive
+            return None
+        for position, step in enumerate(completed):
+            revised = self.plans.get_plan(revised.id)
+            self.plans.mark_step_succeeded(
+                revised.steps[position].id, operation_id=step.operation_id,
+                result_summary=step.result_summary or "carried over from the previous plan")
+        # The revised plan defines different required work, so its criteria are re-derived from
+        # the plan itself (never from prose). The change is recorded for audit.
+        revised = self.plans.get_plan(revised.id)
+        criteria = default_criteria([_spec_from_step(step) for step in revised.steps])
+        self.objectives.set_criteria(objective.id, criteria)
+        self.store.events.append(
+            "objective.criteria_revised", actor="system", target=objective.id,
+            decision="replanned", objective_id=objective.id,
+            text="success criteria re-derived from the revised plan",
+            payload={"from": [c.get("capability") for c in objective.success_criteria],
+                     "to": [c.get("capability") for c in criteria],
+                     "from_plan": plan.id, "to_plan": revised.id})
+        self.plans.supersede(plan.id, revised.id)
+        return self.plans.get_plan(revised.id)
 
     def _alternative(self, step) -> dict[str, Any] | None:
         """A registered capability that can stand in for a failed one, with translated args."""
@@ -1364,9 +1722,25 @@ class ObjectiveService:
             ObjectiveOutcome.CANCELLED.value: "Cancelled.",
         }.get(objective.outcome or "", "In progress.")
         lines = [headline]
+        findings: list[tuple[str, str]] = []
         for step in plan.steps:
             summary = step.result_summary or step.error_message or step.status
             lines.append(f"- {step.capability}: {summary}")
+            if step.status == "succeeded" and step.operation_id is not None:
+                record = self.store.operations.get(step.operation_id)
+                journaled = (record or {}).get("result") or {}
+                if not isinstance(journaled, dict):
+                    continue
+                if step.capability in {"workspace.summarize", "web.summarize"} \
+                        and journaled.get("summary"):
+                    sources = ", ".join(str(source) for source in (journaled.get("sources") or [])[:3])
+                    findings.append((sources or "unknown source", str(journaled["summary"])[:600]))
+                elif step.capability in {"workspace.search", "workspace.find"}:
+                    hits = [str(path) for path in (journaled.get("paths") or [])[:5] if path]
+                    if hits:
+                        findings.append((f"{len(hits)} match(es)", ", ".join(hits)))
+        for sources, summary in findings:
+            lines.append(untrusted_block(sources, summary))
         checks = (objective.verification or {}).get("checks") or []
         if checks:
             passed = sum(1 for c in checks if c.get("passed"))

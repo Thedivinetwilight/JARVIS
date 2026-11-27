@@ -27,10 +27,13 @@ from .plans import PlanExecutor, PlanStore
 from .provider import ModelProvider, build_provider
 from .redact import register_secret
 from .reminders import ReminderService
+from .scheduler import Scheduler
 from .security import Policy
 from .selfmodel import capability_report
 from .tools import ToolRegistry
 from .util import PRIVATE_DIR_MODE, Clock, to_iso
+from .web import WebPolicy
+from .workspace import Workspace, describe as describe_workspace, load_roots
 
 _log = get_logger("jarvis.core")
 
@@ -57,8 +60,21 @@ class Jarvis:
         self.runtime_id = self.store.state.register_runtime(version=__version__,
                                                             schema_version=self.store.schema_version, pid=os.getpid())
         self.reminders = ReminderService(self.store)
+        # Mission 003: read-only workspace intelligence over configured roots, and an
+        # allow-listed GET reader whose every connection is declared to the egress guard.
+        self.workspace_intel = Workspace(load_roots(self.settings.workspace,
+                                                    self.settings.workspace_roots))
+        self.web_policy = WebPolicy(allowlist=self.settings.web_allowlist,
+                                    allow_loopback=self.settings.web_allow_loopback,
+                                    network_enabled=self.settings.network_enabled,
+                                    max_bytes=self.settings.web_max_bytes,
+                                    timeout=self.settings.web_timeout)
+        GUARD.set_enabled("web_research", bool(self.settings.web_allowlist)
+                          and bool(self.settings.network_enabled))
         self.tools = ToolRegistry(self.store, self.settings.workspace, self.policy,
-                                  runtime_id=self.runtime_id, reminders=self.reminders)
+                                  runtime_id=self.runtime_id, reminders=self.reminders,
+                                  workspace_intel=self.workspace_intel,
+                                  web_policy=self.web_policy)
         self.provider = build_provider(self.settings) if provider is _UNSET else provider
         # Consolidated subsystems (bbff branch): scoped auth, reminders, audio, plans
         _server_secret = load_or_create_server_secret(self.settings.home)
@@ -72,6 +88,10 @@ class Jarvis:
         self.objectives = ObjectiveService(self.store, self.tools, self.plans,
                                            executor=self.plan_executor, provider=self.provider,
                                            settings=self.settings)
+        # Scheduled work goes through the same objective pipeline as an owner request: the
+        # scheduler never executes a capability itself, so approvals and denials still apply.
+        self.scheduler = Scheduler(self.store, dispatch=self.objectives.submit,
+                                   owner=f"runtime-{self.runtime_id[:8]}")
         self.recovery = self._recover()
         self.kernel = CognitiveKernel(store=self.store, registry=self.tools, policy=self.policy,
                                       provider=self.provider, settings=self.settings, runtime_id=self.runtime_id,
@@ -177,6 +197,12 @@ class Jarvis:
                                for outcome in ("completed", "partially_completed", "failed", "blocked",
                                                "needs_approval", "cancelled", "awaiting_information")},
                 "egress": {"default": "deny", "attempts": GUARD.attempts, "denials": GUARD.denials},
+                "workspace": describe_workspace(self.workspace_intel),
+                "web": {"enabled": self.web_policy.enabled,
+                        "allowlist": list(self.web_policy.allowlist),
+                        "loopback_authorised": self.web_policy.allow_loopback,
+                        "search_provider": None,
+                        "note": "direct allow-listed GET only; no search provider is integrated"},
             },
             "integrity": self.store.integrity(),
         }

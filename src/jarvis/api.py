@@ -68,6 +68,7 @@ _GET_SCOPES: dict[str, str] = {
     "/v1/reminders/inbox": manifests.SCOPE_REMINDERS_RECEIVE,
     "/v1/plans": manifests.SCOPE_PLANS_READ,
     "/v1/objectives": manifests.SCOPE_PLANS_READ,
+    "/v1/schedules": manifests.SCOPE_PLANS_READ,
     "/v1/clients": manifests.SCOPE_CLIENTS_READ,
     "/v1/audio/capabilities": manifests.SCOPE_STATUS_READ,
 }
@@ -76,6 +77,7 @@ _GET_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"/v1/cycles/[A-Za-z0-9_]{1,80}", manifests.SCOPE_STATUS_READ),
     (r"/v1/plans/[A-Za-z0-9_]{1,80}", manifests.SCOPE_PLANS_READ),
     (r"/v1/objectives/[A-Za-z0-9_]{1,80}", manifests.SCOPE_PLANS_READ),
+    (r"/v1/schedules/[A-Za-z0-9_]{1,80}", manifests.SCOPE_PLANS_READ),
     (r"/v1/audio/sessions/[A-Za-z0-9_]{1,80}", manifests.SCOPE_AUDIO_CAPTURE),
 )
 
@@ -84,6 +86,8 @@ _POST_SCOPES: dict[str, str] = {
     "/v1/reminders": manifests.SCOPE_REMINDERS_WRITE,
     "/v1/plans": manifests.SCOPE_PLANS_WRITE,
     "/v1/objectives": manifests.SCOPE_PLANS_WRITE,
+    "/v1/schedules": manifests.SCOPE_PLANS_WRITE,
+    "/v1/schedules/tick": manifests.SCOPE_PLANS_WRITE,
     "/v1/audio/sessions": manifests.SCOPE_AUDIO_CAPTURE,
     "/v1/clients/pairing": manifests.SCOPE_CLIENTS_PAIR,
 }
@@ -93,6 +97,7 @@ _POST_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"/v1/reminders/inbox/[A-Za-z0-9_]{1,80}/ack", manifests.SCOPE_REMINDERS_WRITE),
     (r"/v1/plans/[A-Za-z0-9_]{1,80}/execute", manifests.SCOPE_PLANS_WRITE),
     (r"/v1/objectives/[A-Za-z0-9_]{1,80}/(cancel|resume)", manifests.SCOPE_PLANS_WRITE),
+    (r"/v1/schedules/[A-Za-z0-9_]{1,80}/(pause|resume|cancel|run-now)", manifests.SCOPE_PLANS_WRITE),
     (r"/v1/audio/sessions/[A-Za-z0-9_]{1,80}/(audio|end)", manifests.SCOPE_AUDIO_CAPTURE),
     (r"/v1/clients/[A-Za-z0-9_]{1,80}/revoke", manifests.SCOPE_CLIENTS_REVOKE),
 )
@@ -309,6 +314,9 @@ def make_handler(app: "Jarvis", *, token: str):
                     status = (query.get("status") or [None])[0]
                     outcome = (query.get("outcome") or [None])[0]
                     return self._send(200, app.objectives.list(status=status, outcome=outcome))
+                if path == "/v1/schedules":
+                    status = (query.get("status") or [None])[0]
+                    return self._send(200, [s.to_dict() for s in app.scheduler.schedules.list(status=status)])
                 if path == "/v1/clients":
                     return self._send(200, [c.to_dict() for c in app.auth.list_clients()])
                 if path == "/v1/audio/capabilities":
@@ -329,6 +337,15 @@ def make_handler(app: "Jarvis", *, token: str):
                         return self._send(200, app.plans.get_plan(match.group(1)).to_dict())
                     except Exception:
                         return self._send(404, {"error": "plan_not_found"})
+                match = re.fullmatch(r"/v1/schedules/([A-Za-z0-9_]{1,80})", path)
+                if match:
+                    try:
+                        schedule = app.scheduler.schedules.get(match.group(1))
+                    except Exception:
+                        return self._send(404, {"error": "schedule_not_found"})
+                    objectives = [o for o in app.objectives.list(limit=50)
+                                  if o.get("schedule_id") == schedule.id]
+                    return self._send(200, {"schedule": schedule.to_dict(), "objectives": objectives})
                 match = re.fullmatch(r"/v1/objectives/([A-Za-z0-9_]{1,80})", path)
                 if match:
                     try:
@@ -359,10 +376,14 @@ def make_handler(app: "Jarvis", *, token: str):
             revoke = re.fullmatch(r"/v1/clients/([A-Za-z0-9_]{1,80})/revoke", path)
             objective_action = re.fullmatch(
                 r"/v1/objectives/([A-Za-z0-9_]{1,80})/(cancel|resume)", path)
+            schedule_action = re.fullmatch(
+                r"/v1/schedules/([A-Za-z0-9_]{1,80})/(pause|resume|cancel|run-now)", path)
             known = {"/v1/ask", "/v1/pairing", "/v1/reminders", "/v1/plans", "/v1/audio/sessions",
-                     "/v1/clients/pairing", "/v1/objectives"}
+                     "/v1/clients/pairing", "/v1/objectives", "/v1/schedules",
+                     "/v1/schedules/tick"}
             if path not in known and not approve and not ack_rem and not exec_plan \
-                    and not audio_end and not audio_chunk and not revoke and not objective_action:
+                    and not audio_end and not audio_chunk and not revoke and not objective_action \
+                    and not schedule_action:
                 return self._send(404, {"error": "not_found"})
             data = self._read_json()
             if data is None:
@@ -404,6 +425,44 @@ def make_handler(app: "Jarvis", *, token: str):
                 if ack_rem:
                     event = app.reminders.acknowledge(ack_rem.group(1))
                     return self._send(200, event.to_dict())
+                if path == "/v1/schedules":
+                    if not isinstance(data, dict) or not isinstance(data.get("request"), str) \
+                            or not data["request"].strip():
+                        return self._send(400, {"error": "request_required"})
+                    try:
+                        schedule = app.scheduler.schedules.create(
+                            data["request"],
+                            cadence=str(data.get("cadence") or "once"),
+                            first_run_at=data.get("first_run_at"),
+                            priority=int(data.get("priority", 3)),
+                            deadline_minutes=(int(data["deadline_minutes"])
+                                              if data.get("deadline_minutes") is not None else None),
+                            budget_seconds=float(data.get("budget_seconds", 120)),
+                            max_runs=(int(data["max_runs"]) if data.get("max_runs") is not None
+                                      else None))
+                    except ValueError as exc:
+                        return self._send(400, {"error": "invalid_schedule",
+                                                 "detail": redact_text(str(exc))[:200]})
+                    return self._send(201, schedule.to_dict())
+                if path == "/v1/schedules/tick":
+                    return self._send(200, app.scheduler.tick())
+                if schedule_action:
+                    from .scheduler import ScheduleError
+                    schedule_id, verb = schedule_action.group(1), schedule_action.group(2)
+                    try:
+                        if verb == "run-now":
+                            schedule = app.scheduler.schedules.get(schedule_id)
+                            with app.store.write() as db:
+                                db.execute("UPDATE objective_schedules SET next_run_at = ? WHERE id = ?",
+                                           (app.store.now().isoformat(), schedule_id))
+                            return self._send(200, app.scheduler.tick(limit=1))
+                        schedule = (app.scheduler.schedules.pause(schedule_id) if verb == "pause"
+                                    else app.scheduler.schedules.resume(schedule_id) if verb == "resume"
+                                    else app.scheduler.schedules.cancel(schedule_id))
+                    except ScheduleError as exc:
+                        return self._send(404, {"error": "schedule_not_found",
+                                                 "detail": redact_text(str(exc))[:200]})
+                    return self._send(200, schedule.to_dict())
                 if path == "/v1/objectives":
                     if not isinstance(data, dict) or not isinstance(data.get("request"), str) \
                             or not data["request"].strip():
