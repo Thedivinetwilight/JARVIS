@@ -2,8 +2,9 @@
 
 Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 5** · branch
 `arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **456 passed**
-(Python 3.11.2). CI status for this mission is recorded below once the run finishes. Not
-released; no merge to `main` has been performed.
+(Python 3.11.2). **GitHub Actions is green on Python 3.10, 3.11, 3.12 and 3.13** for commit
+`49147d5` (push run 46040581495, PR run 46040591127, 2026-11-26) — both `eval retrieval` and
+`eval objectives` ran in every job. Not released; no merge to `main` has been performed.
 
 ## Mission 003 — grounding, durability and coordination (2026-11-26)
 
@@ -23,6 +24,7 @@ labelled as untrusted data. The full record is `docs/MISSION-003.md`.
 | Leases | `leases.LeaseStore`: atomic acquire with fencing token, renew, release, purge; objective runs are single-writer and abandon on lease loss | `tests/test_leases.py` (16), eval `lease_single_writer_simulated` |
 | Interfaces | tools `workspace.*`/`web.*`; CLI `schedule ...`; API `/v1/schedules` (+tick/pause/resume/cancel/run-now); `capabilities.mission_003` matrix; `state.subsystems.workspace/web` | API/CLI tests |
 | Evaluation | 28 scenarios (19 real, 9 simulated), 19 metrics incl. duplicate-execution rate 0.0, permission bypasses 0, injection resistance 1.0, structural replan success 1.0, duration/resources | `jarvis eval objectives` |
+| CI | green on 3.10–3.13, both evaluations in every job | runs 46040581495 (push), 46040591127 (PR) |
 | Documented limits | web search provider, semantic retrieval, document parsing, multi-host coordination (`UNVERIFIED`), live-network retrieval (`UNVERIFIED`) | `docs/MISSION-003.md` §6, §9 |
 
 ## Mission 002 — objective-driven autonomy (2026-11-26)
