@@ -1,0 +1,1010 @@
+{
+  "experiment": "EXP-001",
+  "fixture": {
+    "path": "evals/retrieval_v1.json",
+    "version": "retrieval_v1",
+    "sha256": "2bc43a6dfe5173b55f1e18c1b2b51acfec354c7de1c3d0d26e391d6fb2603dfd",
+    "pinned_sha256": "2bc43a6dfe5173b55f1e18c1b2b51acfec354c7de1c3d0d26e391d6fb2603dfd",
+    "memories": 38,
+    "queries": 30
+  },
+  "k": 5,
+  "environment": {
+    "python": "3.11.2",
+    "sqlite": "3.40.1",
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36"
+  },
+  "strategies": {
+    "v0.2_like_baseline": {
+      "overall": {
+        "queries": 30,
+        "recall_at_5": 0.033,
+        "mrr_at_5": 0.033,
+        "hit_at_1": 0.033,
+        "empty_rate": 0.967,
+        "stale_hit_rate": 0.0,
+        "mean_latency_ms": 0.045
+      },
+      "by_type": {
+        "lexical": {
+          "queries": 15,
+          "recall_at_5": 0.067,
+          "mrr_at_5": 0.067,
+          "hit_at_1": 0.067,
+          "empty_rate": 0.933,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.047
+        },
+        "morphological": {
+          "queries": 4,
+          "recall_at_5": 0.0,
+          "mrr_at_5": 0.0,
+          "hit_at_1": 0.0,
+          "empty_rate": 1.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.058
+        },
+        "paraphrase": {
+          "queries": 3,
+          "recall_at_5": 0.0,
+          "mrr_at_5": 0.0,
+          "hit_at_1": 0.0,
+          "empty_rate": 1.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.036
+        },
+        "partial_paraphrase": {
+          "queries": 5,
+          "recall_at_5": 0.0,
+          "mrr_at_5": 0.0,
+          "hit_at_1": 0.0,
+          "empty_rate": 1.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.038
+        },
+        "stale": {
+          "queries": 3,
+          "recall_at_5": 0.0,
+          "mrr_at_5": 0.0,
+          "hit_at_1": 0.0,
+          "empty_rate": 1.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.039
+        }
+      }
+    },
+    "token_like_fallback": {
+      "overall": {
+        "queries": 30,
+        "recall_at_5": 0.9,
+        "mrr_at_5": 0.883,
+        "hit_at_1": 0.867,
+        "empty_rate": 0.067,
+        "stale_hit_rate": 0.0,
+        "mean_latency_ms": 0.736
+      },
+      "by_type": {
+        "lexical": {
+          "queries": 15,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.76
+        },
+        "morphological": {
+          "queries": 4,
+          "recall_at_5": 0.75,
+          "mrr_at_5": 0.625,
+          "hit_at_1": 0.5,
+          "empty_rate": 0.25,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.677
+        },
+        "paraphrase": {
+          "queries": 3,
+          "recall_at_5": 0.333,
+          "mrr_at_5": 0.333,
+          "hit_at_1": 0.333,
+          "empty_rate": 0.333,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.685
+        },
+        "partial_paraphrase": {
+          "queries": 5,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.734
+        },
+        "stale": {
+          "queries": 3,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.748
+        }
+      }
+    },
+    "fts5_bm25_relevance_only": {
+      "overall": {
+        "queries": 30,
+        "recall_at_5": 0.933,
+        "mrr_at_5": 0.933,
+        "hit_at_1": 0.933,
+        "empty_rate": 0.033,
+        "stale_hit_rate": 0.0,
+        "mean_latency_ms": 0.974
+      },
+      "by_type": {
+        "lexical": {
+          "queries": 15,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 1.008
+        },
+        "morphological": {
+          "queries": 4,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.931
+        },
+        "paraphrase": {
+          "queries": 3,
+          "recall_at_5": 0.333,
+          "mrr_at_5": 0.333,
+          "hit_at_1": 0.333,
+          "empty_rate": 0.333,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.9
+        },
+        "partial_paraphrase": {
+          "queries": 5,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.936
+        },
+        "stale": {
+          "queries": 3,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 1.002
+        }
+      }
+    },
+    "fts5_ranked_default": {
+      "overall": {
+        "queries": 30,
+        "recall_at_5": 0.933,
+        "mrr_at_5": 0.933,
+        "hit_at_1": 0.933,
+        "empty_rate": 0.033,
+        "stale_hit_rate": 0.0,
+        "mean_latency_ms": 0.947
+      },
+      "by_type": {
+        "lexical": {
+          "queries": 15,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.964
+        },
+        "morphological": {
+          "queries": 4,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.892
+        },
+        "paraphrase": {
+          "queries": 3,
+          "recall_at_5": 0.333,
+          "mrr_at_5": 0.333,
+          "hit_at_1": 0.333,
+          "empty_rate": 0.333,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.885
+        },
+        "partial_paraphrase": {
+          "queries": 5,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.949
+        },
+        "stale": {
+          "queries": 3,
+          "recall_at_5": 1.0,
+          "mrr_at_5": 1.0,
+          "hit_at_1": 1.0,
+          "empty_rate": 0.0,
+          "stale_hit_rate": 0.0,
+          "mean_latency_ms": 0.994
+        }
+      }
+    }
+  },
+  "per_query": [
+    {
+      "id": "q1",
+      "type": "lexical",
+      "text": "what voltage does the solar charge controller run at?",
+      "relevant": [
+        "m7"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m7",
+          "m15b",
+          "m13",
+          "m24",
+          "m32"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m7",
+          "m13",
+          "m15b",
+          "m24",
+          "m32"
+        ],
+        "fts5_ranked_default": [
+          "m7",
+          "m15b",
+          "m13",
+          "m32",
+          "m28"
+        ]
+      }
+    },
+    {
+      "id": "q2",
+      "type": "lexical",
+      "text": "how much current does the irrigation pump draw?",
+      "relevant": [
+        "m11"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m11",
+          "m25",
+          "m4"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m11",
+          "m25"
+        ],
+        "fts5_ranked_default": [
+          "m11",
+          "m25"
+        ]
+      }
+    },
+    {
+      "id": "q3",
+      "type": "lexical",
+      "text": "what servo is in DUM-E's shoulder?",
+      "relevant": [
+        "m14"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m14",
+          "m17",
+          "m15b",
+          "m33",
+          "m18"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m14",
+          "m17",
+          "m15b",
+          "m18",
+          "m33"
+        ],
+        "fts5_ranked_default": [
+          "m14",
+          "m17",
+          "m15b",
+          "m33",
+          "m18"
+        ]
+      }
+    },
+    {
+      "id": "q4",
+      "type": "stale",
+      "text": "which board controls DUM-E?",
+      "relevant": [
+        "m15b"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m15b",
+          "m27",
+          "m33",
+          "m18",
+          "m17"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m15b",
+          "m7",
+          "m34",
+          "m14",
+          "m28"
+        ],
+        "fts5_ranked_default": [
+          "m15b",
+          "m7",
+          "m28",
+          "m34",
+          "m33"
+        ]
+      }
+    },
+    {
+      "id": "q5",
+      "type": "stale",
+      "text": "when does AXIOM rebalance?",
+      "relevant": [
+        "m5b"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m5b",
+          "m27",
+          "m3",
+          "m2",
+          "m1"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m5b",
+          "m3",
+          "m2",
+          "m1",
+          "m35"
+        ],
+        "fts5_ranked_default": [
+          "m5b",
+          "m3",
+          "m27",
+          "m2",
+          "m1"
+        ]
+      }
+    },
+    {
+      "id": "q6",
+      "type": "stale",
+      "text": "what is my favourite colour?",
+      "relevant": [
+        "m19b"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m19b"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m19b"
+        ],
+        "fts5_ranked_default": [
+          "m19b"
+        ]
+      }
+    },
+    {
+      "id": "q7",
+      "type": "lexical",
+      "text": "paper trading mode",
+      "relevant": [
+        "m1"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m1",
+          "m35",
+          "m27",
+          "m18",
+          "m3"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m1",
+          "m35",
+          "m3",
+          "m27"
+        ],
+        "fts5_ranked_default": [
+          "m1",
+          "m35",
+          "m27",
+          "m3"
+        ]
+      }
+    },
+    {
+      "id": "q8",
+      "type": "morphological",
+      "text": "batteries",
+      "relevant": [
+        "m7",
+        "m9",
+        "m31"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [],
+        "fts5_bm25_relevance_only": [
+          "m31",
+          "m9",
+          "m7"
+        ],
+        "fts5_ranked_default": [
+          "m31",
+          "m9",
+          "m7"
+        ]
+      }
+    },
+    {
+      "id": "q9",
+      "type": "morphological",
+      "text": "tell me about the gripper slipping",
+      "relevant": [
+        "m16"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m16"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m16"
+        ],
+        "fts5_ranked_default": [
+          "m16"
+        ]
+      }
+    },
+    {
+      "id": "q10",
+      "type": "morphological",
+      "text": "what did we decide about irrigation scheduling?",
+      "relevant": [
+        "m25"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m11",
+          "m25"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m25",
+          "m11",
+          "m5b"
+        ],
+        "fts5_ranked_default": [
+          "m25",
+          "m11",
+          "m5b"
+        ]
+      }
+    },
+    {
+      "id": "q11",
+      "type": "lexical",
+      "text": "how big is the paper portfolio in AXIOM?",
+      "relevant": [
+        "m35"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m35",
+          "m3",
+          "m5b",
+          "m27",
+          "m1"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m35",
+          "m3",
+          "m5b",
+          "m1",
+          "m27"
+        ],
+        "fts5_ranked_default": [
+          "m35",
+          "m3",
+          "m5b",
+          "m27",
+          "m1"
+        ]
+      }
+    },
+    {
+      "id": "q12",
+      "type": "lexical",
+      "text": "what were the backtest results?",
+      "relevant": [
+        "m4"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m4"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m4"
+        ],
+        "fts5_ranked_default": [
+          "m4"
+        ]
+      }
+    },
+    {
+      "id": "q13",
+      "type": "lexical",
+      "text": "power supply for the servos",
+      "relevant": [
+        "m17"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m17"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m17",
+          "m14"
+        ],
+        "fts5_ranked_default": [
+          "m17",
+          "m14"
+        ]
+      }
+    },
+    {
+      "id": "q14",
+      "type": "lexical",
+      "text": "monsoon",
+      "relevant": [
+        "m12"
+      ],
+      "results": {
+        "v0.2_like_baseline": [
+          "m12"
+        ],
+        "token_like_fallback": [
+          "m12"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m12"
+        ],
+        "fts5_ranked_default": [
+          "m12"
+        ]
+      }
+    },
+    {
+      "id": "q15",
+      "type": "lexical",
+      "text": "when is my sister's birthday?",
+      "relevant": [
+        "m23"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m23"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m23"
+        ],
+        "fts5_ranked_default": [
+          "m23"
+        ]
+      }
+    },
+    {
+      "id": "q16",
+      "type": "partial_paraphrase",
+      "text": "how many panels are on the roof?",
+      "relevant": [
+        "m8"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m8",
+          "m13"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m8",
+          "m12",
+          "m13"
+        ],
+        "fts5_ranked_default": [
+          "m8",
+          "m12",
+          "m13"
+        ]
+      }
+    },
+    {
+      "id": "q17",
+      "type": "lexical",
+      "text": "what cable should I use for the panels?",
+      "relevant": [
+        "m13"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m13",
+          "m14",
+          "m9",
+          "m8"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m13",
+          "m8",
+          "m12",
+          "m14",
+          "m9"
+        ],
+        "fts5_ranked_default": [
+          "m13",
+          "m8",
+          "m25",
+          "m14",
+          "m12"
+        ]
+      }
+    },
+    {
+      "id": "q18",
+      "type": "lexical",
+      "text": "inverter rating",
+      "relevant": [
+        "m10"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m10"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m10",
+          "m9"
+        ],
+        "fts5_ranked_default": [
+          "m10",
+          "m9"
+        ]
+      }
+    },
+    {
+      "id": "q19",
+      "type": "partial_paraphrase",
+      "text": "when is my best time for focused work?",
+      "relevant": [
+        "m21"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m21",
+          "m25"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m21"
+        ],
+        "fts5_ranked_default": [
+          "m21"
+        ]
+      }
+    },
+    {
+      "id": "q20",
+      "type": "lexical",
+      "text": "how does JARVIS get a voice?",
+      "relevant": [
+        "m26"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m26"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m26"
+        ],
+        "fts5_ranked_default": [
+          "m26"
+        ]
+      }
+    },
+    {
+      "id": "q21",
+      "type": "morphological",
+      "text": "net metering approval",
+      "relevant": [
+        "m34"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m34"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m34"
+        ],
+        "fts5_ranked_default": [
+          "m34"
+        ]
+      }
+    },
+    {
+      "id": "q22",
+      "type": "paraphrase",
+      "text": "how much electricity does the water mover consume?",
+      "relevant": [
+        "m11"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m34"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m34"
+        ],
+        "fts5_ranked_default": [
+          "m34"
+        ]
+      }
+    },
+    {
+      "id": "q23",
+      "type": "partial_paraphrase",
+      "text": "what's the maximum risk per trade?",
+      "relevant": [
+        "m3"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m3",
+          "m16",
+          "m35",
+          "m27",
+          "m1"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m3",
+          "m1"
+        ],
+        "fts5_ranked_default": [
+          "m3",
+          "m1"
+        ]
+      }
+    },
+    {
+      "id": "q24",
+      "type": "paraphrase",
+      "text": "what sweetener do I take in my drink?",
+      "relevant": [
+        "m20"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m20"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m20"
+        ],
+        "fts5_ranked_default": [
+          "m20"
+        ]
+      }
+    },
+    {
+      "id": "q25",
+      "type": "paraphrase",
+      "text": "what's the robot's brain?",
+      "relevant": [
+        "m15b"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [],
+        "fts5_bm25_relevance_only": [],
+        "fts5_ranked_default": []
+      }
+    },
+    {
+      "id": "q26",
+      "type": "partial_paraphrase",
+      "text": "how long do the cells last?",
+      "relevant": [
+        "m9"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m9"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m9"
+        ],
+        "fts5_ranked_default": [
+          "m9"
+        ]
+      }
+    },
+    {
+      "id": "q27",
+      "type": "partial_paraphrase",
+      "text": "is live trading switched on?",
+      "relevant": [
+        "m1"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m1"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m1"
+        ],
+        "fts5_ranked_default": [
+          "m1"
+        ]
+      }
+    },
+    {
+      "id": "q28",
+      "type": "lexical",
+      "text": "when is the book due?",
+      "relevant": [
+        "m28"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m28",
+          "m29"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m28",
+          "m29"
+        ],
+        "fts5_ranked_default": [
+          "m28",
+          "m29"
+        ]
+      }
+    },
+    {
+      "id": "q29",
+      "type": "lexical",
+      "text": "what about the camera for object detection?",
+      "relevant": [
+        "m33"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m33",
+          "m16"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m33",
+          "m16"
+        ],
+        "fts5_ranked_default": [
+          "m33",
+          "m16"
+        ]
+      }
+    },
+    {
+      "id": "q30",
+      "type": "lexical",
+      "text": "where is the router now?",
+      "relevant": [
+        "m30"
+      ],
+      "results": {
+        "v0.2_like_baseline": [],
+        "token_like_fallback": [
+          "m30"
+        ],
+        "fts5_bm25_relevance_only": [
+          "m30"
+        ],
+        "fts5_ranked_default": [
+          "m30"
+        ]
+      }
+    }
+  ],
+  "summary": {
+    "v0.2_like_baseline": {
+      "queries": 30,
+      "recall_at_5": 0.033,
+      "mrr_at_5": 0.033,
+      "hit_at_1": 0.033,
+      "empty_rate": 0.967,
+      "stale_hit_rate": 0.0,
+      "mean_latency_ms": 0.045
+    },
+    "token_like_fallback": {
+      "queries": 30,
+      "recall_at_5": 0.9,
+      "mrr_at_5": 0.883,
+      "hit_at_1": 0.867,
+      "empty_rate": 0.067,
+      "stale_hit_rate": 0.0,
+      "mean_latency_ms": 0.736
+    },
+    "fts5_bm25_relevance_only": {
+      "queries": 30,
+      "recall_at_5": 0.933,
+      "mrr_at_5": 0.933,
+      "hit_at_1": 0.933,
+      "empty_rate": 0.033,
+      "stale_hit_rate": 0.0,
+      "mean_latency_ms": 0.974
+    },
+    "fts5_ranked_default": {
+      "queries": 30,
+      "recall_at_5": 0.933,
+      "mrr_at_5": 0.933,
+      "hit_at_1": 0.933,
+      "empty_rate": 0.033,
+      "stale_hit_rate": 0.0,
+      "mean_latency_ms": 0.947
+    },
+    "_notes": {
+      "history_retained_after_correction": {
+        "v0.2_like_baseline": false,
+        "genesis": true
+      },
+      "fixture_sha256_matches_pinned": true
+    }
+  }
+}
