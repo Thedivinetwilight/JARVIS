@@ -1,10 +1,29 @@
 # Development status (authoritative) — updated 2026-11-26
 
-Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 4** · branch
-`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **279 passed**
-(Python 3.11.2). **GitHub Actions is green on Python 3.10, 3.11, 3.12 and 3.13** for this
-branch (run 45812796068, 2026-11-26 — see "CI" below; the Mission 002 run is newer). Not
+Version `0.3.0` · kernel generation `genesis-0.1` · **schema version 5** · branch
+`arena/0680961f-jarvis` (branched from `64739fe`). Local test result: **456 passed**
+(Python 3.11.2). CI status for this mission is recorded below once the run finishes. Not
 released; no merge to `main` has been performed.
+
+## Mission 003 — grounding, durability and coordination (2026-11-26)
+
+JARVIS can now read from a configured workspace, fetch one allow-listed page, revise a plan
+structurally while keeping verified work, run objectives on a persistent schedule, and prove that
+two workers cannot execute the same objective at once. Everything it reads is fenced and
+labelled as untrusted data. The full record is `docs/MISSION-003.md`.
+
+| Area | Change | Evidence |
+|---|---|---|
+| Schema | migration 5: `objective_leases` (resource-keyed, fencing token), `objective_schedules` (+2 indexes), `plans.revision/replaces_plan_id/superseded_by`, `objectives.schedule_id/scheduled_for/revision`, unique partial index `idx_objectives_schedule_slot` | `tests/test_migrations.py` |
+| Workspace | `workspace.Workspace`: read-only `stat`/`list`/`read`/`find`/`search`/`summarize` over configured roots; symlink/traversal/secret/binary refusal; 64 KiB reads, 2000-file scans, deterministic ranking, provenance on everything (ADR-0022) | `tests/test_workspace.py` (39) |
+| Retrieval | `web.WebPolicy`/`WebFetcher`: allow-listed GET only, SSRF validation after DNS, connection to the validated IP inside the egress guard, per-hop redirect revalidation, content-type/byte/time caps, extractive summary (ADR-0023) | `tests/test_web.py` (47) |
+| Trust boundary | `charter.untrusted_block()`; retrieved content is data — it cannot select capabilities, change policy, approve operations, or add tasks (ADR-0024) | `tests/test_injection.py` (24), eval `injection_*` |
+| Replanning | structural revision: re-decompose from the request, carry verified steps with their operation evidence, require a material change, re-derive criteria audibly, ≤2 revisions; denials are never re-planned (ADR-0025) | `tests/test_schedule_api.py`, eval `structural_replan_simulated` |
+| Scheduling | `scheduler.Scheduler`: priority/deadline ordering, `once`/`hourly`/`daily`/`weekly`, unique-slot dedupe, skipped catch-up, bounded per tick, origin `scheduled` (writes still need approval), tick lease, background loop in `jarvis serve` (ADR-0026) | `tests/test_scheduler.py` (35), `tests/test_schedule_api.py` (16) |
+| Leases | `leases.LeaseStore`: atomic acquire with fencing token, renew, release, purge; objective runs are single-writer and abandon on lease loss | `tests/test_leases.py` (16), eval `lease_single_writer_simulated` |
+| Interfaces | tools `workspace.*`/`web.*`; CLI `schedule ...`; API `/v1/schedules` (+tick/pause/resume/cancel/run-now); `capabilities.mission_003` matrix; `state.subsystems.workspace/web` | API/CLI tests |
+| Evaluation | 28 scenarios (19 real, 9 simulated), 19 metrics incl. duplicate-execution rate 0.0, permission bypasses 0, injection resistance 1.0, structural replan success 1.0, duration/resources | `jarvis eval objectives` |
+| Documented limits | web search provider, semantic retrieval, document parsing, multi-host coordination (`UNVERIFIED`), live-network retrieval (`UNVERIFIED`) | `docs/MISSION-003.md` §6, §9 |
 
 ## Mission 002 — objective-driven autonomy (2026-11-26)
 

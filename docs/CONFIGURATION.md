@@ -8,7 +8,13 @@ effective configuration with secrets shown only as `set`/`unset`.
 | Variable | Default | Validation / meaning |
 |---|---|---|
 | `JARVIS_HOME` | `~/.jarvis` | data directory (database `jarvis.sqlite3`, `backups/`, API token `api_token`). Created with mode 0700; the database, its WAL/SHM, backups and exports are 0600. An existing directory keeps its mode (`jarvis doctor` reports it). |
-| `JARVIS_WORKSPACE` | `.` | root for `workspace.list` / `workspace.read` |
+| `JARVIS_WORKSPACE` | `.` | primary read-only workspace root |
+| `JARVIS_WORKSPACE_ROOTS` | empty | extra workspace roots, `os.pathsep`-separated (e.g. `/home/me/notes:/home/me/projects`). Duplicates are collapsed; every root is resolved and must exist as a directory to be scanned. |
+| `JARVIS_ALLOWLIST` | empty | comma-separated **bare hostnames** for `web.get` / `web.summarize` (e.g. `example.com,docs.python.org`). No schemes, paths, ports or wildcards; subdomains of a listed host are allowed. Empty = the retrieval tools are not registered at all. |
+| `JARVIS_WEB_ALLOW_LOOPBACK` | `false` | authorise loopback targets and non-standard ports (local testing only) |
+| `JARVIS_WEB_MAX_BYTES` | `524288` | response cap, 1 B–4 MiB |
+| `JARVIS_WEB_TIMEOUT` | `8` | seconds, 0.5–60 |
+| `JARVIS_SCHEDULER_INTERVAL` | `15` | seconds between scheduler ticks in `jarvis serve`, 0–3600; `0` disables the background loop (ticks then only happen via `jarvis schedule tick` or `POST /v1/schedules/tick`) |
 | `JARVIS_PRINCIPAL_NAME` | `Sivaram` | the person JARVIS serves (charter, prompts) |
 | `JARVIS_NETWORK_ENABLED` | `false` | required for any non-loopback provider |
 | `JARVIS_PROVIDER` | `auto` | `auto` · `none` · `gemini` · `openai_compatible`; `auto` = Gemini if key (+network) else OpenAI-compatible if base URL set |

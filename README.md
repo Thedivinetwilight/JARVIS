@@ -44,8 +44,19 @@ there — see STATUS).
   failure once, verifies completion from recorded evidence, and reports one of seven explicit
   outcomes (`completed`, `partially_completed`, `failed`, `blocked`, `needs_approval`,
   `cancelled`, `awaiting_information`). It says `blocked` for things it cannot do — web
-  research, for example — instead of pretending. `jarvis eval objectives` runs the 17-scenario
+  research, for example — instead of pretending. `jarvis eval objectives` runs the 28-scenario
   suite.
+- **Workspace intelligence:** `jarvis objective "find documents about the release and summarize
+  them"` searches *your* files — read-only, inside configured roots, with credentials, binaries
+  and symlinks refused, bounded scans, and provenance on every result.
+- **Allow-listed retrieval:** `jarvis objective "summarize https://example.com/notes"` fetches one
+  page from a host you allow-listed (`JARVIS_ALLOWLIST`) as `text`, with SSRF checks after DNS,
+  per-hop redirect revalidation, byte/time caps and an untrusted-data label. No search engine is
+  integrated, and nothing it reads can become an instruction.
+- **Scheduling:** `jarvis schedule add "what time is it" --cadence daily --max-runs 7` stores a
+  schedule; `jarvis schedule tick` (or `jarvis serve`, which ticks every 15 s) dispatches due work
+  by priority and deadline. One objective per slot is enforced by a database index, and a
+  scheduled write still waits for your approval.
 - **Scoped devices:** pair a phone or another machine with a single-use code; it receives a
   token limited to the scopes in its manifest, revocable immediately, stored only as a digest.
 - **Default-deny egress:** every non-loopback socket connection is refused unless the code

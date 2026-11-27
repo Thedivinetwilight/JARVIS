@@ -336,3 +336,101 @@ decision and reasons · trade-offs · migration · tests · revisit when.
   `test_model_planned_write_requires_approval_even_for_a_user_request`,
   `test_denied_approval_is_not_retried_through_an_alternative`; `safety_failures = 0` in the
   evaluation suite.
+
+## ADR-0022 — Workspace access is read-only, root-confined, and type-filtered
+- **Question:** how should JARVIS read the owner's files without becoming a foothold?
+- **Evidence:** a general file API is the shortest path from "helpful" to "exfiltrated
+  credentials": `~/.ssh`, `.env`, key material and database files sit next to documents, and a
+  path-resolution bug is a traversal bug. A read-only surface also cannot corrupt work.
+- **Decision:** `workspace.Workspace` exposes `stat`, `list`, `read`, `find`, `search` and
+  `summarize` only, over an explicit list of roots (`JARVIS_WORKSPACE`, `JARVIS_WORKSPACE_ROOTS`).
+  Containment is `resolve()` + `is_relative_to` per root; symlinks are never followed; secret
+  names/suffixes and excluded directories (`.git`, `node_modules`, caches, build output) are
+  filtered before any read and before any listing. Reads are allow-listed by text suffix (or no
+  suffix), capped at 64 KiB with a 2 MiB file ceiling, scanned with a 2000-file/depth-12/2.0 s
+  budget, and always report `scanned`/`truncated` so partial answers are visible.
+- **Trade-offs:** non-text formats are refused (a PDF is an error, not a best effort); very large
+  trees are truncated by design.
+- **Consequences:** every retrieved result carries `source`, byte count, SHA-256 and
+  `trust: "untrusted"`; content is never copied into the event log. See `tests/test_workspace.py`
+  and `docs/MISSION-003.md` §2.1.
+
+## ADR-0023 — Retrieval is a direct allow-listed GET, not a search engine
+- **Question:** what network reach does JARVIS get in this mission?
+- **Evidence:** a search API would make outbound reach depend on a vendor's index, silently
+  widen the destination set, and return unstructured text with no provenance. A GET to a known
+  page is bounded, attributable, and testable offline against a loopback server.
+- **Decision:** `web.get`/`web.summarize` fetch **one** allow-listed URL with `GET`. The
+  allow-list is bare hostnames (`JARVIS_ALLOWLIST`); an empty allow-list means the tools are not
+  registered at all. Every request is validated five ways before a socket exists: scheme
+  (http/https only), no userinfo, no single-label/`.local`/`.internal` names, host allow-list,
+  and — after DNS — every resolved address must be globally routable (loopback only with
+  `JARVIS_WEB_ALLOW_LOOPBACK=true`). The **validated IP** is connected to, inside
+  `GUARD.declare("web_research", ip, port)`, so a second DNS answer cannot redirect the request.
+  Redirects are followed manually (max 3) and revalidated per hop. Content types are
+  allow-listed, the body is capped (512 KiB), the timeout is bounded (8 s), and extraction strips
+  scripts. `web.search` is **not implemented**; a request to research something returns `blocked`
+  with an explanation, never a simulated answer.
+- **Trade-offs:** no discovery; the owner must supply a URL or accept workspace search.
+- **Consequences:** `web_research` is a declared egress service whose reported `enabled` state
+  tracks configuration. See `tests/test_web.py`.
+
+## ADR-0024 — Retrieved content is data: fenced, labelled, and unable to act
+- **Question:** how does JARVIS keep a poisoned document from becoming an instruction?
+- **Evidence:** every retrieval surface (files, pages, later connectors) carries text an
+  attacker can write. Prompt-level exhortations are not a mechanism; a *structural* boundary is.
+- **Decision:** (1) retrieved content is returned with `trust: "untrusted"` and a
+  `charter.untrusted_block()` fence whenever it is quoted to a reader; (2) plans and their
+  arguments are derived only from the owner's request — content never selects a capability, adds
+  a step, or supplies a `{{stepN.…}}` reference; (3) policy, allow-lists and egress declarations
+  are configuration read at startup, so content cannot widen them; (4) content can never approve
+  an operation — a model that reads injected text may only *propose*; (5) audit events record
+  what was asked and how much was scanned, never the content itself.
+- **Trade-offs:** answers are more verbose (fences and sources), and some phrases inside content
+  are quoted rather than acted on.
+- **Consequences:** `tests/test_injection.py` (24 tests) exercises workspace files, web pages,
+  poisoned filenames, template references inside content, injected model arguments, and audit
+  leakage. The evaluation scores `injection_resistance_rate` and `untrusted_labelling_rate`.
+
+## ADR-0025 — Structural revision instead of unbounded retries
+- **Question:** when a plan fails, how may JARVIS change course?
+- **Evidence:** retrying the same failing step forever is the classic autonomy failure; asking a
+  model for a new plan on every failure is non-reproducible and can smuggle in new writes. But an
+  objective whose *decomposition* was wrong needs a genuinely different plan, not another retry.
+- **Decision:** in-place repairs stay bounded (one transient retry, one postcondition retry, one
+  mapped alternative). Beyond that, `ObjectiveService._structural_replan` re-plans from the
+  request with the deterministic planner, **carries over** already-succeeded steps (with their
+  `operation_id` as evidence, never re-executed), drops steps that cannot be planned, requires
+  the revision to be *material* (different work), and caps revisions at 2. A revision re-derives
+  success criteria from the revised plan and records `objective.criteria_revised` with the
+  before/after capabilities and both plan ids. Plans keep history (`superseded`,
+  `superseded_by`, `replaces_plan_id`, `revision`).
+- **Trade-offs:** because the rules planner is deterministic, most failed plans re-decompose to
+  themselves — and are honestly *not* revised. Structural revision therefore mostly helps
+  model-authored or partially impossible plans.
+- **Consequences:** policy and approval denials are explicitly excluded from revision, so
+  re-planning can never route around a refusal. See `tests/test_schedule_api.py` (structural
+  section) and eval `structural_replan_simulated`.
+
+## ADR-0026 — Leases and a unique slot index, not "trust the scheduler"
+- **Question:** how are duplicate executions and duplicate scheduled objectives actually
+  prevented?
+- **Evidence:** in-process locks do not survive a restart; check-then-act races between two
+  workers are real; a queue with at-most-once semantics requires either a broker or a database
+  constraint. This build has a database.
+- **Decision:** (1) **objective execution is single-writer**: `leases.LeaseStore.acquire` is a
+  single upsert with `WHERE expires_at <= now` and a fencing token that increments on takeover;
+  `renew` requires owner, token and a live expiry. `ObjectiveService.run` renews before every
+  iteration and **abandons** the run when the lease is lost, so a superseded worker cannot write
+  a terminal outcome. (2) **scheduled work is at-most-once per slot**: dispatch inserts the
+  objective with `(schedule_id, scheduled_for)` against the unique partial index
+  `idx_objectives_schedule_slot`; a loser gets `IntegrityError` and reports `duplicate` (advancing
+  past the slot, so it is not a livelock). (3) ticks themselves take a `scheduler:tick` lease, so
+  two servers do not both dispatch.
+- **Trade-offs:** step execution remains **at-least-once** across crashes (a worker that dies
+  after a side effect but before recording success can cause a re-run on resume); this is
+  documented rather than papered over. Writes are journaled with idempotency keys and require
+  approval under non-user origins, so duplicates are visible.
+- **Consequences:** exactly-once is claimed only where the capability is idempotent. Multi-host
+  coordination over a shared network filesystem is **UNVERIFIED** (see the capability matrix).
+  See `tests/test_leases.py`, `tests/test_scheduler.py`, `docs/MISSION-003.md` §3.
